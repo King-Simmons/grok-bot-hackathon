@@ -956,7 +956,7 @@ $('u2lForm').addEventListener('submit', async e=>{
       if(s.state==='error') return fail(s.error||'failed');
       if(s.state==='done'){
         const res=s.result; showU2L(res);
-        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>sameTrack(x.file,play)||sameTrack(x.file,res.track.file))||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
@@ -1072,7 +1072,7 @@ $('xForm').addEventListener('submit', async e=>{
       if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', softKind(s.error_kind)); }
       if(s.state==='done'){
         const res=s.result; showTopic(res);
-        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
