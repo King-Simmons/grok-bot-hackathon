@@ -349,9 +349,69 @@ class Handler(SimpleHTTPRequestHandler):
         super().__init__(*a, directory=ROOT, **kw)
 
     def end_headers(self):
-        if self.path.startswith("/api/") or self.path.endswith(".json"):
+        path = urllib.parse.urlparse(self.path).path
+        if path.startswith("/api/") or path.endswith(".json"):
             self.send_header("Cache-Control", "no-store")
+        if not path.startswith("/api/"):
+            self.send_header("Accept-Ranges", "bytes")
         super().end_headers()
+
+    def _serve_range(self):
+        """One byte range for a static file. Chrome will not seek an mp3 without 206."""
+        header = self.headers.get("Range")
+        if not header:
+            return False
+        path = urllib.parse.urlparse(self.path).path
+        if path.startswith("/api/"):
+            return False
+        spec = header.strip()
+        if not spec.lower().startswith("bytes=") or "," in spec:
+            return False
+        spec = spec[6:].strip()
+        if spec.count("-") != 1:
+            return False
+        start_s, end_s = spec.split("-", 1)
+        if start_s == "" and end_s == "":
+            return False
+        local = self.translate_path(self.path)
+        if not os.path.isfile(local):
+            return False
+        try:
+            size = os.path.getsize(local)
+            if start_s == "":
+                n = int(end_s)
+                if n <= 0:
+                    raise ValueError
+                start = max(0, size - n)
+                end = size - 1
+            else:
+                start = int(start_s)
+                end = int(end_s) if end_s else size - 1
+        except ValueError:
+            return False
+        if start < 0 or start >= size or end < start:
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{size}")
+            self.end_headers()
+            return True
+        end = min(end, size - 1)
+        length = end - start + 1
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(local))
+        self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.send_header("Content-Length", str(length))
+        self.end_headers()
+        if self.command == "GET":
+            with open(local, "rb") as f:
+                f.seek(start)
+                left = length
+                while left:
+                    chunk = f.read(min(65536, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+        return True
 
     def _json(self, code, obj):
         body = json.dumps(obj, ensure_ascii=False).encode()
@@ -375,7 +435,15 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200 if j else 404, j or {"error": "no such job"})
         if u.path.startswith("/api/"):
             return self._json(404, {"error": "unknown endpoint"})
+        if self._serve_range():
+            return
         return super().do_GET()
+
+    def do_HEAD(self):
+        u = urllib.parse.urlparse(self.path)
+        if not u.path.startswith("/api/") and self._serve_range():
+            return
+        return super().do_HEAD()
 
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
