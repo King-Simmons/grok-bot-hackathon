@@ -282,6 +282,15 @@
   .u2l .say b{color:var(--amber); font-weight:700}
   .u2l .xnote{color:var(--sage)}
   .err.soft{color:var(--amber)}
+  .u2l .srcpick{display:flex; gap:6px; align-items:center; margin:0 0 8px}
+  .u2l button.srcbtn{background:#1f171d; color:var(--ink); border:1px solid var(--line); border-radius:999px;
+    padding:4px 10px; font:700 11px var(--mono); letter-spacing:.04em; cursor:pointer}
+  .u2l button.srcbtn[aria-pressed="true"]{background:var(--amber); color:#1a1420; border-color:var(--amber)}
+  .u2l button.srcbtn small{font-weight:600; margin-left:4px; opacity:.75}
+  .u2l button.srcbtn[aria-pressed="true"] small{color:#1a1420}
+  .u2l .pages{margin:6px 0 0; padding:0; list-style:none}
+  .u2l .pages li{margin:3px 0; font:11px var(--mono)}
+  .u2l .pages small{color:#8f7d6e; margin-left:6px}
 
   /* Tabs: Radio | News Graph */
   [hidden]{display:none!important}
@@ -497,13 +506,17 @@
     <section class="card u2l" id="u2l">
       <div class="head" style="margin-bottom:8px">
         <div class="tabs" role="tablist">
-          <button class="tab" role="tab" id="tabX" aria-selected="true" aria-controls="paneX">Learn a topic, via X, to lofi</button>
+          <button class="tab" role="tab" id="tabX" aria-selected="true" aria-controls="paneX">Learn a topic → lofi</button>
           <button class="tab" role="tab" id="tabU" aria-selected="false" aria-controls="paneU">Paste a link</button>
         </div>
-        <span class="asof" id="xAsOf"></span><span class="tag live" id="engTag">X posts</span>
+        <span class="asof" id="xAsOf"></span><span class="tag live" id="engTag">Web</span>
       </div>
       <div class="pane" id="paneX" role="tabpanel">
-        <form id="xForm"><input id="xTopic" type="text" maxlength="120" placeholder="What do you want to learn about?" required aria-label="What do you want to learn about?">
+        <div class="srcpick" role="radiogroup" aria-label="Topic source">
+          <button type="button" class="srcbtn" id="srcWeb" role="radio" aria-pressed="true" aria-checked="true">Web</button>
+          <button type="button" class="srcbtn" id="srcX" role="radio" aria-pressed="false" aria-checked="false">X <small>optional</small></button>
+        </div>
+        <form id="xForm"><input id="xTopic" type="text" maxlength="120" placeholder="What do you want to learn about?" aria-label="What do you want to learn about?">
           <button id="xBtn" type="submit">LEARN IT LOFI</button></form>
         <div class="sugg" id="xSugg" aria-label="Suggested topics"></div>
       </div>
@@ -512,7 +525,7 @@
           <button id="u2lBtn" type="submit">MAKE IT LOFI</button></form>
       </div>
       <div class="pbar"><div id="u2lBar"></div></div>
-      <div class="stage" id="u2lStage">Type a topic: finds recent public X posts, reads their mood, renders an original ~44 s track.</div>
+      <div class="stage" id="u2lStage">Web search (default): Wikipedia, public news, and Hacker News. Reads the mood, renders an original ~44 s track.</div>
       <div class="res" id="u2lRes" hidden></div>
     </section>
 
@@ -911,52 +924,105 @@ $('u2lForm').addEventListener('submit', async e=>{
 });
 /* ---------- Learn a topic, via X, to lofi (POST /api/synthesize_topic, GET /api/topics) ---------- */
 const fmtCT = iso => { const d=new Date(iso); return isNaN(d)?'':d.toLocaleTimeString('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'})+' CT'; };
+let TOPIC_SOURCE='web';
+const WEB_CHIPS=['lofi','space telescopes','Python','Saturn','hackathons'];
+const EMPTY_TOPIC='Please enter a topic to learn. Try a short phrase like "lofi" or "space telescopes".';
+function topicStage(){
+  return TOPIC_SOURCE==='web'
+    ? 'Web search (default): Wikipedia, public news, and Hacker News. Reads the mood, renders an original ~44 s track.'
+    : 'X (optional): recent public posts, live if a token is set, otherwise the cached snapshot.';
+}
+function setTopicSource(src){
+  TOPIC_SOURCE = src==='x' ? 'x' : 'web';
+  const web=TOPIC_SOURCE==='web';
+  $('srcWeb').setAttribute('aria-pressed', web?'true':'false'); $('srcWeb').setAttribute('aria-checked', web?'true':'false');
+  $('srcX').setAttribute('aria-pressed', web?'false':'true'); $('srcX').setAttribute('aria-checked', web?'false':'true');
+  if($('tabX').getAttribute('aria-selected')==='true'){
+    $('engTag').textContent = web?'Web':'X posts';
+    if($('u2lRes').hidden) $('u2lStage').textContent = topicStage();
+  }
+  try{ localStorage.setItem('lofiDash.topicSource', TOPIC_SOURCE); }catch(e){}
+  renderTopicChips();
+}
+$('srcWeb').onclick=()=>setTopicSource('web');
+$('srcX').onclick=()=>setTopicSource('x');
 function setTab(x){
   $('tabX').setAttribute('aria-selected', x ? 'true' : 'false');
   $('tabU').setAttribute('aria-selected', x ? 'false' : 'true');
-  $('paneX').hidden=!x; $('paneU').hidden=x; $('engTag').textContent = x?'X posts':'URL engine';
-  if($('u2lRes').hidden) $('u2lStage').textContent = x ? 'Type a topic: finds recent public X posts, reads their mood, renders an original ~44 s track.'
+  $('paneX').hidden=!x; $('paneU').hidden=x;
+  $('engTag').textContent = x ? (TOPIC_SOURCE==='web'?'Web':'X posts') : 'URL engine';
+  if($('u2lRes').hidden) $('u2lStage').textContent = x ? topicStage()
                                                        : 'Reads the page, picks a mood, renders an original ~44 s track.';
 }
 $('tabX').onclick=()=>setTab(true); $('tabU').onclick=()=>setTab(false);
 let XT={topics:[],trends:{}};
+function renderTopicChips(){
+  let chips;
+  if(TOPIC_SOURCE!=='x'){
+    chips=WEB_CHIPS.map(t=>`<button class="sg" type="button" data-topic="${esc(t)}" data-source="web">${esc(t)}</button>`);
+    $('xAsOf').textContent='web · Wikipedia, news, Hacker News';
+  }else{
+    const tr=(XT.trends&&XT.trends.items)||[], cachedKeys=new Set((XT.topics||[]).map(t=>String(t.topic||'').toLowerCase()));
+    chips=(XT.topics||[]).map(t=>`<button class="sg" type="button" data-topic="${esc(t.topic)}" data-source="x" title="${esc(t.post_count)} cached posts · fetched ${esc(fmtCT(t.fetched_at))}">${esc(t.topic)}<small>${esc(t.post_count)}</small></button>`)
+      .concat(tr.filter(t=>t&&t.name&&!cachedKeys.has(String(t.name).toLowerCase())).slice(0,4).map(t=>`<button class="sg tr" type="button" data-topic="${esc(t.name)}" data-source="x" title="Trending on X">${esc(t.name)}</button>`));
+    const asof = XT.trends&&XT.trends.as_of ? `trends as of ${fmtCT(XT.trends.as_of)}` : '';
+    $('xAsOf').textContent = asof + (XT.live_search?' · live search on':'');
+  }
+  $('xSugg').innerHTML=chips.join('');
+  $('xSugg').querySelectorAll('.sg').forEach(b=>b.onclick=()=>{
+    if(b.dataset.source) setTopicSource(b.dataset.source);
+    $('xTopic').value=b.dataset.topic; setTab(true); $('xForm').requestSubmit();
+  });
+}
 async function loadTopics(){
   let data=null;
   try{ const r=await fetch('/api/topics',{cache:'no-store'}); if(r.ok) data=await r.json(); }catch(e){}
   if(!data){ try{ data=await getJSON('/x_topics.json'); }catch(e2){ data={topics:[],trends:{}}; } }
   XT=data;
-  const tr=(XT.trends&&XT.trends.items)||[], cachedKeys=new Set((XT.topics||[]).map(t=>String(t.topic||'').toLowerCase()));
-  const chips=(XT.topics||[]).map(t=>`<button class="sg" type="button" data-topic="${esc(t.topic)}" title="${esc(t.post_count)} cached posts · fetched ${esc(fmtCT(t.fetched_at))}">${esc(t.topic)}<small>${esc(t.post_count)}</small></button>`)
-    .concat(tr.filter(t=>t&&t.name&&!cachedKeys.has(String(t.name).toLowerCase())).slice(0,4).map(t=>`<button class="sg tr" type="button" data-topic="${esc(t.name)}" title="Trending on X">${esc(t.name)}</button>`));
-  $('xSugg').innerHTML=chips.join('');
-  $('xSugg').querySelectorAll('.sg').forEach(b=>b.onclick=()=>{ $('xTopic').value=b.dataset.topic; setTab(true); $('xForm').requestSubmit(); });
-  const asof = XT.trends&&XT.trends.as_of ? `trends as of ${fmtCT(XT.trends.as_of)}` : '';
-  $('xAsOf').textContent = asof + (XT.live_search?' · live search on':'');
+  renderTopicChips();
 }
 function showTopic(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{}, tp=r.topic||{};
+  const web = tp.source==='web' || tp.requested_source==='web';
   $('u2lRes').hidden=false;
-  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
-    <div class="say" title="${esc(m.page_summary)}"><b>What people are saying:</b> ${esc(m.page_summary)}</div>
-    <div class="xnote">mood from ${esc(tp.post_count)} top posts on X about ${esc(tp.topic)}${tp.fetched_at?` · fetched ${esc(fmtCT(tp.fetched_at))}`:''}${tp.source==='x-api-live'?' · live':''}</div>
-    <div>${esc(m.sentiment)} · <a href="${esc(safeHref(tp.x_search_url))}" target="_blank" rel="noopener">see the posts on x.com ↗</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
+  const chips=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`;
+  const made=t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):'';
+  if(web){
+    const pages=(tp.pages||[]).map(p=>`<li><a href="${esc(safeHref(p.url))}" target="_blank" rel="noopener">${esc(p.title||p.url)}</a><small>${esc(p.via||'')}${p.method==='url-words'?' · link words':''}</small></li>`).join('');
+    $('u2lRes').innerHTML=`${chips}
+      <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
+      <div class="xnote">${esc(tp.note||'')}</div>
+      <div>${esc(m.sentiment)} · ${esc((a.primary_instruments||[]).join(', '))}${made}</div>
+      <ul class="pages" id="tpPages">${pages}</ul>`;
+  }else{
+    $('u2lRes').innerHTML=`${chips}
+      <div class="say" title="${esc(m.page_summary)}"><b>What people are saying:</b> ${esc(m.page_summary)}</div>
+      <div class="xnote">mood from ${esc(tp.post_count)} top posts on X about ${esc(tp.topic)}${tp.fetched_at?` · fetched ${esc(fmtCT(tp.fetched_at))}`:''}${tp.source==='x-api-live'?' · live':''}</div>
+      <div>${esc(m.sentiment)} · <a href="${esc(safeHref(tp.x_search_url))}" target="_blank" rel="noopener">see the posts on x.com ↗</a>${made}</div>`;
+  }
   $('xSugg').querySelectorAll('.sg').forEach(b=>b.setAttribute('aria-pressed', b.dataset.topic.toLowerCase()===String(tp.topic||'').toLowerCase()?'true':'false'));
 }
 $('xForm').addEventListener('submit', async e=>{
   e.preventDefault();
-  const topic=$('xTopic').value.trim(); if(!topic) return;
+  const topic=$('xTopic').value.trim();
   const btn=$('xBtn'); btn.disabled=true; btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
-  $('u2lStage').textContent=`Finding posts on X about ${topic}…`; ensureAudio();
+  const searching = TOPIC_SOURCE==='web' ? `Searching the web for ${topic||'a topic'}…` : `Finding posts on X about ${topic||'a topic'}…`;
+  $('u2lStage').textContent=searching; ensureAudio();
+  const softKind=k=>k==='topic_not_found'||k==='empty_topic'||k==='bad_source';
   const fail=(msg,soft)=>{ $('u2lStage').innerHTML=`<span class="err${soft?' soft':''}">${soft?'ⓘ':'⚠'} ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='LEARN IT LOFI'; loadBots(); };
+  if(!topic) return fail(EMPTY_TOPIC, true);
   try{
-    const r=await fetch('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,async:true,agent_id:'dashboard'})});
-    const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, j.error_kind==='topic_not_found');
+    const r=await fetch('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,source:TOPIC_SOURCE,async:true,agent_id:'dashboard'})});
+    const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, softKind(j.error_kind));
     loadBots();
     while(true){
       await new Promise(ok=>setTimeout(ok,400));
       const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
-      $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
-      if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', s.error_kind==='topic_not_found'); }
+      $('u2lBar').style.width=(s.progress||4)+'%';
+      let stageText=STAGES[s.stage]||s.stage||'';
+      if(s.stage==='searching') stageText = TOPIC_SOURCE==='web' ? 'Searching public pages…' : 'Finding posts on X…';
+      $('u2lStage').textContent=stageText;
+      if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', softKind(s.error_kind)); }
       if(s.state==='done'){
         const res=s.result; showTopic(res);
         $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
@@ -972,11 +1038,14 @@ $('xForm').addEventListener('submit', async e=>{
   }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
   btn.disabled=false; btn.textContent='LEARN IT LOFI';
 });
-// ?topic= pre-fills the topic box. ?link= switches to Paste a link and runs that.
+// ?topic= runs Learn a topic. ?source=web|x wins over the saved selector. ?link= switches to Paste a link.
 { const q=new URLSearchParams(location.search);
-  const topic=q.get('topic'), link=q.get('link');
+  const topic=q.get('topic'), link=q.get('link'), src=q.get('source');
+  let saved='web';
+  try{ saved=localStorage.getItem('lofiDash.topicSource')||'web'; }catch(e){}
+  setTopicSource(src==='web'||src==='x' ? src : (saved==='x'?'x':'web'));
   if(link){ setTab(false); $('u2lUrl').value=link; setTimeout(()=>$('u2lForm').requestSubmit(),300); }
-  else if(topic){ $('xTopic').value=topic; setTimeout(()=>$('xForm').requestSubmit(),300); }
+  else if(topic){ setTab(true); $('xTopic').value=topic; setTimeout(()=>$('xForm').requestSubmit(),300); }
 }
 
 loadTopics();

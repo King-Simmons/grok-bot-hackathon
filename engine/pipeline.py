@@ -213,7 +213,12 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
         if report_status: _status(state="running", task=task, progress=pct, no_error=True, no_artifact=True)
 
     t0 = time.time()
-    prefix = "x" if kind.startswith("x") else re.sub(r"[^a-z0-9]+", "", kind.lower())[:8] or "text"
+    if kind.startswith("x"):
+        prefix = "x"
+    elif kind.startswith("web"):  # topic web search (engine/topic_web.py)
+        prefix = "web"
+    else:
+        prefix = re.sub(r"[^a-z0-9]+", "", kind.lower())[:8] or "text"
     try:
         if not str(text or "").strip():
             raise IngestError("no text to analyze")
@@ -236,7 +241,9 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
             from engine.synth import render as synth_render
             with RENDER_LOCK:
                 render = synth_render(attrs, seed=int(h, 16) % 100000, out_mp3=mp3, mood_hint=mood["sentiment"].split(" ")[0])
-            side = {"title": f"X Lofi: {title[:80]}" if prefix == "x" else f"Text Lofi: {title[:80]}",
+            side_title = f"X Lofi: {title[:80]}" if prefix == "x" else (
+                f"Topic Lofi: {title[:80]}" if prefix == "web" else f"Text Lofi: {title[:80]}")
+            side = {"title": side_title,
                     "label": label or (f"X · {title[:18]}" if prefix == "x" else f"{prefix} · {title[:16]}"),
                     "bpm": attrs["bpm"], "key": attrs["key"], "duration_s": render["duration_s"],
                     "notes": notes or "Original lofi generated from the mood of a piece of text (deterministic, no samples).",
@@ -298,8 +305,21 @@ def resolve_topic_posts(topic, posts=None):
         f"x_topics.json with engine/x_topics_snapshot.py).")
 
 
-def synthesize_topic(topic, posts=None, force=False, progress=None, report_status=True):
-    """Topic -> recent public X posts -> mood -> original lofi track."""
+def synthesize_topic(topic, posts=None, force=False, progress=None, report_status=True, source="web"):
+    """Topic -> mood -> original lofi.
+
+    source is 'web' (default: Wikipedia, news RSS, Hacker News via engine/topic_web.py)
+    or 'x' (public X posts: live API if X_BEARER_TOKEN is set, else x_topics.json).
+    posts is only used when source is 'x'.
+    """
+    from engine.topic_web import normalize_source, normalize_topic, synthesize_web
+    source = normalize_source(source)
+    if source != "x":
+        return synthesize_web(topic, force=force, progress=progress, report_status=report_status)
+    # --- X source (optional). The block below is the X-posts path. ---
+    # Passed-in posts with a blank topic stay the route's "custom posts" case.
+    if not posts:
+        topic = normalize_topic(topic)
     if progress: progress("searching", 10)
     raw, source, meta = resolve_topic_posts(topic, posts)
     lines = posts_to_text(raw)
@@ -314,7 +334,8 @@ def synthesize_topic(topic, posts=None, force=False, progress=None, report_statu
                         notes=f"Original lofi whose mood comes from {len(lines)} recent public X posts about {name} "
                               f"(deterministic, no samples).")
     r["mood"]["page_summary"] = summarize_posts(lines) or r["mood"]["page_summary"]
-    r["topic"] = {"topic": name, "post_count": len(lines), "source": source, "fetched_at": meta.get("fetched_at"),
+    r["topic"] = {"topic": name, "post_count": len(lines), "source": source, "requested_source": "x",
+                  "fetched_at": meta.get("fetched_at"),
                   "headline": meta.get("headline"), "x_search_url": surl, "x_reads": int(meta.get("x_reads") or 0),
                   "note": f"mood from {len(lines)} posts on X about {name}"}
     return r
