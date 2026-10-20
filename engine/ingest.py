@@ -3,7 +3,7 @@
 Uses trafilatura when installed, else a stdlib HTMLParser fallback.
 Safety: http(s) only, refuses private/loopback hosts, timeouts, size cap.
 """
-import html as htmlmod, ipaddress, re, socket, ssl, urllib.error, urllib.parse, urllib.request
+import html as htmlmod, ipaddress, re, socket, ssl, threading, urllib.error, urllib.parse, urllib.request
 from html.parser import HTMLParser
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) LofiNewsRadio-URL2Lofi/1.0 (+hackathon prototype)"
@@ -166,6 +166,13 @@ def _from_url_only(url, reason):
             "note": f"{site} refused the page ({reason}), so the mood was read from the link's words"}
 
 
+# trafilatura.extract and extract_metadata share one lxml HTMLParser
+# (trafilatura.utils.HTML_PARSER). That parser is not safe across threads:
+# concurrent SpaceX page extracts aborted the process inside trafilatura
+# (free(): invalid pointer). Lock only extraction so downloads stay parallel.
+_EXTRACT_LOCK = threading.Lock()
+
+
 def ingest(url):
     if not re.match(r"^https?://", url, re.I):
         url = "https://" + url
@@ -173,7 +180,8 @@ def ingest(url):
         final, html, truncated = fetch(url)
     except FetchRefused as e:  # host is public and resolved fine; site just won't serve bots
         return _from_url_only(url, str(e))
-    d = extract(html, final)
+    with _EXTRACT_LOCK:
+        d = extract(html, final)
     if not d["text"] and d["description"]:
         d["text"] = d["description"]
     if not d["text"]:
