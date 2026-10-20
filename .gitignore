@@ -9,7 +9,7 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
-# audio artifacts. Keep the one original demo beat.
+# audio artifacts. Keep the original demo beat and the Chatterbox demo briefing.
 *.wav
 *.flac
 *.aiff
@@ -17,6 +17,7 @@ __pycache__/
 *.ogg
 *.mp3
 !samples/beat-001.mp3
+!dashboard/host_briefing.mp3
 
 # URL-engine output
 tracks/

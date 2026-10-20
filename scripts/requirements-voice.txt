@@ -1,0 +1,14 @@
+# Optional: only for scripts/render_host_voice.py (Chatterbox host voice). The dashboard itself needs none of this.
+# Python 3.10-3.12 recommended (tested on 3.11). ~2 GB venv + ~3.5 GB model download on first run (Hugging Face cache).
+#
+# CPU-only torch keeps the install small (no CUDA). Install it first, from the PyTorch CPU index:
+#   python3.11 -m venv .venv-voice && . .venv-voice/bin/activate
+#   pip install torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r scripts/requirements-voice.txt
+# With an NVIDIA GPU, install the matching CUDA torch build instead; the script picks cuda/mps automatically.
+chatterbox-tts==0.1.7
+# Chatterbox's watermarker (resemble-perth) still imports pkg_resources, which setuptools 81+ removed.
+setuptools<81
+pyloudnorm
+soundfile
+# ffmpeg must be on PATH (MP3 encode).
