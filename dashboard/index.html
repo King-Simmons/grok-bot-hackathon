@@ -860,6 +860,14 @@ async function refreshHN(){
    enter HEADLINES, so the 101.5 demo recording's podcast_headlines fingerprint still matches. ?x=0 hides them. */
 let XNEWS=[], XN_META={}, xnTimer=null;
 const X_OFF=/[?&]x=0\b/.test(location.search);
+/* 101.5 reads the top X_READ X stories after the headlines. episode.json "podcast_x" fingerprints the ones the
+   recording reads (x_id, in order); a different x_news.json means the browser voice hosts instead.
+   XN_STATE: loading | ok | none (no file) | off (?x=0: X hidden, but a recording with X lines still plays). */
+const X_READ=3; let XN_STATE = X_OFF ? 'off' : 'loading';
+const xKey = () => XNEWS.slice(0,X_READ).map(h=>h.x_id||h.title);
+const xMatch = () => !Array.isArray(EP.podcast_x) || XN_STATE==='loading' || XN_STATE==='off' || JSON.stringify(EP.podcast_x)===JSON.stringify(xKey());
+const recMatch = () => (!Array.isArray(EP.podcast_headlines) || sameKey(EP.podcast_headlines, HEADLINES)) && xMatch();
+function recheckRecording(){ if(typeof Host!=='undefined' && Host.running && Host.engine===FileVoice && !useFile()){ Host.pause(); Host.start(); } }
 const allNews = () => HEADLINES.concat(XNEWS); // News Graph order: headlines first, so their indices match the host's
 async function loadXNews(){
   if(X_OFF) return;
@@ -868,10 +876,11 @@ async function loadXNews(){
     const d=await getJSON('x_news.json');
     if(XN_META.updated && d.updated===XN_META.updated) return; // unchanged
     XNEWS=(d.stories||[]).filter(h=>h&&h.title).map(h=>({...h, source:'X'}));
-    XN_META={source:'X', updated:d.updated, query:d.query};
+    XN_META={source:'X', updated:d.updated, query:d.query}; XN_STATE='ok';
     renderTicker(); renderHlSrc();
     document.dispatchEvent(new CustomEvent('xnews:changed'));
-  }catch(e){ /* no snapshot yet: X is simply absent */ }
+  }catch(e){ if(XN_STATE==='loading') XN_STATE='none'; /* no snapshot yet: X is simply absent */ }
+  recheckRecording(); // a new snapshot no longer matches the recording's X stories
 }
 
 /* ---------- Episode + track picker (episode.json + tracks.json) ---------- */
@@ -1329,7 +1338,11 @@ let burstT=null;
 function burst(){ ensureStatic(); MIX.burst=0.32; mixNow(); clearTimeout(burstT); burstT=setTimeout(()=>{ MIX.burst=0; mixNow(); },280); }
 
 /* UI helpers */
-function highlight(i){ document.querySelectorAll('#ticker span[data-i]').forEach(s=>s.classList.toggle('live', +s.dataset.i===i));  if(window.NG) NG.live(i); }
+// i is a News Graph index: headlines 0..n-1, then X stories n+j (ticker spans data-x=j)
+function highlight(i){ const nh=HEADLINES.length;
+  document.querySelectorAll('#ticker span[data-i]').forEach(s=>s.classList.toggle('live', +s.dataset.i===i));
+  document.querySelectorAll('#ticker span[data-x]').forEach(s=>s.classList.toggle('live', i>=nh && +s.dataset.x===i-nh));
+  if(window.NG) NG.live(i); }
 function setNow(text, label){ $('rNow').innerHTML = text ? `<b>${esc(label||'HOST')}</b>${esc(text)}` : ''; }
 function radioNote(t){ $('rNote').textContent=t||''; }
 function renderOnAir(){ const o=$('rOnAir'); o.classList.toggle('on', radio.station==='talk'); o.classList.toggle('lit', radio.station==='talk' && Host.running); }
@@ -1365,7 +1378,7 @@ function tuneTo(id){
 }
 function settle(){ const {st,d}=nearest(radio.freq); if(d>0 && d<0.8) tuneTo(st.id); else saveRadio(); }
 
-const useFile = () => !!EP.podcast_audio && !Host.speech && (!Array.isArray(EP.podcast_headlines) || sameKey(EP.podcast_headlines, HEADLINES));
+const useFile = () => !!EP.podcast_audio && !Host.speech && recMatch();
 function talkAvailable(){ return !!EP.podcast_audio || ('speechSynthesis' in window); }
 function onStationChange(prev, next){
   dropGen++; // cancel any in-flight lofi drop
@@ -1417,8 +1430,21 @@ function buildBriefing(){
     const t=cleanTitle(h.title), main=t.indexOf(', ')>0 ? t.slice(0,t.indexOf(', ')) : t;
     segs.push({hl:i, title:h.title, text:`${lead}${h.source&&!one?`, from ${h.source}`:''}. ${sentence(main)} ${takeFor(h,i)}`});
   });
+  segs.push(...xSegments(part));
   segs.push({hl:-1, text:"That's the briefing. You've been listening to News Talk on Lofi News Radio. Back to the beat."});
   return segs;
+}
+/* X stories after the headlines: title + the first sentence or two of X's summary (mirrors scripts/render_host_voice.py) */
+const X_ABBR=/(?:\b[A-Z]\.){1,3}$|\b(?:Mr|Mrs|Ms|Dr|St|vs|Inc|Jr|Sr|Co|Corp|Ltd)\.$/;
+function splitSentences(t){ const out=[];
+  for(const p of String(t||'').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9"'\u201c])/)){ if(out.length && X_ABBR.test(out[out.length-1])) out[out.length-1]+=' '+p; else if(p) out.push(p); }
+  return out; }
+function xTrim(t, limit=240){ const ss=splitSentences(t); if(!ss.length) return ''; let o=ss[0]; if(ss.length>1 && o.length+1+ss[1].length<=limit) o+=' '+ss[1]; return o; }
+function xSegments(part){
+  const xs=XNEWS.slice(0,X_READ); if(!xs.length) return [];
+  const when={morning:'this morning', afternoon:'this afternoon', evening:'tonight', night:'tonight'}[part]||'', nh=HEADLINES.length, leads=['','Also on X. ','One more from X. '];
+  return [{hl:-1, text:`And from X${when?' '+when:''}, ${xs.length===1?'a story':'a few stories'} people are talking about.`}]
+    .concat(xs.map((h,j)=>({hl:nh+j, x:j, title:h.title, text:`${leads[Math.min(j,2)]}${sentence(cleanTitle(h.title))} ${sentence(xTrim(h.summary))}`.trim()})));
 }
 
 /* Voice engines. Each one: start/stop; they report back through Host. */
@@ -1458,9 +1484,10 @@ const FileVoice={
     if(this.el) return this.el;
     const el=new Audio(); el.preload='auto'; el.src=EP.podcast_blob||EP.podcast_audio;
     el.addEventListener('playing',()=>duck(true));
-    el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let i=-1;
-      for(const c of cues) if(c.t<=el.currentTime) i=c.headline??-1;
-      highlight(i); setNow(i>=0&&HEADLINES[i]?HEADLINES[i].title:'News Talk', i>=0?'NOW READING':'HOST'); });
+    el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let c0=null;
+      for(const c of cues) if(c.t<=el.currentTime) c0=c;
+      const isX = c0 && c0.x!=null, i = !c0 ? -1 : isX ? (c0.x<XNEWS.length ? HEADLINES.length+c0.x : -1) : (c0.headline??-1), h = i>=0 ? allNews()[i] : null;
+      highlight(i); setNow(h ? h.title : isX ? 'A story from X' : 'News Talk', h||isX ? 'NOW READING' : 'HOST'); });
     el.addEventListener('ended',()=>{ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…');
       Host.later(()=>{ el.currentTime=0; el.play().catch(()=>{}); },20000); });
     el.addEventListener('error',()=>{ if(!Host.running) return; radioNote("Couldn't play podcast_audio, so the browser voice is hosting.");
@@ -1840,7 +1867,8 @@ window.NG=NG;
 function hearOnTalk(i){
   const h=allNews()[i]; if(!h) return; // i is a News Graph index: headlines first, then X stories
   if(!talkAvailable()){ NG.note('News Talk needs a browser with speech (speechSynthesis).'); return; }
-  const cue = i<HEADLINES.length && EP.podcast_audio && sameKey(EP.podcast_headlines||hlKey(HEADLINES), HEADLINES) ? (EP.podcast_cues||[]).find(c=>c.headline===i) : null;
+  const nh=HEADLINES.length;
+  const cue = EP.podcast_audio && recMatch() ? (EP.podcast_cues||[]).find(c=> i<nh ? (c.x==null && c.headline===i) : c.x===i-nh) : null;
   if(cue){ // in the recording: seek to its cue
     if(Host.running && Host.engine!==FileVoice) Host.pause();
     Host.speech=false; Host.segs=[]; Host.idx=0;

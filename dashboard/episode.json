@@ -18,8 +18,13 @@
     {"t": 102.09, "headline": 5},
     {"t": 109.06, "headline": 6},
     {"t": 117.05, "headline": 7},
-    {"t": 123.46, "headline": -1}
+    {"t": 123.46, "headline": -1},
+    {"t": 127.53, "headline": -1, "x": 0},
+    {"t": 144.1, "headline": -1, "x": 1},
+    {"t": 159.96, "headline": -1, "x": 2},
+    {"t": 177.77, "headline": -1}
   ],
   "podcast_headlines": [50159616, 50154540, 50150089, 50158138, 50152307, 50157865, 50136126, 50159464],
-  "podcast_voice": {"engine": "chatterbox-tts (default voice)", "duration_s": 129.13, "exaggeration": 0.4, "cfg_weight": 0.35, "temperature": 0.7, "seed": 7, "rendered": "2026-10-19T20:18:08-05:00"}
+  "podcast_voice": {"engine": "chatterbox-tts (default voice)", "duration_s": 183.2, "exaggeration": 0.4, "cfg_weight": 0.35, "temperature": 0.7, "seed": 7, "part_of_day": "evening", "rendered": "2026-10-19T22:11:59-05:00"},
+  "podcast_x": ["2112287617815306316", "2111571558787432776", "2112048453438021791"]
 }
