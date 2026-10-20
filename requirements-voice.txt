@@ -1,0 +1,21 @@
+# Optional Chatterbox voice engine. Not installed by ./run.sh (torch is large).
+#
+# Tested combination:
+#   Python 3.11
+#   chatterbox-tts 0.1.7
+#   CPU torch 2.6.0 (what chatterbox-tts pulls on Python < 3.14)
+#
+# chatterbox-tts 0.1.7 does not support Python 3.13.
+#
+# resemble-perth (the watermark library Chatterbox imports while loading)
+# crashes on setuptools >= 81, and the model then fails to load. Pin
+# setuptools below 81 again AFTER chatterbox-tts so nothing upgrades it:
+#
+#   python3.11 -m venv .venv-voice
+#   .venv-voice/bin/pip install -U pip
+#   .venv-voice/bin/pip install -r requirements.txt -r requirements-voice.txt
+#   .venv-voice/bin/pip install 'setuptools>=61,<81'
+#   PY=.venv-voice/bin/python ./run.sh
+#
+setuptools>=61,<81
+chatterbox-tts==0.1.7

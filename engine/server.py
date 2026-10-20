@@ -5,6 +5,8 @@
   POST /api/synthesize {"url": ...}      -> {"mood": {...PRD...}, "track_url": "/tracks/....mp3", ...}
        add "async": true                 -> {"job_id": ...}; poll GET /api/jobs/<id>
        add "force": true                 -> re-render even if this exact track exists
+  POST /api/speak {"text": "..."}        -> Chatterbox clip (audio.voice.synthesize_speech)
+       503 when chatterbox-tts is not installed; music routes keep working
 Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
 The process serves the repo root. Open /dashboard/ for the control room. API routes are /api/*.
 """
@@ -15,6 +17,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from engine import pipeline  # noqa: E402
 from engine.ingest import IngestError  # noqa: E402
+from audio import voice as voice_mod  # noqa: E402
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
@@ -31,6 +34,41 @@ def _run_job(jid, url, force):
     try:
         r = pipeline.synthesize(url, force=force, progress=prog)
         with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
+    except Exception as e:
+        with JOBS_LOCK: JOBS[jid].update(state="error", stage="error", error=str(e))
+
+
+def _opt_float(body, key):
+    if key not in body or body[key] is None or body[key] == "":
+        return None
+    try:
+        return float(body[key])
+    except (TypeError, ValueError):
+        raise ValueError(f"{key} must be a number")
+
+
+def _speak_kwargs(body):
+    """Map POST /api/speak onto synthesize_speech. Numbers win over preset."""
+    text = " ".join(str(body.get("text") or "").split())
+    if not text:
+        raise ValueError("missing text")
+    preset = body.get("preset", body.get("style"))
+    if preset is not None:
+        preset = str(preset).strip().lower() or None
+    exaggeration, cfg_weight, speed = voice_mod.resolve_controls(
+        _opt_float(body, "exaggeration"), _opt_float(body, "cfg_weight"), _opt_float(body, "speed"), preset,
+    )
+    out_path = body.get("out_path")
+    if out_path is not None:
+        out_path = str(out_path).strip() or None
+    return {"text": text, "exaggeration": exaggeration, "cfg_weight": cfg_weight, "speed": speed,
+            "out_path": out_path, "lofi": bool(body.get("lofi"))}
+
+
+def _run_speak(jid, kwargs):
+    try:
+        info = voice_mod.synthesize_speech(**kwargs)
+        with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=info)
     except Exception as e:
         with JOBS_LOCK: JOBS[jid].update(state="error", stage="error", error=str(e))
 
@@ -54,7 +92,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         if u.path == "/api/health":
-            return self._json(200, {"ok": True, "jobs": len(JOBS)})
+            return self._json(200, {"ok": True, "jobs": len(JOBS), "chatterbox": voice_mod.available()})
         if u.path == "/api/mood":
             url = (urllib.parse.parse_qs(u.query).get("url") or [""])[0].strip()
             if not url: return self._json(400, {"error": "missing ?url="})
@@ -72,8 +110,39 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(404, {"error": "unknown endpoint"})
         return super().do_GET()
 
+    def _speak(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > 65536:
+                return self._json(413, {"error": "body too large"})
+            body = json.loads(self.rfile.read(n) or b"{}")
+        except Exception:
+            return self._json(400, {"error": "body must be JSON like {\"text\": \"...\"}"})
+        if not isinstance(body, dict):
+            return self._json(400, {"error": "body must be a JSON object"})
+        try:
+            kwargs = _speak_kwargs(body)
+        except ValueError as e:
+            return self._json(400, {"error": str(e)})
+        if body.get("async"):
+            jid = uuid.uuid4().hex[:12]
+            with JOBS_LOCK:
+                JOBS[jid] = {"id": jid, "state": "running", "stage": "speaking", "progress": 0, "started": time.time()}
+            threading.Thread(target=_run_speak, args=(jid, kwargs), daemon=True).start()
+            return self._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
+        try:
+            return self._json(200, voice_mod.synthesize_speech(**kwargs))
+        except voice_mod.VoiceUnavailable as e:
+            return self._json(503, {"error": str(e), "chatterbox": False})
+        except ValueError as e:
+            return self._json(400, {"error": str(e)})
+        except Exception as e:
+            return self._json(500, {"error": f"{type(e).__name__}: {e}"})
+
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
+        if u.path == "/api/speak":
+            return self._speak()
         if u.path != "/api/synthesize":
             return self._json(404, {"error": "unknown endpoint"})
         try:

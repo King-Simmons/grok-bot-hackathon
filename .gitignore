@@ -1,6 +1,7 @@
 # virtualenvs
 .venv/
 .venv-*/
+.venv-voice/
 venv/
 env/
 
@@ -29,3 +30,9 @@ dashboard/tracks.json
 .env
 .env.*
 *.log
+
+# model weights. Chatterbox downloads into the Hugging Face cache, not this repo.
+*.safetensors
+*.pt
+*.pth
+*.ckpt

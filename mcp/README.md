@@ -3,6 +3,7 @@
 Tools:
 - `get_mood_analysis(url)` → PRD mood JSON: `{url, page_summary, sentiment, lofi_prompt, musical_attributes{bpm, key, primary_instruments[], mood_tags[]}, cover_art_prompt}`
 - `synthesize_url(url, force=false)` → the same JSON, plus `track_path` (absolute path on the box), `track_file` (relative), `track_url` (served by the dashboard) and `timing`.
+- `speak_text(text, exaggeration=null, cfg_weight=null, speed=null, lofi=false, preset=null, out_path=null)` → one spoken clip from `audio.voice.synthesize_speech` (built-in Chatterbox voice, no cloning). `preset` is `news` (0.7 / 0.3 / speed 0.9) or `dj` (0.5 / 0.5 / speed 0.9). Returns `path`, `url`, and the rest of the clip dict, or `{error, chatterbox: false}` when chatterbox-tts is not installed. Music tools keep working. See [docs/VOICE.md](../docs/VOICE.md).
 
 It renders an original ~42-44 s lofi mp3 in about 2-4 s. It also reports progress to the dashboard as bot `url-lofi`.
 
