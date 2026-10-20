@@ -297,7 +297,8 @@ def _public_page(p):
     return out
 
 
-def synthesize_web(topic, force=False, progress=None, report_status=True):
+def synthesize_web(topic, force=False, progress=None, report_status=True,
+                   vocals="none", script=None, agent="anonymous"):
     """Public pages -> combined text -> the existing text-to-lofi renderer."""
     from engine.pipeline import TopicNotFound, synthesize_text
     topic = normalize_topic(topic)
@@ -322,7 +323,8 @@ def synthesize_web(topic, force=False, progress=None, report_status=True):
         report_status=report_status,
         extra={"topic": topic, "source": "web", "requested_source": "web", "origin": "web-search", "pages": public},
         label=f"web · {topic[:16]}",
-        notes=note + " Original lofi, deterministic, no samples.")
+        notes=note + " Original lofi, deterministic, no samples.",
+        vocals=vocals, script=script, agent=agent)
     r["topic"] = {"topic": topic, "source": "web", "requested_source": "web", "origin": "web-search",
                   "pages": public, "page_count": len(public), "x_reads": 0, "note": note}
     r["page"]["method"] = "web-search"

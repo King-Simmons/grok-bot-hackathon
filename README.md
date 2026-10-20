@@ -96,6 +96,8 @@ An empty topic returns `400` with `"error_kind": "empty_topic"`. A source other 
 
 `force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`. `agent_id` (or the `X-Agent-Id` header) is who the usage log credits; the dashboard sends `dashboard`, and a missing id is `anonymous`.
 
+`vocals` defaults to `none` on `/api/synthesize` and `/api/synthesize_topic`. The dashboard does not send it, and `./run.sh` does not install a voice. See [docs/VOCALS.md](docs/VOCALS.md).
+
 One-line check-in:
 
 ```bash
