@@ -1484,7 +1484,7 @@ const FileVoice={
     if(this.el) return this.el;
     const el=new Audio(); el.preload='auto'; el.src=EP.podcast_blob||EP.podcast_audio;
     el.addEventListener('playing',()=>duck(true));
-    el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let c0=null;
+    el.addEventListener('timeupdate',()=>{ if(!Host.running) return; const cues=EP.podcast_cues||[]; let c0=null;
       for(const c of cues) if(c.t<=el.currentTime) c0=c;
       const isX = c0 && c0.x!=null, i = !c0 ? -1 : isX ? (c0.x<XNEWS.length ? HEADLINES.length+c0.x : -1) : (c0.headline??-1), h = i>=0 ? allNews()[i] : null;
       highlight(i); setNow(h ? h.title : isX ? 'A story from X' : 'News Talk', h||isX ? 'NOW READING' : 'HOST'); });
