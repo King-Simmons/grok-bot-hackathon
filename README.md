@@ -14,7 +14,7 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 
 | path | what |
 |---|---|
-| `dashboard/index.html` | Control room: clock, CSS lofi scene, player, Web Audio mixer, bot panel, paste-a-link box |
+| `dashboard/index.html` | Control room: clock, CSS lofi scene, player, Web Audio mixer sliders, bot panel, paste-a-link box |
 | `dashboard/botstatus.py` | Stdlib status CLI. Writes repo-root `status/` and `dashboard/tracks.json` |
 | `dashboard/status` | Symlink to `../status`, so the page's relative `status/index.json` fetch works |
 | `dashboard/*.json` | Sample headlines, inbox, and episode data |
