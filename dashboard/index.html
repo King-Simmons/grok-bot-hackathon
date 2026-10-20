@@ -884,9 +884,11 @@ function wirePlayer(){
   }
 }
 let curMeta={};
+function fileLabel(f){ const base=String(f||'').split('/').filter(Boolean).pop()||''; return base.replace(/\.mp3$/i,''); }
 function renderMeta(){ const m=curMeta, bits=[];
   if($('epMeta').dataset.dur) bits.push($('epMeta').dataset.dur);
-  if(m.bpm) bits.push(`${m.bpm} BPM`); if(m.key) bits.push(m.key); bits.push(curFile);
+  if(m.bpm) bits.push(`${m.bpm} BPM`); if(m.key) bits.push(m.key);
+  const name=fileLabel(curFile); if(name) bits.push(name);
   $('epMeta').textContent=bits.join(' · '); }
 function selectTrack(file, meta, isExample){
   const a=$('audio'), btn=$('playBtn');
@@ -914,7 +916,7 @@ async function loadEpisode(){
   const list=[];
   if(ep && ep.example===false && ep.file) list.push({file:ep.file, title:`Episode: ${ep.title||ep.file}`, bpm:ep.bpm, key:ep.key, episode:true});
   TRACKS.forEach(t=>{ if(!list.some(x=>sameTrack(x.file, t.file))) list.push(t); });
-  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.label||t.file.replace(/\.mp3$/,''))}</button>`).join('');
+  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.label||fileLabel(t.file))}</button>`).join('');
   document.querySelectorAll('.trk').forEach(b=>b.onclick=()=>{ const t=list.find(x=>sameTrack(x.file, b.dataset.file)); if(t) selectTrack(t.file,t,false); });
   // A refresh picks up new chips. It must not replace whatever is already loaded
   // (that was restarting /tracks/x.mp3 as the episode when the path strings differed).
@@ -956,7 +958,7 @@ $('u2lForm').addEventListener('submit', async e=>{
       if(s.state==='error') return fail(s.error||'failed');
       if(s.state==='done'){
         const res=s.result; showU2L(res);
-        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>sameTrack(x.file,play)||sameTrack(x.file,res.track.file))||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
@@ -1072,7 +1074,7 @@ $('xForm').addEventListener('submit', async e=>{
       if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', softKind(s.error_kind)); }
       if(s.state==='done'){
         const res=s.result; showTopic(res);
-        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
