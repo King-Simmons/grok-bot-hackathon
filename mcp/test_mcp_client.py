@@ -6,6 +6,7 @@ from mcp import Client
 from mcp.client.stdio import StdioServerParameters
 
 URL = sys.argv[1] if len(sys.argv) > 1 else "https://docs.x.ai"
+TOPIC = os.environ.get("LOFI_TEST_TOPIC", "SpaceX")
 
 
 def show(res):
@@ -23,6 +24,12 @@ async def run(target):
         print(f"get_mood_analysis {time.time()-t:.2f}s:", json.dumps({k: m[k] for k in ("sentiment", "musical_attributes")}))
         t = time.time(); r = show(await c.call_tool("synthesize_url", {"url": URL}))
         print(f"synthesize_url {time.time()-t:.2f}s:", r["track_url"], os.path.exists(r["track_path"]), sorted(r.keys()))
+        if "synthesize_topic" not in [t.name for t in tools.tools]:
+            raise SystemExit("synthesize_topic missing from MCP tool list")
+        t = time.time(); r = show(await c.call_tool("synthesize_topic", {"topic": TOPIC}))
+        a = r["musical_attributes"]
+        print(f"synthesize_topic(cache) {time.time()-t:.2f}s: {r['topic']} {a['bpm']} BPM {a['key']} {a['mood_tags']} "
+              f"{r['note']} -> {r['track_url']} exists={os.path.exists(r['track_path'])}")
 
 
 if __name__ == "__main__":

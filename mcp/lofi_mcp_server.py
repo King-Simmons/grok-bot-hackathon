@@ -3,6 +3,8 @@
 Tools:
   synthesize_url(url, force=False, agent_id="") -> PRD mood JSON + track file path/URL
   get_mood_analysis(url, agent_id="")           -> PRD mood JSON only (no audio)
+  synthesize_topic(topic, posts=None, force=False, agent_id="")
+                                                -> lofi from recent public X posts (live API, then x_topics.json)
   report_status(...)                            -> register or update one agent on the dashboard
   list_agents()                                 -> agents currently on disk, with online/offline
   get_usage()                                   -> local usage totals (no network)
@@ -15,6 +17,7 @@ agent_id, when passed, is who the usage log credits. Omit it and the credit is "
 The live-agent tools are the marked section at the bottom of this file.
 """
 import argparse, os, sys, time
+from typing import Optional
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if sys.path and os.path.abspath(sys.path[0]) == os.path.dirname(os.path.abspath(__file__)):
@@ -24,6 +27,7 @@ sys.path.insert(0, ROOT)
 import anyio  # noqa: E402
 from mcp.server.mcpserver import MCPServer  # noqa: E402
 from engine import agents, pipeline, usage  # noqa: E402
+from engine.ingest import IngestError  # noqa: E402
 
 BASE = os.environ.get("LOFI_PUBLIC_BASE", "http://127.0.0.1:53343").rstrip("/")
 
@@ -32,9 +36,9 @@ def _who(agent_id):
     return usage.caller({"agent_id": agent_id or ""})
 
 
-def _note(who, tool, started, *, ok, error="", audio_s=0.0, tracks=0):
+def _note(who, tool, started, *, ok, error="", audio_s=0.0, tracks=0, x_reads=0):
     usage.record(who, tool, ok, time.perf_counter() - started, audio_s=audio_s, tracks=tracks,
-                 error=(error or "")[:200])
+                 x_reads=x_reads, error=(error or "")[:200])
 
 server = MCPServer(
     name="url-to-lofi",
@@ -75,6 +79,36 @@ async def get_mood_analysis(url: str, agent_id: str = "") -> dict:
         raise
     _note(who, "get_mood", started, ok=True)
     return mood
+
+
+# --- Learn a topic, via X ------------------------------------------------------
+# synthesize_topic. Kept apart from the URL tools and the live-agent tools.
+
+@server.tool(description="Make an original ~44 s lofi track whose mood comes from what people on X are saying about a "
+                         "topic. Best use: search X yourself and pass up to ~25 plain post texts as posts. If posts is "
+                         "omitted the engine tries the official X API (X_BEARER_TOKEN) and then its local x_topics.json "
+                         "cache. Returns the PRD mood JSON plus what_people_are_saying, post_count, post_source, "
+                         "x_search_url, track_path and track_url. agent_id credits the usage log.")
+async def synthesize_topic(topic: str, posts: Optional[list[str]] = None, force: bool = False, agent_id: str = "") -> dict:
+    from mcp.server.mcpserver.exceptions import ToolError
+    who, started = _who(agent_id), time.perf_counter()
+    try:
+        r = await anyio.to_thread.run_sync(lambda: pipeline.synthesize_topic(topic, posts=posts, force=force))
+    except Exception as e:
+        _note(who, "synthesize_topic", started, ok=False, error=str(e))
+        if isinstance(e, (pipeline.TopicNotFound, IngestError)):
+            raise ToolError(str(e))
+        raise
+    timing = r.get("timing") or {}
+    audio = float((r.get("track") or {}).get("duration_s") or 0)
+    cached = bool(timing.get("track_cached"))
+    reads = int((r.get("topic") or {}).get("x_reads") or 0)
+    _note(who, "synthesize_topic", started, ok=True, audio_s=audio, tracks=0 if cached or not audio else 1, x_reads=reads)
+    t = r["topic"]
+    return dict(r["mood"], what_people_are_saying=r["mood"]["page_summary"], topic=t["topic"],
+                post_count=t["post_count"], post_source=t["source"], x_search_url=t["x_search_url"], note=t["note"],
+                track_path=r["track"]["path"], track_file=r["track"]["file"],
+                track_url=BASE + r["track"]["url"], timing=r["timing"])
 
 
 # --- Live agents + usage -------------------------------------------------------

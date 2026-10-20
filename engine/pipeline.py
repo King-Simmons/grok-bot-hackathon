@@ -116,3 +116,235 @@ def synthesize(url, force=False, progress=None, report_status=True):
         if report_status:
             _status(state="error", task=f"Failed on {url[:80]}", error=str(e)[:200], no_progress=True)
         raise
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Text / topic -> lofi  ("Learn a topic, via X, to lofi")
+# ---------------------------------------------------------------------------------------------------------------
+TOPICS_FILE = os.path.join(ROOT, "x_topics.json")
+X_RECENT_SEARCH = "https://api.twitter.com/2/tweets/search/recent"
+MAX_POSTS = 25
+
+
+class TopicNotFound(Exception):
+    """No posts for this topic: not passed in, no X_BEARER_TOKEN, and not in x_topics.json."""
+
+
+def clean_post(t):
+    """Plain post text for mood analysis: drop links, @handles, RT prefixes and extra whitespace."""
+    import unicodedata, html as _html
+    t = unicodedata.normalize("NFKC", _html.unescape(str(t or "")))
+    t = re.sub(r"https?://\S+", "", t)
+    t = re.sub(r"^RT\s+@\w+:\s*", "", t)
+    t = re.sub(r"(?<!\w)@\w{1,15}", "", t)
+    t = re.sub(r"#(\w+)", r"\1", t)
+    t = re.sub(r"(?<!\.)\.\s+\.(?!\.)", ".", t)
+    return re.sub(r"\s+", " ", t).strip(" -–—:")
+
+
+def posts_to_text(posts):
+    """One post per line, each ending in punctuation so mood.summarize/_sentences treat them as sentences."""
+    out, seen = [], set()
+    for p in posts:
+        c = clean_post(p)
+        if len(c.split()) < 3 or c.lower() in seen:
+            continue
+        seen.add(c.lower())
+        out.append(c if c.endswith((".", "!", "?", "…")) else c + ".")
+    return out
+
+
+def x_search_url(topic):
+    import urllib.parse
+    return "https://x.com/search?q=" + urllib.parse.quote(topic) + "&f=live"
+
+
+def _topic_key(s):
+    return re.sub(r"[^a-z0-9]+", " ", str(s).lower().lstrip("#")).strip()
+
+
+def load_topics():
+    try:
+        with open(TOPICS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"topics": [], "trends": {}}
+
+
+def cached_topic(topic):
+    k = _topic_key(topic)
+    data = load_topics()
+    for t in data.get("topics", []):
+        names = [t.get("topic", "")] + list(t.get("aliases", []))
+        if any(_topic_key(n) == k for n in names):
+            return t
+    return None
+
+
+def live_x_posts(topic, token=None, max_results=MAX_POSTS):
+    """Official X API v2 recent search (last 7 days). Needs X_BEARER_TOKEN. Returns list of post texts."""
+    import urllib.parse, urllib.request, urllib.error
+    from engine.ingest import _SSL_CTX
+    token = token or os.environ.get("X_BEARER_TOKEN")
+    if not token:
+        return None
+    q = f"{topic} -is:retweet lang:en"
+    url = X_RECENT_SEARCH + "?" + urllib.parse.urlencode({
+        "query": q,
+        "max_results": max(10, min(100, max_results)),
+        "tweet.fields": "created_at,public_metrics",
+    })
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}", "User-Agent": "LofiNewsRadio/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=12, context=_SSL_CTX) as r:
+            data = json.load(r)
+    except urllib.error.HTTPError as e:
+        raise IngestError(f"X API search failed (HTTP {e.code}); check X_BEARER_TOKEN and your X API plan")
+    except Exception as e:
+        raise IngestError(f"X API search failed: {e}")
+    return [p.get("text", "") for p in data.get("data", [])]
+
+
+def synthesize_text(title, text, source_url, kind="text", force=False, progress=None, report_status=True,
+                    extra=None, label=None, notes=None):
+    """Mood + render from arbitrary text (no fetching). Cache name tracks/<kind-prefix>-<slug>-<hash>.mp3."""
+    def step(stage, pct, task):
+        if progress: progress(stage, pct)
+        if report_status: _status(state="running", task=task, progress=pct, no_error=True, no_artifact=True)
+
+    t0 = time.time()
+    prefix = "x" if kind.startswith("x") else re.sub(r"[^a-z0-9]+", "", kind.lower())[:8] or "text"
+    try:
+        if not str(text or "").strip():
+            raise IngestError("no text to analyze")
+        step("analyzing", 30, f"Reading the mood of {title[:60]}")
+        mood, debug = analyze(source_url, title, text)
+        t1 = time.time()
+        attrs = mood["musical_attributes"]
+        step("analyzing", 40, f"Mood: {', '.join(attrs['mood_tags'][:2])} · {attrs['bpm']} BPM {attrs['key']}")
+        h = hashlib.sha1((kind + "|" + title + "|" + text + json.dumps(attrs, sort_keys=True)).encode()).hexdigest()[:8]
+        name = f"{prefix}-{slugify(title, 28)}-{h}"
+        rel_mp3 = os.path.join("tracks", name + ".mp3")
+        mp3 = os.path.join(ROOT, rel_mp3)
+        cached = os.path.exists(mp3) and os.path.exists(mp3[:-4] + ".json") and not force
+        if cached:
+            with open(mp3[:-4] + ".json") as f:
+                side = json.load(f)
+            render = side.get("render", {})
+        else:
+            step("rendering", 55, f"Rendering {attrs['bpm']} BPM {attrs['key']} lofi for {title[:50]}")
+            from engine.synth import render as synth_render
+            with RENDER_LOCK:
+                render = synth_render(attrs, seed=int(h, 16) % 100000, out_mp3=mp3, mood_hint=mood["sentiment"].split(" ")[0])
+            side = {"title": f"X Lofi: {title[:80]}" if prefix == "x" else f"Text Lofi: {title[:80]}",
+                    "label": label or (f"X · {title[:18]}" if prefix == "x" else f"{prefix} · {title[:16]}"),
+                    "bpm": attrs["bpm"], "key": attrs["key"], "duration_s": render["duration_s"],
+                    "notes": notes or "Original lofi generated from the mood of a piece of text (deterministic, no samples).",
+                    "source_url": source_url, "kind": kind, "mood_tags": attrs["mood_tags"],
+                    "instruments": attrs["primary_instruments"],
+                    "created": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "mood": mood, "render": render}
+            if extra: side.update(extra)
+            tmp = mp3[:-4] + ".json.part"
+            with open(tmp, "w") as f: json.dump(side, f, indent=2, ensure_ascii=False)
+            os.replace(tmp, mp3[:-4] + ".json")
+        if progress: progress("finishing", 95)
+        total = round(time.time() - t0, 2)
+        timing = {"ingest_s": 0.0, "mood_s": round(t1 - t0, 2), "render_s": render.get("render_s"),
+                  "encode_s": render.get("encode_s"), "total_s": total, "track_cached": cached}
+        if report_status:
+            _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {title[:60]} ({total}s)",
+                    progress=100, artifact=rel_mp3)
+        else:
+            subprocess.run(["python3", os.path.join(ROOT, "dashboard", "botstatus.py"), "refresh"],
+                           cwd=ROOT, capture_output=True, timeout=10)
+        page = {"title": title, "url": source_url, "requested_url": source_url, "words": len(text.split()),
+                "method": kind, "truncated": False}
+        return {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
+                                        "duration_s": render.get("duration_s")},
+                "page": page, "analysis": debug, "timing": timing}
+    except Exception as e:
+        if report_status:
+            _status(state="error", task=f"Failed on {title[:80]}", error=str(e)[:200], no_progress=True)
+        raise
+
+
+def resolve_topic_posts(topic, posts=None):
+    """-> (posts, source, meta). Order: passed-in posts, live X API (X_BEARER_TOKEN), x_topics.json."""
+    topic = str(topic or "").strip()
+    if not topic:
+        raise IngestError("missing topic")
+    if posts:
+        return [str(p) for p in posts][:100], "provided", {}
+    live_err = None
+    if os.environ.get("X_BEARER_TOKEN"):
+        try:
+            live = live_x_posts(topic)
+            if live:
+                return live, "x-api-live", {
+                    "fetched_at": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "x_reads": len(live),
+                }
+        except IngestError as e:
+            live_err = e
+    c = cached_topic(topic)
+    if c and c.get("posts"):
+        return c["posts"], "x_topics.json", {k: c.get(k) for k in ("fetched_at", "headline", "x_search_url", "topic") if c.get(k)}
+    if live_err:
+        raise live_err
+    raise TopicNotFound(
+        f"No posts for \"{topic}\" yet: live X search needs X_BEARER_TOKEN, or ask your Grok Bot to "
+        f"fetch it (search X for the topic and call synthesize_topic with the post texts, or refresh "
+        f"x_topics.json with engine/x_topics_snapshot.py).")
+
+
+def synthesize_topic(topic, posts=None, force=False, progress=None, report_status=True):
+    """Topic -> recent public X posts -> mood -> original lofi track."""
+    if progress: progress("searching", 10)
+    raw, source, meta = resolve_topic_posts(topic, posts)
+    lines = posts_to_text(raw)
+    if len(lines) < 2:
+        raise IngestError(f"found only {len(lines)} usable post(s) about \"{topic}\"; need at least 2")
+    name = meta.get("topic") or str(topic).strip()
+    text = "\n".join(lines)
+    surl = meta.get("x_search_url") or x_search_url(name)
+    r = synthesize_text(name, text, surl, kind="x-topic", force=force, progress=progress, report_status=report_status,
+                        extra={"topic": name, "post_source": source, "post_count": len(lines),
+                               "posts_fetched_at": meta.get("fetched_at")},
+                        notes=f"Original lofi whose mood comes from {len(lines)} recent public X posts about {name} "
+                              f"(deterministic, no samples).")
+    r["mood"]["page_summary"] = summarize_posts(lines) or r["mood"]["page_summary"]
+    r["topic"] = {"topic": name, "post_count": len(lines), "source": source, "fetched_at": meta.get("fetched_at"),
+                  "headline": meta.get("headline"), "x_search_url": surl, "x_reads": int(meta.get("x_reads") or 0),
+                  "note": f"mood from {len(lines)} posts on X about {name}"}
+    return r
+
+
+def _sayable(line):
+    """A post reads like a sentence: mostly letters, few emoji/symbols, not a list/stat dump or promo."""
+    words = line.split()
+    if len(words) < 7: return False
+    letters = sum(c.isalpha() or c in " ,.'’!?-" for c in line)
+    if letters / max(1, len(line)) < 0.86: return False
+    if line.count(":") > 2 or line.count("|") or line.count("•") > 1 or line.count("·") > 1 or line.count("/") > 2 or line.count(" - ") > 1: return False
+    if re.search(r"\b(subscribe|register|follow us|link in bio|show more|discount|promo code|\d+% off)\b", line, re.I): return False
+    return True
+
+
+def summarize_posts(lines, max_chars=300, n=3):
+    """'What people are saying': the first sentence of up to n different readable posts."""
+    from engine.mood import _sentences, summarize
+    picked = []
+    for line in lines:
+        if not _sayable(line): continue
+        sents = _sentences(line) or [line]
+        s1, k = sents[0], 1
+        while k < len(sents) and (len(s1.split()) < 6 or re.search(r"\b(No|Dr|Mr|Mrs|Ms|St|vs|Jr|Sr|U\.S)\.$", s1)):
+            s1 += " " + sents[k]; k += 1
+        if len(s1) > 140: s1 = s1[:140].rsplit(" ", 1)[0].rstrip(",;:-") + "…"
+        if not s1.endswith((".", "!", "?", "…")): s1 += "."
+        picked.append(s1)
+        if len(picked) >= n or len(" ".join(picked)) >= max_chars: break
+    if not picked:
+        return summarize("\n".join(lines), max_chars=max_chars, n=n)
+    return " ".join(picked)
