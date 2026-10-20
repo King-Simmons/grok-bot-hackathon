@@ -9,8 +9,9 @@
   POST /api/synthesize {"url": ...}      -> {"mood": {...PRD...}, "track_url": "/tracks/....mp3", ...}
        add "async": true                 -> {"job_id": ...}; poll GET /api/jobs/<id>
        add "force": true                 -> re-render even if this exact track exists
-  POST /api/synthesize_topic {"topic": "AI agents"} or {"trend": "..."} or {"posts": [...]}
-       unknown topic -> 404 {"error_kind": "topic_not_found"}
+  POST /api/synthesize_topic {"topic": "AI agents", "source": "web"|"x"}
+       source defaults to web (engine/topic_web.py). "x" keeps the X-posts path.
+       empty topic -> 400 {"error_kind": "empty_topic"}; unknown -> 404 {"error_kind": "topic_not_found"}
        optional "agent_id" (or header X-Agent-Id) is who the usage log credits
 Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
 The process serves the repo root. Open /dashboard/ for the control room. API routes are /api/*.
@@ -204,6 +205,8 @@ def topics_catalog():
         "updated": data.get("updated"),
         "about": data.get("about"),
         "live_search": bool(os.environ.get("X_BEARER_TOKEN")),
+        "default_source": "web",
+        "sources": ["web", "x"],
     }
 
 
@@ -220,16 +223,18 @@ def note_topic(agent, started, result=None, error=""):
                  audio_s=audio, tracks=made, x_reads=reads, error=error)
 
 
-def _run_topic_job(jid, topic, posts, force, agent):
+def _run_topic_job(jid, topic, posts, force, agent, source="web"):
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog)
+        r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog, source=source)
         with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_topic(agent, started, r)
     except Exception as e:
-        kind = "topic_not_found" if isinstance(e, pipeline.TopicNotFound) else None
+        kind = getattr(e, "error_kind", None)
+        if kind is None and isinstance(e, pipeline.TopicNotFound):
+            kind = "topic_not_found"
         with JOBS_LOCK: JOBS[jid].update(state="error", stage="error", error=str(e), error_kind=kind)
         note_topic(agent, started, error=str(e))
 
@@ -243,14 +248,26 @@ def route_topics_get(handler, path):
 
 
 def _topic_request(body):
-    topic = str(body.get("topic") or body.get("trend") or "").strip()[:120]
+    """-> (topic, posts, source, err). source is web (default) or x. posts apply only to x."""
+    from engine.topic_web import BadSource, EmptyTopic, normalize_source, normalize_topic
+    try:
+        source = normalize_source(body.get("source", "web"))
+    except BadSource as e:
+        return None, None, "web", str(e)
     posts = body.get("posts")
     if posts is not None and (not isinstance(posts, list) or not all(isinstance(p, str) for p in posts)):
-        return None, None, "posts must be a list of strings"
-    if not topic and not posts:
-        return None, None, "missing topic"
+        return None, None, source, "posts must be a list of strings"
+    topic = str(body.get("topic") or body.get("trend") or "").strip()[:120]
+    if source == "x" and posts and not topic:
+        return "custom posts", [p[:1000] for p in posts[:100]], source, None
+    try:
+        topic = normalize_topic(topic)
+    except EmptyTopic as e:
+        return None, None, source, str(e)
+    if source != "x":
+        posts = None
     cleaned = [p[:1000] for p in (posts or [])[:100]] or None
-    return topic or "custom posts", cleaned, None
+    return topic, cleaned, source, None
 
 
 def route_synthesize_topic_post(handler, path):
@@ -260,23 +277,34 @@ def route_synthesize_topic_post(handler, path):
     body, failed = read_json_object(handler, 400000)
     if failed:
         return True
-    topic, posts, err = _topic_request(body)
+    topic, posts, source, err = _topic_request(body)
     who = usage.caller(body, handler.headers)
     if err:
         usage.record(who, "synthesize_topic", False, 0, error=err)
-        handler._json(400, {"error": err})
+        kind = "empty_topic" if err.startswith("Please enter a topic") else (
+            "bad_source" if err.startswith("Source must") else None)
+        payload = {"error": err}
+        if kind:
+            payload["error_kind"] = kind
+        handler._json(400, payload)
         return True
     force = bool(body.get("force"))
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
         with JOBS_LOCK:
-            JOBS[jid] = {"id": jid, "url": topic, "state": "running", "stage": "queued", "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who), daemon=True).start()
+            JOBS[jid] = {"id": jid, "url": topic, "source": source, "state": "running", "stage": "queued",
+                         "progress": 0, "started": time.time()}
+        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who, source), daemon=True).start()
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
         return True
     started = time.perf_counter()
+    from engine.topic_web import BadSource, EmptyTopic
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force)
+        r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source)
+    except (EmptyTopic, BadSource) as e:
+        note_topic(who, started, error=str(e))
+        handler._json(e.http_status, {"error": str(e), "error_kind": e.error_kind})
+        return True
     except pipeline.TopicNotFound as e:
         note_topic(who, started, error=str(e))
         handler._json(404, {"error": str(e), "error_kind": "topic_not_found"})

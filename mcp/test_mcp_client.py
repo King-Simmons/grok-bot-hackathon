@@ -28,7 +28,7 @@ async def run(target):
             raise SystemExit("synthesize_topic missing from MCP tool list")
         t = time.time(); r = show(await c.call_tool("synthesize_topic", {"topic": TOPIC}))
         a = r["musical_attributes"]
-        print(f"synthesize_topic(cache) {time.time()-t:.2f}s: {r['topic']} {a['bpm']} BPM {a['key']} {a['mood_tags']} "
+        print(f"synthesize_topic(web) {time.time()-t:.2f}s: {r['topic']} {a['bpm']} BPM {a['key']} {a['mood_tags']} "
               f"{r['note']} -> {r['track_url']} exists={os.path.exists(r['track_path'])}")
 
 
