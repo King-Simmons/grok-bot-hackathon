@@ -351,6 +351,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         if self.path.startswith("/api/") or self.path.endswith(".json"):
             self.send_header("Cache-Control", "no-store")
+        else:
+            self.send_header("Accept-Ranges", "bytes")
         super().end_headers()
 
     def _json(self, code, obj):
@@ -375,7 +377,48 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200 if j else 404, j or {"error": "no such job"})
         if u.path.startswith("/api/"):
             return self._json(404, {"error": "unknown endpoint"})
+        if self.headers.get("Range"):
+            return self._byte_range()
         return super().do_GET()
+
+    def _byte_range(self):
+        """One byte range for a static file: 206, 416, or the normal handler."""
+        path = self.translate_path(self.path)
+        if not os.path.isfile(path):
+            return super().do_GET()
+        size = os.path.getsize(path)
+        start = end = None
+        spec = (self.headers.get("Range") or "").strip()
+        try:
+            if spec.lower().startswith("bytes=") and "," not in spec:
+                lo, sep, hi = spec[6:].strip().partition("-")
+                if sep and size:
+                    if lo == "":
+                        n = int(hi)
+                        if n > 0:
+                            start, end = max(0, size - n), size - 1
+                    else:
+                        start, end = int(lo), (int(hi) if hi else size - 1)
+                        end = min(end, size - 1)
+                        if start < 0 or start >= size or start > end:
+                            start = end = None
+        except ValueError:
+            start = end = None
+        if start is None:
+            self.send_response(416)
+            self.send_header("Content-Range", "bytes */%d" % size)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        with open(path, "rb") as f:
+            f.seek(start)
+            data = f.read(end - start + 1)
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(path))
+        self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_POST(self):
         u = urllib.parse.urlparse(self.path)
