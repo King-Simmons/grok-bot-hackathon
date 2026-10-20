@@ -212,7 +212,7 @@ Example: `status/king-zlatan.json`. Prefix the id with the owner. After it lands
 python3 dashboard/botstatus.py refresh
 ```
 
-That rebuilds `status/index.json`. With `./run.sh` running, the control room reads `GET /api/agents` every 3 seconds instead, and a running or idle agent with no update for 120 seconds shows as offline. Do not hand-edit `status/index.json`.
+That rebuilds `status/index.json`. With `./run.sh` running, the control room reads `GET /api/agents` every 3 seconds instead, and a running or idle agent with no update for 30 minutes shows as offline. `LOFI_AGENT_STALE_S` overrides that window (default 1800). Do not hand-edit `status/index.json`.
 
 `docs/examples/bots.json` is an old sample roster. It is not wired to the page.
 
