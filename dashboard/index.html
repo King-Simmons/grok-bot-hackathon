@@ -126,24 +126,23 @@
   .mixer{padding:12px 18px 14px; background:linear-gradient(180deg,#3a2a2acc,#2a1f24cc); position:relative}
   .mixer::before{content:""; position:absolute; inset:6px; border-radius:12px; border:1px solid #ffffff08; pointer-events:none}
   .mixer .head{margin-bottom:8px}
-  .knobs{display:grid; grid-template-columns:repeat(6,1fr); gap:6px}
-  .knob{display:flex; flex-direction:column; align-items:center; gap:4px; user-select:none; touch-action:none}
-  .knob .dial{position:relative; width:74px; height:74px; cursor:ns-resize; outline:none; border-radius:50%}
-  .knob .dial:focus-visible{box-shadow:0 0 0 2px var(--amber)}
-  .knob svg{position:absolute; inset:0; overflow:visible}
-  .knob .track{fill:none; stroke:#1a1216; stroke-width:6; stroke-linecap:round}
-  .knob .lvl{fill:none; stroke:var(--amber); stroke-width:6; stroke-linecap:round; filter:drop-shadow(0 0 5px #ffb86bcc)}
-  .knob .cap{position:absolute; inset:13px; border-radius:50%;
-    background: radial-gradient(circle at 35% 30%, #8a6a52 0%, #5a4033 45%, #2e211c 100%);
-    box-shadow: 0 6px 10px #0009, inset 0 2px 2px #ffffff30, inset 0 -3px 5px #0007;}
-  .knob .cap::after{content:""; position:absolute; inset:7px; border-radius:50%;
-    background: repeating-conic-gradient(#ffffff0a 0 4deg, #0000 4deg 12deg), radial-gradient(circle at 40% 35%, #6e523f, #3b2a22)}
-  .knob .ptr{position:absolute; left:50%; top:4px; width:4px; height:14px; margin-left:-2px; border-radius:2px;
-    background:var(--ink); box-shadow:0 0 6px #ffe6b0; z-index:2}
-  .knob .rot{position:absolute; inset:0; z-index:2}
-  .knob .val{font:700 12px var(--mono); color:var(--amber); min-height:14px}
-  .knob .lbl{font-size:11px; color:var(--muted); text-align:center; line-height:1.15}
-  .knob .lbl small{display:block; font-size:9px; color:#8f7d6e; letter-spacing:.05em; text-transform:uppercase}
+  .sliders{display:grid; grid-template-columns:1fr 1fr; gap:10px 22px}
+  .sl{display:grid; grid-template-columns:96px 1fr 62px; align-items:center; gap:10px}
+  .sl .lbl{font-size:12px; color:var(--ink); line-height:1.1}
+  .sl .lbl small{display:block; font-size:9px; color:#8f7d6e; letter-spacing:.05em; text-transform:uppercase}
+  .sl .val{font:700 12px var(--mono); color:var(--amber); text-align:right; white-space:nowrap}
+  .sl input[type=range]{--f:50%; -webkit-appearance:none; appearance:none; width:100%; height:24px; margin:0; background:transparent; cursor:pointer}
+  .sl input[type=range]:focus{outline:none}
+  .sl input[type=range]::-webkit-slider-runnable-track{height:8px; border-radius:6px; border:1px solid #ffffff10;
+    background:linear-gradient(90deg,var(--amber) 0 var(--f),#1a1216 var(--f) 100%); box-shadow:inset 0 1px 2px #0008}
+  .sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:18px; height:18px; margin-top:-6px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffe6b0,var(--amber) 55%,#b9782f); border:2px solid #2a1f24; box-shadow:0 0 8px #ffb86b99, 0 2px 4px #0009; transition:transform .1s}
+  .sl input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.12)}
+  .sl input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px #ffb86b66, 0 0 8px #ffb86b99}
+  .sl input[type=range]::-moz-range-track{height:8px; border-radius:6px; background:#1a1216; border:1px solid #ffffff10}
+  .sl input[type=range]::-moz-range-progress{height:8px; border-radius:6px; background:var(--amber)}
+  .sl input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#ffe6b0,var(--amber) 55%,#b9782f);
+    border:2px solid #2a1f24; box-shadow:0 0 8px #ffb86b99}
   .toggle{display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:1px solid var(--line); background:#1f171d;
     color:var(--muted); font:700 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; padding:6px 12px; border-radius:999px}
   .toggle i{width:9px; height:9px; border-radius:50%; background:#4a3a4a}
@@ -158,7 +157,7 @@
   .inbox .pbar{height:8px; border-radius:6px; background:#3a2c3c; overflow:hidden; margin-top:8px}
   .inbox .pbar>div{height:100%; background:linear-gradient(90deg,var(--sage),var(--amber)); width:0; transition:width .6s}
   .inbox .meta{color:var(--muted); font-size:11px; margin-top:6px}
-  @media (max-width: 980px){ .knobs{grid-template-columns:repeat(3,1fr)} }
+  @media (max-width: 640px){ .sliders{grid-template-columns:1fr} }
 
   /* Control room (status protocol) */
   .tag.live{background:#9fd3a822; color:var(--sage); border:1px solid var(--sage)}
@@ -176,6 +175,7 @@
   .tracks{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
   .trk{cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--muted); font:600 11px var(--mono);
     padding:5px 9px; border-radius:999px}
+  .tracks{max-height:56px; overflow:auto}
   .trk[aria-pressed="true"]{color:#1a1420; background:var(--amber); border-color:var(--amber)}
 
   /* Radio tuner: 88.1 LOFI / 101.5 NEWS TALK */
@@ -223,6 +223,28 @@
   .track .inner span.live{color:var(--amber); text-shadow:0 0 10px #ffb86b88}
   .track .inner span.live::before{content:"▶"; color:var(--red)}
 
+  /* URL -> Lofi */
+  html{background:#120d16}
+  .grid{min-height:auto} .left .scene{flex:1 1 300px; min-height:240px; max-height:360px}
+  .u2l{padding:12px 18px}
+  .u2l .res{display:grid; grid-template-columns:auto 1fr; gap:2px 14px; align-items:start}
+  .u2l .res .chips{grid-row:1 / 4; max-width:220px}
+  .u2l form{display:flex; gap:8px}
+  .u2l input{flex:1; min-width:0; background:#1f171d; border:1px solid var(--line); color:var(--ink); border-radius:10px;
+    padding:9px 11px; font:13px var(--mono); outline:none}
+  .u2l input:focus{border-color:var(--amber)}
+  .u2l button{background:var(--amber); color:#1a1420; border:none; border-radius:10px; padding:0 14px; font:800 12px var(--mono);
+    letter-spacing:.06em; cursor:pointer; white-space:nowrap}
+  .u2l button:disabled{background:#4a3a4a; color:#8a7a70; cursor:wait}
+  .u2l .pbar{height:5px; border-radius:4px; background:#3a2c3c; overflow:hidden; margin-top:8px}
+  .u2l .pbar>div{height:100%; width:0; background:linear-gradient(90deg,var(--rose),var(--amber)); transition:width .4s}
+  .u2l .stage{font:11px var(--mono); color:var(--muted); margin-top:5px; min-height:13px}
+  .u2l .res{margin-top:6px; font-size:12px; color:var(--muted); line-height:1.4}
+  .u2l .chips{display:flex; flex-wrap:wrap; gap:5px; margin:4px 0}
+  .u2l .chip{font:700 10px var(--mono); letter-spacing:.05em; padding:3px 7px; border-radius:999px; background:#9fd3a81a; color:var(--sage); border:1px solid #9fd3a855}
+  .u2l .chip.k{background:#ffb86b1a; color:var(--amber); border-color:#ffb86b55}
+  .u2l .sum{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
+  .u2l a{color:var(--amber); text-decoration:none; word-break:break-all}
 </style>
 </head>
 <body>
@@ -365,13 +387,22 @@
         </g>
       </svg>
     </section>
+    <section class="card u2l" id="u2l">
+      <div class="head" style="margin-bottom:8px"><h2>Paste a link → lofi</h2><span class="tag live">URL engine</span></div>
+      <form id="u2lForm"><input id="u2lUrl" type="url" placeholder="https://… any public page" required aria-label="Page URL">
+        <button id="u2lBtn" type="submit">MAKE IT LOFI</button></form>
+      <div class="pbar"><div id="u2lBar"></div></div>
+      <div class="stage" id="u2lStage">Reads the page, picks a mood, renders an original ~44 s track.</div>
+      <div class="res" id="u2lRes" hidden></div>
+    </section>
+
     <section class="card mixer" aria-label="Mixer">
       <div class="head">
         <h2>Mixer</h2>
-        <span class="mixnote" id="mixNote">Drag up/down or scroll · double-click to reset · saved on this device</span>
+        <span class="mixnote" id="mixNote">Click or drag · double-click to reset · saved on this device</span>
         <button class="toggle" id="ambBtn" aria-pressed="false"><i></i>Ambience off</button>
       </div>
-      <div class="knobs" id="knobs"></div>
+      <div class="sliders" id="sliders"></div>
     </section>
   </div>
 
@@ -569,7 +600,7 @@ async function loadEpisode(){
   const list=[];
   if(ep && ep.example===false && ep.file) list.push({file:ep.file, title:`Episode: ${ep.title||ep.file}`, bpm:ep.bpm, key:ep.key, episode:true});
   TRACKS.forEach(t=>{ if(!list.some(x=>x.file===t.file)) list.push(t); });
-  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.file.replace(/\.mp3$/,''))}</button>`).join('');
+  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.label||t.file.replace(/\.mp3$/,''))}</button>`).join('');
   document.querySelectorAll('.trk').forEach(b=>b.onclick=()=>{ const t=list.find(x=>x.file===b.dataset.file); selectTrack(t.file,t,false); });
   if(curFile && list.some(t=>t.file===curFile)){ document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', b.dataset.file===curFile)); return; }
   let saved=null; try{ saved=localStorage.getItem('lofiDash.track'); }catch(e){}
@@ -579,6 +610,49 @@ async function loadEpisode(){
   $('epMeta').textContent='No track yet. The bots haven\'t made one.'; $('times').textContent='—';
 }
 wirePlayer();
+
+/* ---------- URL -> Lofi (engine/server.py API) ---------- */
+const STAGES={queued:'Queued…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
+function showU2L(r){
+  const m=r.mood, a=m.musical_attributes, t=r.timing||{};
+  $('u2lRes').hidden=false;
+  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${a.mood_tags.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+    <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
+    <div>${esc(m.sentiment)} · ${esc(a.primary_instruments.join(', '))}</div>
+    <div>source: <a href="${esc(safeHref(m.url))}" target="_blank" rel="noopener">${esc(m.url)}</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
+}
+$('u2lForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const url=$('u2lUrl').value.trim(); if(!url) return;
+  const btn=$('u2lBtn'); btn.disabled=true; btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
+  $('u2lStage').textContent='Starting…'; ensureAudio();
+  const fail=msg=>{ $('u2lStage').innerHTML=`<span class="err">⚠ ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='MAKE IT LOFI'; loadBots(); };
+  try{
+    const r=await fetch('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,async:true})});
+    const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`);
+    loadBots();
+    while(true){
+      await new Promise(ok=>setTimeout(ok,400));
+      const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
+      $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
+      if(s.state==='error') return fail(s.error||'failed');
+      if(s.state==='done'){
+        const res=s.result; showU2L(res);
+        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        await loadEpisode();
+        const play=res.track.url||res.track.file;
+        const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
+        selectTrack(play,t,false);
+        try{ await $('audio').play(); $('playBtn').textContent='❚❚'; $('np').classList.add('playing'); }catch(err){ $('u2lStage').textContent+=' (press ▶ to play)'; }
+        break;
+      }
+    }
+    loadBots();
+  }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
+  btn.disabled=false; btn.textContent='MAKE IT LOFI';
+});
+// ?link=https://... pre-fills (and runs) the box, handy for demos and for sharing a link to a track
+{ const q=new URLSearchParams(location.search).get('link'); if(q){ $('u2lUrl').value=q; setTimeout(()=>$('u2lForm').requestSubmit(),300); } }
 
 loadBots(); loadHeadlines(); loadEpisode();
 setInterval(loadBots, 10000); // status/index.json every 10s
@@ -644,7 +718,7 @@ audioEl.addEventListener('play',()=>{ ensureAudio(); if(hasVoice){ voiceEl.curre
 audioEl.addEventListener('pause',()=>{ if(hasVoice) voiceEl.pause(); });
 audioEl.addEventListener('seeked',()=>{ if(hasVoice) voiceEl.currentTime=audioEl.currentTime; });
 
-/* ---------- Knobs ---------- */
+/* ---------- Mixer sliders ---------- */
 const KNOBS=[
   {id:'music',  label:'Music',   sub:'volume',      min:0,  max:100, def:80, fmt:v=>`${Math.round(v)}%`},
   {id:'voice',  label:'Voice',   sub:'volume · stem', min:0,  max:100, def:85, fmt:v=>`${Math.round(v)}%`},
@@ -657,9 +731,6 @@ const LS='lofiDashMixer.v1';
 const state=Object.assign(Object.fromEntries(KNOBS.map(k=>[k.id,k.def])), JSON.parse(localStorage.getItem(LS)||'{}'));
 function cutoff(v){ return 18000*Math.pow(600/18000, v/100); } // 0% = open (18 kHz) -> 100% = very warm (600 Hz)
 const save=()=>localStorage.setItem(LS,JSON.stringify(state));
-const SWEEP=270, START=-135, R=31, C=37;
-function arc(a0,a1){ const p=a=>{const r=(a-90)*Math.PI/180; return [C+R*Math.cos(r), C+R*Math.sin(r)];};
-  const [x0,y0]=p(a0),[x1,y1]=p(a1); return `M${x0} ${y0} A${R} ${R} 0 ${a1-a0>180?1:0} 1 ${x1} ${y1}`; }
 function applyAll(){
   if(!AE.ctx) return; const t=AE.ctx.currentTime, g=v=>Math.pow(v/100,2);
   AE.music.gain.setTargetAtTime(g(state.music)*MIX.signal*MIX.duck,t,MIX.duck<1?0.18:0.08);
@@ -670,26 +741,20 @@ function applyAll(){
   AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
   AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
 }
-const knobBox=$('knobs');
+const sliderBox=$('sliders');
 KNOBS.forEach(k=>{
-  const w=document.createElement('div'); w.className='knob';
-  w.innerHTML=`<div class="dial" tabindex="0" role="slider" aria-label="${k.label} ${k.sub}" aria-valuemin="${k.min}" aria-valuemax="${k.max}">
-      <svg viewBox="0 0 74 74"><path class="track" d="${arc(START,START+SWEEP)}"/><path class="lvl"/></svg>
-      <div class="cap"></div><div class="rot"><div class="ptr"></div></div></div>
-    <div class="val"></div><div class="lbl">${k.label}<small>${k.sub}</small></div>`;
-  knobBox.appendChild(w);
-  const dial=w.querySelector('.dial'), lvl=w.querySelector('.lvl'), rot=w.querySelector('.rot'), val=w.querySelector('.val');
-  const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min), a=START+f*SWEEP;
-    lvl.setAttribute('d', f>0.002?arc(START,a):''); rot.style.transform=`rotate(${a}deg)`;
-    lvl.style.strokeOpacity = .45+.55*f; val.textContent=k.fmt(state[k.id]); dial.setAttribute('aria-valuenow',Math.round(state[k.id])); };
-  const set=v=>{ v=Math.min(k.max,Math.max(k.min,v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v; render(); save(); applyAll(); };
-  let dragY=null, startV=0;
-  dial.addEventListener('pointerdown',e=>{ dragY=e.clientY; startV=state[k.id]; dial.setPointerCapture(e.pointerId); e.preventDefault(); });
-  dial.addEventListener('pointermove',e=>{ if(dragY===null) return; const range=k.max-k.min; set(startV+(dragY-e.clientY)/(e.shiftKey?600:180)*range); });
-  dial.addEventListener('pointerup',()=>dragY=null); dial.addEventListener('pointercancel',()=>dragY=null);
-  dial.addEventListener('wheel',e=>{ e.preventDefault(); set(state[k.id]+(e.deltaY<0?1:-1)*(k.max-k.min)/50); },{passive:false});
-  dial.addEventListener('keydown',e=>{ const s=(k.max-k.min)/50; if(['ArrowUp','ArrowRight'].includes(e.key)){set(state[k.id]+s);e.preventDefault();} if(['ArrowDown','ArrowLeft'].includes(e.key)){set(state[k.id]-s);e.preventDefault();} });
-  dial.addEventListener('dblclick',()=>set(k.def));
+  const w=document.createElement('div'); w.className='sl';
+  const step=k.step||1;
+  w.innerHTML=`<label class="lbl" for="sl-${k.id}">${k.label}<small>${k.sub}</small></label>
+    <input type="range" id="sl-${k.id}" min="${k.min}" max="${k.max}" step="${step}" aria-label="${k.label} ${k.sub}" title="Double-click to reset to ${k.fmt(k.def)}">
+    <span class="val"></span>`;
+  sliderBox.appendChild(w);
+  const inp=w.querySelector('input'), val=w.querySelector('.val');
+  const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min); inp.value=state[k.id];
+    inp.style.setProperty('--f',(f*100).toFixed(2)+'%'); val.textContent=k.fmt(state[k.id]); inp.setAttribute('aria-valuetext',k.fmt(state[k.id])); };
+  const set=v=>{ v=Math.min(k.max,Math.max(k.min,+v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v; render(); save(); applyAll(); };
+  inp.addEventListener('input',()=>set(inp.value));
+  inp.addEventListener('dblclick',()=>set(k.def));
   render();
 });
 let ambOn=false;

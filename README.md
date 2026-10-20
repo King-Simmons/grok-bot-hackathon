@@ -2,45 +2,58 @@
 
 A Grok Bot hackathon entry for **Track 2: Build for the Bot Economy**.
 
-Lofi News Radio is a control room for a small crew of bots that turn the day's news into a calm, original lofi episode. The page you can run today is the control room: a clock, a CSS rainy-night scene, a player, mixer knobs that synthesize rain and vinyl in the browser, and a bot panel. Next to it, still in progress, is a URL-to-lofi engine: fetch a page, score its mood, and synthesize an original beat.
+Lofi News Radio is a control room for a small crew of bots, plus a URL-to-lofi engine. Paste a public link. The engine reads the page, scores a mood deterministically (no LLM), and renders an original lofi track. Other bots can call the same pipeline through MCP.
 
 ![Lofi News Radio dashboard](docs/dashboard.png)
 
 *Control room, Oct 19, 2026, 6:56 PM CT.*
 
-The team PRD and research notes live in the team's Google Drive folder.
-
-Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen.
+Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-Lofi Synthesizer*. The team PRD and research notes live in the team's Google Drive folder.
 
 ## Repo layout
 
+| path | what |
+|---|---|
+| `dashboard/index.html` | Control room: clock, CSS lofi scene, player, Web Audio mixer sliders, bot panel, paste-a-link box |
+| `dashboard/botstatus.py` | Stdlib status CLI. Writes repo-root `status/` and `dashboard/tracks.json` |
+| `dashboard/status` | Symlink to `../status`, so the page's relative `status/index.json` fetch works |
+| `dashboard/*.json` | Sample headlines, inbox, and episode data |
+| `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API |
+| `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis` |
+| `audio/` | Original beat generator, plot, and vocal lofi chain |
+| `samples/beat-001.mp3` | One original code-synthesized demo beat |
+| `docs/` | Status protocol and the dashboard screenshot |
+| `status/` | One JSON file per bot. `example-zlatan.json` is the sample check-in |
+| `tracks/` | URL-generated mp3s (gitignored) plus a JSON sidecar |
+| `run.sh` | Creates `./.venv` on first run, then serves the repo root |
+
+The page loads `headlines.json`, `inbox.json`, `episode.json`, `tracks.json`, and `status/index.json` relative to `dashboard/index.html`. The engine serves the **repository root**, so the paste-a-link box calls `/api/synthesize` and plays tracks from `/tracks/…`.
+
+## Quick start
+
+Python 3.10+. From the repository root:
+
+```bash
+./run.sh
+./run.sh --mcp
 ```
-dashboard/     Control room (index.html) plus example headlines, inbox, and episode data
-               botstatus.py writes status and the track list
-dashboard/status -> ../status    symlink so the page can read repo-root status files
-engine/        WORK IN PROGRESS URL-to-lofi pipeline (do not treat this as finished)
-audio/         Original beat generator, waveform plot, and vocal lofi chain
-samples/       beat-001.mp3, one original code-synthesized demo (~1 MB)
-docs/          Status protocol and the dashboard screenshot
-status/        One JSON file per bot. example-zlatan.json is the sample check-in
-```
 
-The control room loads data with relative URLs (`headlines.json`, `episode.json`, `inbox.json`, `tracks.json`, `status/index.json`). Those files sit next to `dashboard/index.html`, except bot status, which teammates commit at the repo root under `status/`. `dashboard/status` is a symlink to that directory, so the page works when you serve the **repository root**. The page itself is unchanged.
+The first run creates `./.venv`, installs [requirements.txt](requirements.txt), and exports `SSL_CERT_FILE` from certifi so HTTPS works on python.org macOS Python.
 
-`dashboard/episode.json` points at `../samples/beat-001.mp3`, the demo beat.
+- Control room: <http://127.0.0.1:53343/dashboard/>
+- API: <http://127.0.0.1:53343/api/health>
+- With `--mcp`: streamable HTTP on <http://127.0.0.1:53350/mcp>
 
-## Quickstart
+`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>.
 
-Python 3.9+ (for `zoneinfo`). From the repository root:
+You can also serve the static page alone:
 
 ```bash
 python3 dashboard/botstatus.py refresh
 python3 -m http.server 8000
 ```
 
-Open <http://127.0.0.1:8000/dashboard/>. Do not open the file directly (`file://`); the page fetches JSON.
-
-`refresh` rebuilds `status/index.json` (gitignored) from every `status/*.json` and writes `dashboard/tracks.json` so the player can list `samples/beat-001.mp3`. Headlines, inbox, and the episode file load even before that.
+Open <http://127.0.0.1:8000/dashboard/>. The paste-a-link box needs `./run.sh`, because that is what serves `/api/*`.
 
 ### Bot status
 
@@ -51,29 +64,26 @@ python3 dashboard/botstatus.py set \
 python3 dashboard/botstatus.py list
 ```
 
-Stdlib only. See [docs/STATUS_PROTOCOL.md](docs/STATUS_PROTOCOL.md).
+See [docs/STATUS_PROTOCOL.md](docs/STATUS_PROTOCOL.md).
 
-### Engine (work in progress)
+### HTTP API
 
-`engine/` is the unfinished URL-to-lofi pipeline: ingest a URL, deterministic mood analysis that emits a JSON prompt schema, a parameterized code-synthesized beat, and a local HTTP API. It is committed as-is. It is not done.
-
-From the repo root. The first run creates `./.venv`, installs `requirements.txt`, and points `SSL_CERT_FILE` at certifi's CA bundle so HTTPS works on python.org macOS Python:
-
-```bash
-./run.sh
-./run.sh --port 53343
-./run.sh --mcp
+```
+GET  /api/health
+GET  /api/mood?url=https://example.com
+POST /api/synthesize {"url": "https://example.com"}
+POST /api/synthesize {"url": "https://example.com", "async": true}
 ```
 
-`./run.sh` serves this repo and the API on `http://127.0.0.1:53343/`. `./run.sh --mcp` also starts `mcp/lofi_mcp_server.py` when that file is in the checkout.
+`force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`.
 
-Endpoints:
+### MCP
 
-- `GET /api/health`
-- `GET /api/mood?url=https://example.com`
-- `POST /api/synthesize` with `{"url": "https://example.com"}` (optional `"async": true`, `"force": true`)
+See [mcp/README.md](mcp/README.md). From the repo root, after `./run.sh` has created the venv:
 
-Known gap, left unfinished on purpose: `engine/pipeline.py` still shells out to `botstatus.py` at the repo root. The CLI in this layout is `dashboard/botstatus.py`. Mood and synth code do not depend on that call; status updates from the engine will no-op until that path is wired.
+```bash
+.venv/bin/python mcp/test_mcp_client.py https://example.com
+```
 
 ## Radio stations (Lofi / News Talk)
 
@@ -94,28 +104,19 @@ The host only says what is in `headlines.json`: the title, the source, and, if a
 
 ## Dependencies
 
-The dashboard and `botstatus.py` need only Python 3.9+.
+`./run.sh` installs [requirements.txt](requirements.txt): numpy, scipy, certifi, and optional pyloudnorm, lameenc, trafilatura, and vaderSentiment. `mcp` is required for the MCP server.
 
-Audio and the engine import the packages in [requirements.txt](requirements.txt):
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-```
-
-`certifi` supplies the CA bundle `engine/ingest.py` uses for HTTPS. `ffmpeg` on `PATH` encodes MP3s and runs `audio/lofi_vocals.py`. `demucs` is optional and only used when you pass `--separate`. `trafilatura`, `vaderSentiment`, and `lameenc` are optional; the engine falls back to the stdlib HTML parser, a keyword lexicon, and ffmpeg.
+`ffmpeg` on `PATH` is the fallback MP3 encoder and is used by `audio/lofi_vocals.py`. `demucs` is optional and is not installed by `requirements.txt`. Only pass `--separate` when you have installed it yourself, and only on audio you own or have rights to.
 
 ## How teammates' Grok Bots report status
 
-Personal bots do not write to this checkout directly. Each bot commits or opens a pull request that adds **one** file:
+Each bot commits or opens a pull request that adds one file:
 
 ```
 status/<owner>-<bot>.json
 ```
 
-Example: `status/king-zlatan.json`. The id inside the file matches the filename without `.json`, and the id is prefixed with the owner so two bots do not collide. Field rules, states, and the stale-after-30-minutes rule are in [docs/STATUS_PROTOCOL.md](docs/STATUS_PROTOCOL.md).
-
-After the file lands, anyone with the repo can run:
+Example: `status/king-zlatan.json`. Prefix the id with the owner. After it lands:
 
 ```bash
 python3 dashboard/botstatus.py refresh
