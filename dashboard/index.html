@@ -261,6 +261,27 @@
   .u2l .chip.k{background:#ffb86b1a; color:var(--amber); border-color:#ffb86b55}
   .u2l .sum{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
   .u2l a{color:var(--amber); text-decoration:none; word-break:break-all}
+  /* Learn a topic, via X, to lofi. Scoped under .u2l so these don't restyle the Radio / News Graph tab bar. */
+  .u2l .tabs{display:flex; gap:4px; align-items:center; flex-wrap:wrap; padding:0; border:none; border-radius:0;
+    background:none; box-shadow:none; align-self:auto}
+  .u2l .tabs button.tab{background:none; border:none; padding:3px 8px; border-radius:8px; cursor:pointer;
+    font:700 12px/1.2 inherit; letter-spacing:0; text-transform:none; color:var(--muted); box-shadow:none}
+  .u2l .tabs button.tab[aria-selected="true"]{color:var(--amber); background:#ffb86b14; box-shadow:none}
+  .u2l .tabs button.tab:hover{color:var(--ink)}
+  .u2l .head{display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .u2l .asof{font:10px var(--mono); color:#8f7d6e; margin-left:auto; white-space:nowrap}
+  .u2l .sugg{display:flex; gap:6px; overflow:auto; padding:8px 0 2px}
+  .u2l .sugg .sg{flex:none; cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--ink); font:600 11px var(--mono);
+    padding:4px 8px; border-radius:999px}
+  .u2l .sugg .sg:hover{border-color:var(--amber); color:var(--amber)}
+  .u2l .sugg .sg small{color:#8f7d6e; margin-left:5px; font-size:10px}
+  .u2l .sugg .sg.tr{border-style:dashed; color:var(--muted)} .u2l .sugg .sg.tr::before{content:"↗ "; color:var(--rose)}
+  .u2l .sugg .sg[aria-pressed="true"]{background:var(--amber); color:#1a1420; border-color:var(--amber)}
+  .u2l .sugg .sg[aria-pressed="true"] small{color:#1a1420aa}
+  .u2l .say{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
+  .u2l .say b{color:var(--amber); font-weight:700}
+  .u2l .xnote{color:var(--sage)}
+  .err.soft{color:var(--amber)}
 
   /* Tabs: Radio | News Graph */
   [hidden]{display:none!important}
@@ -474,11 +495,24 @@
       </svg>
     </section>
     <section class="card u2l" id="u2l">
-      <div class="head" style="margin-bottom:8px"><h2>Paste a link → lofi</h2><span class="tag live">URL engine</span></div>
-      <form id="u2lForm"><input id="u2lUrl" type="url" placeholder="https://… any public page" required aria-label="Page URL">
-        <button id="u2lBtn" type="submit">MAKE IT LOFI</button></form>
+      <div class="head" style="margin-bottom:8px">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" id="tabX" aria-selected="true" aria-controls="paneX">Learn a topic, via X, to lofi</button>
+          <button class="tab" role="tab" id="tabU" aria-selected="false" aria-controls="paneU">Paste a link</button>
+        </div>
+        <span class="asof" id="xAsOf"></span><span class="tag live" id="engTag">X posts</span>
+      </div>
+      <div class="pane" id="paneX" role="tabpanel">
+        <form id="xForm"><input id="xTopic" type="text" maxlength="120" placeholder="What do you want to learn about?" required aria-label="What do you want to learn about?">
+          <button id="xBtn" type="submit">LEARN IT LOFI</button></form>
+        <div class="sugg" id="xSugg" aria-label="Suggested topics"></div>
+      </div>
+      <div class="pane" id="paneU" role="tabpanel" hidden>
+        <form id="u2lForm"><input id="u2lUrl" type="url" placeholder="https://… any public page" required aria-label="Page URL">
+          <button id="u2lBtn" type="submit">MAKE IT LOFI</button></form>
+      </div>
       <div class="pbar"><div id="u2lBar"></div></div>
-      <div class="stage" id="u2lStage">Reads the page, picks a mood, renders an original ~44 s track.</div>
+      <div class="stage" id="u2lStage">Type a topic: finds recent public X posts, reads their mood, renders an original ~44 s track.</div>
       <div class="res" id="u2lRes" hidden></div>
     </section>
 
@@ -835,7 +869,7 @@ async function loadEpisode(){
 wirePlayer();
 
 /* ---------- URL -> Lofi (engine/server.py API) ---------- */
-const STAGES={queued:'Queued…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
+const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
 function showU2L(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{};
   $('u2lRes').hidden=false;
@@ -875,10 +909,79 @@ $('u2lForm').addEventListener('submit', async e=>{
   }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
   btn.disabled=false; btn.textContent='MAKE IT LOFI';
 });
-// ?link=https://... pre-fills (and runs) the box, handy for demos and for sharing a link to a track
-{ const q=new URLSearchParams(location.search).get('link'); if(q){ $('u2lUrl').value=q; setTimeout(()=>$('u2lForm').requestSubmit(),300); } }
+/* ---------- Learn a topic, via X, to lofi (POST /api/synthesize_topic, GET /api/topics) ---------- */
+const fmtCT = iso => { const d=new Date(iso); return isNaN(d)?'':d.toLocaleTimeString('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'})+' CT'; };
+function setTab(x){
+  $('tabX').setAttribute('aria-selected', x ? 'true' : 'false');
+  $('tabU').setAttribute('aria-selected', x ? 'false' : 'true');
+  $('paneX').hidden=!x; $('paneU').hidden=x; $('engTag').textContent = x?'X posts':'URL engine';
+  if($('u2lRes').hidden) $('u2lStage').textContent = x ? 'Type a topic: finds recent public X posts, reads their mood, renders an original ~44 s track.'
+                                                       : 'Reads the page, picks a mood, renders an original ~44 s track.';
+}
+$('tabX').onclick=()=>setTab(true); $('tabU').onclick=()=>setTab(false);
+let XT={topics:[],trends:{}};
+async function loadTopics(){
+  let data=null;
+  try{ const r=await fetch('/api/topics',{cache:'no-store'}); if(r.ok) data=await r.json(); }catch(e){}
+  if(!data){ try{ data=await getJSON('/x_topics.json'); }catch(e2){ data={topics:[],trends:{}}; } }
+  XT=data;
+  const tr=(XT.trends&&XT.trends.items)||[], cachedKeys=new Set((XT.topics||[]).map(t=>String(t.topic||'').toLowerCase()));
+  const chips=(XT.topics||[]).map(t=>`<button class="sg" type="button" data-topic="${esc(t.topic)}" title="${esc(t.post_count)} cached posts · fetched ${esc(fmtCT(t.fetched_at))}">${esc(t.topic)}<small>${esc(t.post_count)}</small></button>`)
+    .concat(tr.filter(t=>t&&t.name&&!cachedKeys.has(String(t.name).toLowerCase())).slice(0,4).map(t=>`<button class="sg tr" type="button" data-topic="${esc(t.name)}" title="Trending on X">${esc(t.name)}</button>`));
+  $('xSugg').innerHTML=chips.join('');
+  $('xSugg').querySelectorAll('.sg').forEach(b=>b.onclick=()=>{ $('xTopic').value=b.dataset.topic; setTab(true); $('xForm').requestSubmit(); });
+  const asof = XT.trends&&XT.trends.as_of ? `trends as of ${fmtCT(XT.trends.as_of)}` : '';
+  $('xAsOf').textContent = asof + (XT.live_search?' · live search on':'');
+}
+function showTopic(r){
+  const m=r.mood, a=m.musical_attributes, t=r.timing||{}, tp=r.topic||{};
+  $('u2lRes').hidden=false;
+  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+    <div class="say" title="${esc(m.page_summary)}"><b>What people are saying:</b> ${esc(m.page_summary)}</div>
+    <div class="xnote">mood from ${esc(tp.post_count)} top posts on X about ${esc(tp.topic)}${tp.fetched_at?` · fetched ${esc(fmtCT(tp.fetched_at))}`:''}${tp.source==='x-api-live'?' · live':''}</div>
+    <div>${esc(m.sentiment)} · <a href="${esc(safeHref(tp.x_search_url))}" target="_blank" rel="noopener">see the posts on x.com ↗</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
+  $('xSugg').querySelectorAll('.sg').forEach(b=>b.setAttribute('aria-pressed', b.dataset.topic.toLowerCase()===String(tp.topic||'').toLowerCase()?'true':'false'));
+}
+$('xForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const topic=$('xTopic').value.trim(); if(!topic) return;
+  const btn=$('xBtn'); btn.disabled=true; btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
+  $('u2lStage').textContent=`Finding posts on X about ${topic}…`; ensureAudio();
+  const fail=(msg,soft)=>{ $('u2lStage').innerHTML=`<span class="err${soft?' soft':''}">${soft?'ⓘ':'⚠'} ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='LEARN IT LOFI'; loadBots(); };
+  try{
+    const r=await fetch('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,async:true,agent_id:'dashboard'})});
+    const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, j.error_kind==='topic_not_found');
+    loadBots();
+    while(true){
+      await new Promise(ok=>setTimeout(ok,400));
+      const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
+      $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
+      if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', s.error_kind==='topic_not_found'); }
+      if(s.state==='done'){
+        const res=s.result; showTopic(res);
+        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        await loadEpisode();
+        const play=res.track.url||res.track.file;
+        const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
+        selectTrack(play,t,false);
+        try{ await $('audio').play(); $('playBtn').textContent='❚❚'; $('np').classList.add('playing'); }catch(err){ $('u2lStage').textContent+=' (press ▶ to play)'; }
+        break;
+      }
+    }
+    loadBots();
+  }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
+  btn.disabled=false; btn.textContent='LEARN IT LOFI';
+});
+// ?topic= pre-fills the topic box. ?link= switches to Paste a link and runs that.
+{ const q=new URLSearchParams(location.search);
+  const topic=q.get('topic'), link=q.get('link');
+  if(link){ setTab(false); $('u2lUrl').value=link; setTimeout(()=>$('u2lForm').requestSubmit(),300); }
+  else if(topic){ $('xTopic').value=topic; setTimeout(()=>$('xForm').requestSubmit(),300); }
+}
 
+loadTopics();
 loadBots(); loadUsage(); loadHeadlines(); loadEpisode();
+setInterval(loadTopics, 120000);
 setInterval(loadBots, 3000); // GET /api/agents, so a new check-in shows within a few seconds
 setInterval(loadUsage, 5000);
 setInterval(loadEpisode, 60000); // pick up new beats
@@ -1554,13 +1657,13 @@ const Tabs={
   cur:'radio',
   set(v, focus){
     if(!['radio','graph'].includes(v)) v='radio'; this.cur=v;
-    document.querySelectorAll('.tab').forEach(b=>{ const on=b.dataset.view===v; b.setAttribute('aria-selected',on); b.tabIndex=on?0:-1; if(on&&focus) b.focus(); });
+    document.querySelectorAll('nav.tabs .tab').forEach(b=>{ const on=b.dataset.view===v; b.setAttribute('aria-selected',on); b.tabIndex=on?0:-1; if(on&&focus) b.focus(); });
     $('viewRadio').hidden = v!=='radio'; $('viewGraph').hidden = v!=='graph';
     try{ history.replaceState(null,'', v==='graph' ? '#graph' : location.pathname+location.search); }catch(e){}
     if(v==='graph') NG.show(); else NG.hide();
   }
 };
-document.querySelectorAll('.tab').forEach(b=>{
+document.querySelectorAll('nav.tabs .tab').forEach(b=>{
   b.addEventListener('click',()=>Tabs.set(b.dataset.view));
   b.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'||e.key==='ArrowLeft'){ e.preventDefault(); Tabs.set(Tabs.cur==='radio'?'graph':'radio', true); } });
 });

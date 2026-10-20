@@ -21,8 +21,10 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `dashboard/*.json` | Sample inbox and episode data |
 | `scripts/fetch_hn.py` | Stdlib script that refreshes `headlines.json` from the Hacker News API |
 | `scripts/render_host_voice.py` | Optional: renders the 101.5 host briefing with Chatterbox into `dashboard/host_briefing.mp3` + `episode.json` cues ([demo mode](#chatterbox-host-voice-demo-mode)) |
-| `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API |
-| `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis`, `report_status`, `list_agents`, `get_usage` |
+| `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API, X topic cache |
+| `engine/x_topics_snapshot.py` | Merges a raw X search dump into `x_topics.json` |
+| `x_topics.json` | Cached public X post text per topic (no usernames or links) |
+| `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis`, `synthesize_topic`, `report_status`, `list_agents`, `get_usage` |
 | `audio/` | Original beat generator, plot, and vocal lofi chain |
 | `samples/beat-001.mp3` | One original code-synthesized demo beat |
 | `docs/` | Status protocol and the dashboard screenshot |
@@ -48,7 +50,7 @@ The first run creates `./.venv`, installs [requirements.txt](requirements.txt), 
 - API: <http://127.0.0.1:53343/api/health>
 - With `--mcp`: streamable HTTP on <http://127.0.0.1:53350/mcp>
 
-`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>.
+`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>. `?topic=` runs Learn a topic, for example <http://127.0.0.1:53343/dashboard/?topic=SpaceX>.
 
 You can also serve the static page alone:
 
@@ -80,7 +82,12 @@ GET  /api/usage
 POST /api/agents {"id":"alex-news","owner":"Alex","state":"running","task":"Pulling headlines"}
 POST /api/synthesize {"url": "https://example.com"}
 POST /api/synthesize {"url": "https://example.com", "async": true, "agent_id": "dashboard"}
+GET  /api/topics
+POST /api/synthesize_topic {"topic": "AI agents", "agent_id": "dashboard"}
+POST /api/synthesize_topic {"topic": "our demo", "posts": ["Bots shipped the dashboard.", "Late night lofi and cold pizza."]}
 ```
+
+An unknown topic returns `404` with `"error_kind": "topic_not_found"`. With `X_BEARER_TOKEN` set, the engine searches the X API first and counts those reads on the usage meter. Otherwise it uses `x_topics.json`. `synthesize_topic` is the usage tool name.
 
 `force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`. `agent_id` (or the `X-Agent-Id` header) is who the usage log credits; the dashboard sends `dashboard`, and a missing id is `anonymous`.
 
