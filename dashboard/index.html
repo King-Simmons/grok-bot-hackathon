@@ -556,6 +556,7 @@ function showU2L(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{};
   $('u2lRes').hidden=false;
   $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${a.mood_tags.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+    ${r.page&&r.page.note?`<div class="note" style="color:#e8b86a">ⓘ ${esc(r.page.note)}</div>`:''}
     <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
     <div>${esc(m.sentiment)} · ${esc(a.primary_instruments.join(', '))}</div>
     <div>source: <a href="${esc(safeHref(m.url))}" target="_blank" rel="noopener">${esc(m.url)}</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
