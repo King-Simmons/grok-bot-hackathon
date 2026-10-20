@@ -57,6 +57,7 @@ def mood_for(url, use_cache=True):
     mood, debug = analyze(page["url"], page["title"], page["text"])
     t2 = time.time()
     meta = {k: page[k] for k in ("title", "url", "requested_url", "words", "method", "truncated")}
+    if page.get("note"): meta["note"] = page["note"]
     _mood_cache[url] = (time.time(), mood, debug, meta)
     return mood, debug, meta, {"ingest_s": round(t1 - t0, 2), "mood_s": round(t2 - t1, 2), "cached": False}
 
