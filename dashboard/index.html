@@ -1485,7 +1485,7 @@ function initRadio(){
   if(!SpeechVoice.ok){ db.disabled=true; db.title='Needs browser speech (speechSynthesis)'; }
 
   // restore last station (snap a saved off-station frequency to the nearest station)
-  const {st,d}=nearest(radio.freq); setFreq(d<=LOCK?radio.freq:st.freq);
+  const {st,d}=nearest(radio.freq); setFreq(d<0.8?st.freq:radio.freq);
   radio.ready=true;
 }
 initRadio();
