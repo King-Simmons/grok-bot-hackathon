@@ -3,7 +3,8 @@
 Uses trafilatura when installed, else a stdlib HTMLParser fallback.
 Safety: http(s) only, refuses private/loopback hosts, timeouts, size cap.
 """
-import html as htmlmod, ipaddress, re, socket, urllib.parse, urllib.request
+import html as htmlmod, ipaddress, re, socket, ssl, urllib.error, urllib.parse, urllib.request
+import certifi
 from html.parser import HTMLParser
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) LofiNewsRadio-URL2Lofi/1.0 (+hackathon prototype)"
@@ -38,11 +39,20 @@ class _NoPrivateRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def _ssl_context():
+    """CA bundle from certifi. python.org macOS Python does not use the system store,
+    so the default context raises CERTIFICATE_VERIFY_FAILED on every HTTPS fetch."""
+    return ssl.create_default_context(cafile=certifi.where())
+
+
 def fetch(url):
     if not re.match(r"^https?://", url, re.I):
         url = "https://" + url
     _check_host(url)
-    opener = urllib.request.build_opener(_NoPrivateRedirect)
+    opener = urllib.request.build_opener(
+        _NoPrivateRedirect,
+        urllib.request.HTTPSHandler(context=_ssl_context()),
+    )
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
                                                "Accept-Language": "en-US,en;q=0.8"})
     try:
@@ -55,8 +65,12 @@ def fetch(url):
             charset = r.headers.get_content_charset() or "utf-8"
     except IngestError:
         raise
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403, 429):
+            raise IngestError(f"the site refused automated readers (HTTP {e.code})") from e
+        raise IngestError(f"fetch failed: {e}") from e
     except Exception as e:
-        raise IngestError(f"fetch failed: {e}")
+        raise IngestError(f"fetch failed: {e}") from e
     truncated = len(raw) > MAX_BYTES
     return final, raw[:MAX_BYTES].decode(charset, errors="replace"), truncated
 

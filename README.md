@@ -57,13 +57,17 @@ Stdlib only. See [docs/STATUS_PROTOCOL.md](docs/STATUS_PROTOCOL.md).
 
 `engine/` is the unfinished URL-to-lofi pipeline: ingest a URL, deterministic mood analysis that emits a JSON prompt schema, a parameterized code-synthesized beat, and a local HTTP API. It is committed as-is. It is not done.
 
-From the repo root, after the pip installs below:
+From the repo root. The first run creates `./.venv`, installs `requirements.txt`, and points `SSL_CERT_FILE` at certifi's CA bundle so HTTPS works on python.org macOS Python:
 
 ```bash
-python3 engine/server.py --port 53343
+./run.sh
+./run.sh --port 53343
+./run.sh --mcp
 ```
 
-That process serves this repo and the API on `http://127.0.0.1:53343/`:
+`./run.sh` serves this repo and the API on `http://127.0.0.1:53343/`. `./run.sh --mcp` also starts `mcp/lofi_mcp_server.py` when that file is in the checkout.
+
+Endpoints:
 
 - `GET /api/health`
 - `GET /api/mood?url=https://example.com`
@@ -82,7 +86,7 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-`ffmpeg` on `PATH` is used to encode MP3s and to run `audio/lofi_vocals.py`. `demucs` is optional and only used when you pass `--separate`. `trafilatura`, `vaderSentiment`, and `lameenc` are optional; the engine falls back to the stdlib HTML parser, a keyword lexicon, and ffmpeg.
+`certifi` supplies the CA bundle `engine/ingest.py` uses for HTTPS. `ffmpeg` on `PATH` encodes MP3s and runs `audio/lofi_vocals.py`. `demucs` is optional and only used when you pass `--separate`. `trafilatura`, `vaderSentiment`, and `lameenc` are optional; the engine falls back to the stdlib HTML parser, a keyword lexicon, and ffmpeg.
 
 ## How teammates' Grok Bots report status
 

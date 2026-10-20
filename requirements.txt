@@ -1,6 +1,9 @@
 # Imports from engine/ and audio/. Python 3.9+.
 # ffmpeg (system binary, not pip) encodes MP3s and runs audio/lofi_vocals.py.
 
+# CA bundle for HTTPS. python.org macOS Python does not ship a usable system store.
+certifi
+
 numpy
 scipy
 pyloudnorm
