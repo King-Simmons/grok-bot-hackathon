@@ -178,6 +178,51 @@
   .tracks{max-height:56px; overflow:auto}
   .trk[aria-pressed="true"]{color:#1a1420; background:var(--amber); border-color:var(--amber)}
 
+  /* Radio tuner: 88.1 LOFI / 101.5 NEWS TALK */
+  .radio{margin-top:12px; padding:10px; border-radius:14px; background:linear-gradient(180deg,#4a3328,#2e211c);
+    border:1px solid #5b3f35; box-shadow:inset 0 2px 0 #ffffff14, inset 0 -3px 6px #0008, 0 6px 14px #0007}
+  .rdisp{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px; padding:8px 12px; border-radius:8px;
+    background:#120b16; border:2px solid #1a1216; position:relative; overflow:hidden; box-shadow:inset 0 0 18px #ffb86b22}
+  .rdisp::after{content:""; position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,#0000 0 2px,#00000059 2px 3px)}
+  .rfreq{font:700 30px/1 var(--mono); color:var(--amber); text-shadow:0 0 10px #ffb86bb0, 0 0 2px #ffcf8a; letter-spacing:1px}
+  .rfreq small{font-size:11px; margin-left:3px; color:#c98a4a; letter-spacing:.1em}
+  .rinfo{min-width:0}
+  .rname{font:700 14px/1.1 var(--mono); letter-spacing:.18em; color:var(--sage); text-shadow:0 0 8px #9fd3a8aa; text-transform:uppercase; white-space:nowrap}
+  .rsub{font:11px var(--mono); color:#8f7d6e; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .radio[data-station="none"] .rname{color:#c9a0a0; text-shadow:none; animation:flick .18s steps(2) infinite}
+  @keyframes flick{0%{opacity:1} 100%{opacity:.55}}
+  .rside{display:flex; flex-direction:column; align-items:center; gap:5px}
+  .ronair{display:flex; align-items:center; gap:5px; font:700 9px var(--mono); letter-spacing:.12em; color:#5a4450; white-space:nowrap}
+  .ronair i{width:10px; height:10px; border-radius:2px; background:#3a1f26; box-shadow:inset 0 0 0 2px #0006}
+  .ronair.on{color:#b0646c} .ronair.on i{background:#7a2f38}
+  .ronair.lit{color:var(--red); text-shadow:0 0 6px #ff6b6b}
+  .ronair.lit i{background:var(--red); box-shadow:0 0 12px var(--red), inset 0 0 0 2px #ffffff30; animation:pulse 1.6s infinite}
+  .rsig{display:flex; gap:2px; align-items:flex-end; height:12px}
+  .rsig span{width:3px; background:#3a2c3c} .rsig span.on{background:var(--sage); box-shadow:0 0 4px var(--sage)}
+  .rdial{position:relative; height:50px; margin-top:10px; border-radius:8px; cursor:ew-resize; outline:none; touch-action:none; user-select:none;
+    background:linear-gradient(180deg,#2a1c14,#3b2618); border:2px solid #1a1216; box-shadow:inset 0 0 22px #ffb86b33, inset 0 2px 6px #000a; overflow:hidden}
+  .rdial::after{content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,#ffffff12,#0000 45%)}
+  .rdial:focus-visible{box-shadow:0 0 0 2px var(--amber), inset 0 0 22px #ffb86b33}
+  .rscale{position:absolute; top:0; bottom:0; left:12px; right:12px}
+  .rscale .tk{position:absolute; bottom:5px; width:1px; height:6px; background:#ffcf8a55}
+  .rscale .tk.mj{height:11px; background:#ffcf8acc}
+  .rscale .lb{position:absolute; bottom:18px; transform:translateX(-50%); font:700 9px var(--mono); color:#ffcf8a99}
+  .rscale .st{position:absolute; top:3px; transform:translateX(-4px); font:700 8px var(--mono); color:var(--sage); letter-spacing:.06em; white-space:nowrap; text-shadow:0 0 5px #9fd3a8aa}
+  .rneedle{position:absolute; top:2px; bottom:2px; width:3px; margin-left:-1.5px; background:var(--rose); border-radius:1px; pointer-events:none;
+    box-shadow:0 0 10px var(--rose), 0 0 2px #fff}
+  .rpresets{display:flex; gap:6px; margin-top:8px; align-items:center; flex-wrap:wrap}
+  .preset{cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--muted); font:700 11px var(--mono); padding:5px 10px; border-radius:6px; letter-spacing:.04em}
+  .preset b{color:var(--amber); margin-right:5px}
+  .preset[aria-pressed="true"]{color:#1a1420; background:var(--amber); border-color:var(--amber)} .preset[aria-pressed="true"] b{color:#1a1420}
+  .preset.off{opacity:.5; cursor:not-allowed}
+  .rpresets .toggle{margin-left:auto; padding:5px 10px; font-size:10px}
+  .rnow{font-size:12px; color:var(--ink); margin-top:8px; min-height:16px; line-height:1.35}
+  .rnow b{font:700 9px var(--mono); color:var(--rose); letter-spacing:.1em; margin-right:6px}
+  .rnote{font-size:11px; color:var(--rose); margin-top:4px}
+  .rnote:empty{display:none}
+  .track .inner span.live{color:var(--amber); text-shadow:0 0 10px #ffb86b88}
+  .track .inner span.live::before{content:"▶"; color:var(--red)}
+
   /* URL -> Lofi */
   html{background:#120d16}
   .grid{min-height:auto} .left .scene{flex:1 1 300px; min-height:240px; max-height:360px}
@@ -372,6 +417,19 @@
         <div class="eq" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
         <div class="times" id="times">0:00 / 0:00</div>
       </div>
+      <div class="radio" id="radio" data-station="lofi" aria-label="Radio tuner">
+        <div class="rdisp" aria-live="polite">
+          <div class="rfreq"><span id="rFreq">88.1</span><small>FM</small></div>
+          <div class="rinfo"><div class="rname" id="rName">LOFI</div><div class="rsub" id="rSub">beats to read the news to</div></div>
+          <div class="rside"><div class="ronair" id="rOnAir"><i></i>ON AIR</div><div class="rsig" id="rSig" aria-hidden="true"><span style="height:3px"></span><span style="height:6px"></span><span style="height:9px"></span><span style="height:12px"></span></div></div>
+        </div>
+        <div class="rdial" id="rDial" tabindex="0" role="slider" aria-label="FM tuner. Arrow keys fine-tune, Page Up/Down jump stations" aria-valuemin="87.5" aria-valuemax="108" aria-valuenow="88.1">
+          <div class="rscale" id="rScale"><div class="rneedle" id="rNeedle"></div></div>
+        </div>
+        <div class="rpresets" id="rPresets"><button class="toggle" id="dropsBtn" aria-pressed="false" title="On 88.1 LOFI, the host drops a one-line headline every ~30s"><i></i>Drops off</button></div>
+        <div class="rnow" id="rNow"></div>
+        <div class="rnote" id="rNote"></div>
+      </div>
       <div class="tracks" id="tracks" aria-label="Pick a track"></div>
       <audio id="audio" preload="metadata"></audio>
     </section>
@@ -495,11 +553,14 @@ async function loadBots(){
 }
 
 /* ---------- Headlines ---------- */
+let HEADLINES=[], HL_EXAMPLE=false; // also read by the News Talk host
 async function loadHeadlines(){
   try{
     const data=await getJSON('headlines.json');
-    $('hlTag').hidden = !(data.example || (data.headlines||[]).some(h=>h.example));
-    const items=(data.headlines||[]).map(h=>`<span>${esc(h.title)}<em>${esc(h.source)}</em></span>`).join('');
+    HEADLINES=(data.headlines||[]).filter(h=>h&&h.title);
+    HL_EXAMPLE=!!(data.example || HEADLINES.some(h=>h.example));
+    $('hlTag').hidden = !HL_EXAMPLE;
+    const items=HEADLINES.map((h,i)=>`<span data-i="${i}">${esc(h.title)}<em>${esc(h.source)}</em></span>`).join('');
     $('ticker').innerHTML = items + items; // duplicated for seamless loop
   }catch(e){ $('ticker').innerHTML = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`; }
 }
@@ -615,6 +676,8 @@ loadInbox();
 /* ---------- Audio engine (Web Audio) ---------- */
 const audioEl=$('audio');
 const AE={ctx:null};
+// Radio mix: signal = how well the tuner is locked on a station (0..1), duck = music level under the host, burst = tuning static
+const MIX={signal:1, duck:1, burst:0};
 function ensureAudio(){
   if(AE.ctx) { if(AE.ctx.state==='suspended') AE.ctx.resume(); return AE; }
   const ctx=new (window.AudioContext||window.webkitAudioContext)(); AE.ctx=ctx;
@@ -671,7 +734,8 @@ function cutoff(v){ return 18000*Math.pow(600/18000, v/100); } // 0% = open (18 
 const save=()=>localStorage.setItem(LS,JSON.stringify(state));
 function applyAll(){
   if(!AE.ctx) return; const t=AE.ctx.currentTime, g=v=>Math.pow(v/100,2);
-  AE.music.gain.setTargetAtTime(g(state.music),t,0.05);
+  AE.music.gain.setTargetAtTime(g(state.music)*MIX.signal*MIX.duck,t,MIX.duck<1?0.18:0.08);
+  if(AE.static) AE.static.gain.setTargetAtTime(staticLevel(),t,0.04);
   AE.voice.gain.setTargetAtTime(g(state.voice),t,0.05);
   AE.rain.gain.setTargetAtTime(g(state.rain)*0.9,t,0.08);
   AE.crackle.gain.setTargetAtTime(g(state.crackle)*1.2,t,0.08);
@@ -697,6 +761,264 @@ KNOBS.forEach(k=>{
 let ambOn=false;
 $('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; ensureAudio(); applyAll();
   $('ambBtn').setAttribute('aria-pressed',ambOn); $('ambBtn').lastChild.textContent= ambOn?'Ambience on':'Ambience off'; });
+
+/* ---------- Radio tuner: 88.1 LOFI / 101.5 NEWS TALK ----------
+   Same player, same beat. The tuner decides what rides on top of it:
+   - 88.1 LOFI: the beat (optional one-line headline "drops").
+   - 101.5 NEWS TALK: a host reads a briefing of headlines.json over the ducked beat.
+   Host voice: episode.json "podcast_audio" (pre-rendered file, e.g. Chatterbox) if present,
+   else the browser Web Speech API, else timed captions. */
+const STATIONS=[
+  {id:'lofi', freq:88.1,  name:'LOFI',      sub:'beats to read the news to'},
+  {id:'talk', freq:101.5, name:'NEWS TALK', sub:'headlines, hosted'},
+];
+const FMIN=87.5, FMAX=108, LOCK=0.25, FADE=0.6, RLS='lofiDash.radio.v1';
+const reducedMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const radio={freq:88.1, station:null, drops:false, ready:false};
+try{ const r=JSON.parse(localStorage.getItem(RLS)||'{}'); if(isFinite(r.freq)) radio.freq=+r.freq; radio.drops=!!r.drops; }catch(e){}
+const saveRadio=()=>{ try{ localStorage.setItem(RLS, JSON.stringify({freq:radio.freq, station:radio.station, drops:radio.drops})); }catch(e){} };
+let EP={}; // episode.json (podcast_audio / podcast_cues are optional)
+
+function nearest(f){ let best=STATIONS[0]; for(const s of STATIONS) if(Math.abs(s.freq-f)<Math.abs(best.freq-f)) best=s; return {st:best, d:Math.abs(best.freq-f)}; }
+const signalFor = d => d<=LOCK ? 1 : Math.max(0, 1-(d-LOCK)/FADE);
+const powered = () => !audioEl.paused || Host.running;
+function staticLevel(){ const vol=0.35+0.65*Math.pow(state.music/100,2);
+  return ((powered()? (1-MIX.signal)*0.2 : 0) + MIX.burst) * vol; }
+function mixNow(){ if(AE.ctx) applyAll(); }
+function duck(on){ MIX.duck = on ? 0.28 : 1; mixNow(); }
+
+/* Synthesized tuning static: white noise -> wobbling bandpass, no samples */
+function ensureStatic(){
+  ensureAudio(); if(AE.static) return;
+  const ctx=AE.ctx, sr=ctx.sampleRate, len=sr*2, b=ctx.createBuffer(1,len,sr), d=b.getChannelData(0);
+  for(let i=0;i<len;i++){ d[i]=(Math.random()*2-1)*0.7; if(Math.random()<0.003) d[i]*=2.5; }
+  const src=ctx.createBufferSource(); src.buffer=b; src.loop=true;
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=2200; bp.Q.value=0.6;
+  const lfo=ctx.createOscillator(); lfo.frequency.value=0.8; const lg=ctx.createGain(); lg.gain.value=900;
+  lfo.connect(lg).connect(bp.frequency); lfo.start();
+  AE.static=ctx.createGain(); AE.static.gain.value=0;
+  src.connect(bp).connect(AE.static).connect(AE.warmth); src.start();
+}
+let burstT=null;
+function burst(){ ensureStatic(); MIX.burst=0.32; mixNow(); clearTimeout(burstT); burstT=setTimeout(()=>{ MIX.burst=0; mixNow(); },280); }
+
+/* UI helpers */
+function highlight(i){ document.querySelectorAll('#ticker span[data-i]').forEach(s=>s.classList.toggle('live', +s.dataset.i===i)); }
+function setNow(text, label){ $('rNow').innerHTML = text ? `<b>${esc(label||'HOST')}</b>${esc(text)}` : ''; }
+function radioNote(t){ $('rNote').textContent=t||''; }
+function renderOnAir(){ const o=$('rOnAir'); o.classList.toggle('on', radio.station==='talk'); o.classList.toggle('lit', radio.station==='talk' && Host.running); }
+function renderRadio(){
+  const st=STATIONS.find(s=>s.id===radio.station), {st:nr}=nearest(radio.freq), f=radio.freq.toFixed(1);
+  $('rFreq').textContent=f;
+  $('rName').textContent= st ? st.name : '~ static ~';
+  $('rSub').textContent = st ? st.sub : `tuning… nearest ${nr.freq} ${nr.name}`;
+  $('rNeedle').style.left = ((radio.freq-FMIN)/(FMAX-FMIN)*100)+'%';
+  $('radio').dataset.station = radio.station||'none';
+  const dial=$('rDial'); dial.setAttribute('aria-valuenow',f); dial.setAttribute('aria-valuetext',`${f} FM${st?' · '+st.name:' · static'}`);
+  const bars=Math.round(MIX.signal*4); $('rSig').querySelectorAll('span').forEach((s,i)=>s.classList.toggle('on', i<bars));
+  document.querySelectorAll('.preset').forEach(b=>b.setAttribute('aria-pressed', b.dataset.st===radio.station));
+  renderOnAir();
+}
+
+/* Tuning */
+function setFreq(f){
+  f=Math.round(Math.min(FMAX,Math.max(FMIN,f))*10)/10; radio.freq=f;
+  const {st,d}=nearest(f); MIX.signal=signalFor(d);
+  const locked = d<=LOCK ? st.id : null;
+  if(locked!==radio.station){ const prev=radio.station; radio.station=locked; onStationChange(prev, locked); }
+  mixNow(); renderRadio();
+}
+let tuneAnim=null;
+function tuneTo(id){
+  const st=STATIONS.find(s=>s.id===id); if(!st) return;
+  ensureStatic(); burst(); cancelAnimationFrame(tuneAnim);
+  const from=radio.freq, to=st.freq, dur=reducedMotion?0:Math.min(900,250+Math.abs(to-from)*45), t0=performance.now();
+  const step=now=>{ const k=dur?Math.min(1,(now-t0)/dur):1, e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
+    setFreq(from+(to-from)*e); if(k<1) tuneAnim=requestAnimationFrame(step); else { setFreq(to); saveRadio(); } };
+  tuneAnim=requestAnimationFrame(step);
+}
+function settle(){ const {st,d}=nearest(radio.freq); if(d>0 && d<0.8) tuneTo(st.id); else saveRadio(); }
+
+function talkAvailable(){ return !!EP.podcast_audio || ('speechSynthesis' in window); }
+function onStationChange(prev, next){
+  dropGen++; // cancel any in-flight lofi drop
+  if(prev==='talk'){ Host.stop(); audioEl.loop=false; }
+  else if(prev==='lofi'){ SpeechVoice.stop(); duck(false); highlight(-1); setNow(''); }
+  if(next==='talk'){
+    if(!talkAvailable()){
+      radioNote("News Talk needs a browser with speech (speechSynthesis). Staying on 88.1 LOFI.");
+      setTimeout(()=>tuneTo('lofi'), radio.ready?900:0); return;
+    }
+    audioEl.loop=true; // the briefing outlasts one pass of the beat
+    if(!radio.ready){ setNow('Press ▶ to go on air.'); return; }
+    if(audioEl.getAttribute('src') && audioEl.paused) audioEl.play().catch(()=>Host.start()); // 'play' starts the host
+    else Host.start();
+  }
+  if(next) saveRadio();
+}
+
+/* Briefing script, built only from headlines.json text (no invented facts) */
+const cleanTitle = t => String(t||'').replace(/^\s*placeholder headline:\s*/i,'').trim();
+const sentence = t => { t=String(t||'').trim(); if(!t) return ''; t=t[0].toUpperCase()+t.slice(1); return /[.!?]$/.test(t)?t:t+'.'; };
+const TAKES=['Worth keeping an eye on.','We\'ll keep you posted on that one.','File that one under good to know.','More on that as it develops.'];
+function takeFor(h,i){
+  if(h.take) return sentence(h.take);            // optional fields a news bot can add later
+  if(h.summary) return sentence(h.summary);
+  const t=cleanTitle(h.title), c=t.indexOf(', ');
+  if(c>0 && c<t.length-6) { const r=t.slice(c+2).trim(); return `In short, ${/[.!?]$/.test(r)?r:r+'.'}`; } // echo the headline's own second clause
+  return TAKES[i%TAKES.length];
+}
+function buildBriefing(){
+  const hs=HEADLINES.slice(0,8), n=hs.length;
+  const hr=+new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',hour12:false}).format(new Date())%24;
+  const part = hr<5?'night':hr<12?'morning':hr<17?'afternoon':'evening';
+  const segs=[{hl:-1, text:`Good ${part}, and welcome to one oh one point five, News Talk, on Lofi News Radio. `+
+    (n?`I've got ${n} headline${n>1?'s':''} for you, so settle in with the beat.`:'')+
+    (HL_EXAMPLE?' Quick heads-up: these are placeholder headlines while our news bot gets wired up.':'')}];
+  if(!n) segs.push({hl:-1, text:"The news desk is empty right now, so let's just ride the beat for a bit."});
+  const leads=['First up','Next','After that','Also on the wire'];
+  hs.forEach((h,i)=>{
+    const lead = (i===n-1 && n>1) ? 'And finally' : leads[Math.min(i,leads.length-1)];
+    const t=cleanTitle(h.title), main=t.indexOf(', ')>0 ? t.slice(0,t.indexOf(', ')) : t;
+    segs.push({hl:i, text:`${lead}${h.source?`, from ${h.source}`:''}. ${sentence(main)} ${takeFor(h,i)}`});
+  });
+  segs.push({hl:-1, text:"That's the briefing. You've been listening to News Talk on Lofi News Radio. Back to the beat."});
+  return segs;
+}
+
+/* Voice engines. Each one: start/stop; they report back through Host. */
+const SpeechVoice={
+  ok:'speechSynthesis' in window, failed:false, voice:null,
+  pick(){
+    const vs=this.ok?speechSynthesis.getVoices():[]; if(!vs.length) return null;
+    const en=vs.filter(v=>/^en([-_]|$)/i.test(v.lang));
+    for(const re of [/Google US English/i,/Natural/i,/Neural/i,/Samantha/i,/Aria|Jenny|Guy/i,/Google UK English Female/i,/Daniel/i,/Karen|Moira|Serena|Alex/i]){
+      const v=en.find(v=>re.test(v.name)); if(v) return v; }
+    return en.find(v=>/en-US/i.test(v.lang))||en[0]||null;
+  },
+  say(text,{onstart,ondone}){
+    let done=false, wd=null; const est=text.split(/\s+/).length/2.6*1000;
+    const fin=()=>{ if(done) return; done=true; clearTimeout(wd); ondone&&ondone(); };
+    if(!this.ok||this.failed){ wd=setTimeout(fin, est+1200); return; } // captions only
+    const u=new SpeechSynthesisUtterance(text);
+    this.voice=this.voice||this.pick(); if(this.voice){ u.voice=this.voice; u.lang=this.voice.lang; } else u.lang='en-US';
+    u.rate=0.97; u.pitch=1; u.volume=Math.max(0,Math.min(1,state.voice/100)); // Voice slider (applies per sentence)
+    let started=false;
+    u.onstart=()=>{ started=true; onstart&&onstart(); };
+    u.onend=fin;
+    u.onerror=e=>{ if(e.error==='interrupted'||e.error==='canceled') return;
+      this.failed=true; radioNote('No speech voice on this device, so the host is showing as captions.'); clearTimeout(wd); wd=setTimeout(fin, est); };
+    wd=setTimeout(()=>{ if(!started){ this.failed=true; radioNote('No speech voice on this device, so the host is showing as captions.'); speechSynthesis.cancel(); } fin(); }, est*1.8+4000);
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  },
+  stop(){ if(this.ok) speechSynthesis.cancel(); }
+};
+if(SpeechVoice.ok) speechSynthesis.addEventListener('voiceschanged',()=>{ SpeechVoice.voice=null; });
+
+// Pre-rendered briefing (episode.json "podcast_audio", optional "podcast_cues":[{"t":6.5,"headline":0}]).
+// Routed through the Web Audio voice bus, so the Voice slider and Warmth apply.
+const FileVoice={
+  el:null, wired:false,
+  ensure(){
+    if(this.el) return this.el;
+    const el=new Audio(); el.preload='auto'; el.src=EP.podcast_audio;
+    el.addEventListener('playing',()=>duck(true));
+    el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let i=-1;
+      for(const c of cues) if(c.t<=el.currentTime) i=c.headline??-1;
+      highlight(i); setNow(i>=0&&HEADLINES[i]?HEADLINES[i].title:'Pre-rendered briefing', i>=0?'NOW READING':'HOST'); });
+    el.addEventListener('ended',()=>{ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…');
+      Host.later(()=>{ el.currentTime=0; el.play().catch(()=>{}); },20000); });
+    el.addEventListener('error',()=>{ if(!Host.running) return; radioNote("Couldn't play podcast_audio, so the browser voice is hosting.");
+      EP.podcast_audio=null; Host.running=false; Host.start(); });
+    return this.el=el;
+  },
+  start(){ const el=this.ensure(); ensureAudio(); if(!this.wired){ try{ AE.ctx.createMediaElementSource(el).connect(AE.voice); }catch(e){} this.wired=true; }
+    el.play().catch(()=>{}); },
+  stop(){ if(this.el) this.el.pause(); },
+  reset(){ if(this.el) this.el.currentTime=0; }
+};
+
+const Host={
+  running:false, idx:0, segs:[], gen:0, timers:[], engine:null,
+  later(fn,ms){ const g=this.gen; this.timers.push(setTimeout(()=>{ if(g===this.gen) fn(); },ms)); },
+  clear(){ this.gen++; this.timers.forEach(clearTimeout); this.timers=[]; },
+  start(){
+    if(this.running) return; this.running=true; this.clear(); if(!SpeechVoice.failed) radioNote('');
+    this.engine = EP.podcast_audio ? FileVoice : SpeechVoice;
+    if(this.engine===FileVoice) FileVoice.start();
+    else { if(!this.segs.length||this.idx>=this.segs.length){ this.segs=buildBriefing(); this.idx=0; } this.playSeg(); }
+    renderOnAir(); mixNow();
+  },
+  pause(){ if(!this.running) return; this.running=false; this.clear(); if(this.engine) this.engine.stop(); duck(false); renderOnAir(); mixNow(); },
+  stop(){ this.pause(); this.idx=0; this.segs=[]; FileVoice.reset(); highlight(-1); setNow(''); },
+  playSeg(){
+    const seg=this.segs[this.idx], g=this.gen;
+    if(!seg){ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…'); this.idx=0; this.segs=[];
+      this.later(()=>{ this.segs=buildBriefing(); this.playSeg(); },20000); return; }
+    highlight(seg.hl);
+    if(seg.hl>=0) setNow(HEADLINES[seg.hl].title,'NOW READING'); else setNow(seg.text,'HOST');
+    SpeechVoice.say(seg.text,{
+      onstart:()=>{ if(g===this.gen) duck(true); },
+      ondone:()=>{ if(g!==this.gen) return; this.idx++; this.later(()=>this.playSeg(),650); }
+    });
+  }
+};
+
+/* Optional 88.1 headline drops: one line every ~32s while the beat plays */
+let dropGen=0, dropIdx=0;
+setInterval(()=>{
+  if(!radio.drops||radio.station!=='lofi'||audioEl.paused||!SpeechVoice.ok||SpeechVoice.failed||!HEADLINES.length) return;
+  const g=++dropGen, i=dropIdx++%HEADLINES.length;
+  highlight(i); setNow(HEADLINES[i].title,'HEADLINE');
+  SpeechVoice.say(`Headline. ${sentence(cleanTitle(HEADLINES[i].title))}`,{
+    onstart:()=>{ if(g===dropGen) duck(true); },
+    ondone:()=>{ if(g!==dropGen) return; duck(false); highlight(-1); setNow(''); } });
+}, 32000);
+
+/* Wire the beat to the radio */
+audioEl.addEventListener('play',()=>{ mixNow(); if(radio.station==='talk') Host.start(); });
+audioEl.addEventListener('pause',()=>{ if(radio.station==='talk') Host.pause(); mixNow(); });
+
+/* Build the dial */
+function initRadio(){
+  const sc=$('rScale'), pos=f=>((f-FMIN)/(FMAX-FMIN)*100)+'%';
+  for(let f=88;f<=108;f+=0.5){ const t=document.createElement('div'); t.className='tk'+(f%2===0?' mj':''); t.style.left=pos(f); sc.appendChild(t);
+    if(f%4===0){ const l=document.createElement('div'); l.className='lb'; l.textContent=f; l.style.left=pos(f); sc.appendChild(l); } }
+  STATIONS.forEach(s=>{ const m=document.createElement('div'); m.className='st'; m.textContent='▼ '+s.name; m.style.left=pos(s.freq); sc.appendChild(m); });
+  const pr=$('rPresets');
+  STATIONS.slice().reverse().forEach(s=>{ const b=document.createElement('button'); b.className='preset'; b.dataset.st=s.id; b.setAttribute('aria-pressed','false');
+    b.innerHTML=`<b>${s.freq}</b>${esc(s.name)}`; b.onclick=()=>tuneTo(s.id); pr.prepend(b); });
+  if(!talkAvailable()){ const b=pr.querySelector('[data-st="talk"]'); b.classList.add('off'); b.title='Needs browser speech (speechSynthesis)'; }
+
+  const dial=$('rDial'); let drag=false;
+  const fromX=x=>{ const r=sc.getBoundingClientRect(); return FMIN+(x-r.left)/r.width*(FMAX-FMIN); };
+  dial.addEventListener('pointerdown',e=>{ drag=true; cancelAnimationFrame(tuneAnim); ensureStatic(); dial.setPointerCapture(e.pointerId); setFreq(fromX(e.clientX)); e.preventDefault(); });
+  dial.addEventListener('pointermove',e=>{ if(drag) setFreq(fromX(e.clientX)); });
+  const up=()=>{ if(!drag) return; drag=false; settle(); };
+  dial.addEventListener('pointerup',up); dial.addEventListener('pointercancel',up);
+  let keyT=null;
+  dial.addEventListener('keydown',e=>{
+    const i=STATIONS.findIndex(s=>s.id===radio.station), cur=nearest(radio.freq).st;
+    const fine={ArrowLeft:-1,ArrowDown:-1,ArrowRight:1,ArrowUp:1}[e.key];
+    if(fine){ e.preventDefault(); cancelAnimationFrame(tuneAnim); ensureStatic(); setFreq(radio.freq+fine*(e.shiftKey?1:0.1)); clearTimeout(keyT); keyT=setTimeout(saveRadio,400); return; }
+    const up=STATIONS.filter(s=>s.freq>radio.freq+0.05), dn=STATIONS.filter(s=>s.freq<radio.freq-0.05);
+    if(e.key==='PageUp'&&up.length){ e.preventDefault(); tuneTo(up[0].id); }
+    if(e.key==='PageDown'&&dn.length){ e.preventDefault(); tuneTo(dn[dn.length-1].id); }
+    if(e.key==='Home'){ e.preventDefault(); tuneTo(STATIONS[0].id); }
+    if(e.key==='End'){ e.preventDefault(); tuneTo(STATIONS[STATIONS.length-1].id); }
+  });
+  dial.addEventListener('wheel',e=>{ e.preventDefault(); ensureStatic(); setFreq(radio.freq+(e.deltaY<0?0.1:-0.1)); clearTimeout(keyT); keyT=setTimeout(settle,500); },{passive:false});
+
+  const db=$('dropsBtn'), renderDrops=()=>{ db.setAttribute('aria-pressed',radio.drops); db.lastChild.textContent=radio.drops?'Drops on':'Drops off'; };
+  db.onclick=()=>{ radio.drops=!radio.drops; renderDrops(); saveRadio(); }; renderDrops();
+  if(!SpeechVoice.ok){ db.disabled=true; db.title='Needs browser speech (speechSynthesis)'; }
+
+  // restore last station (snap a saved off-station frequency to the nearest station)
+  const {st,d}=nearest(radio.freq); setFreq(d<=LOCK?radio.freq:st.freq);
+  radio.ready=true;
+}
+initRadio();
+getJSON('episode.json').then(e=>{ EP=e||{}; if(EP.podcast_audio){ const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='Pre-rendered briefing: '+EP.podcast_audio; } }).catch(()=>{});
 </script>
 </body>
 </html>
