@@ -1660,7 +1660,12 @@ const NG=(()=>{
     S.alpha*=0.985; if(S.drag) S.alpha=Math.max(S.alpha,0.25);
     S.nodes.forEach(n=>S.pos.set(n.key,{x:n.x,y:n.y}));
     let speed=0; S.nodes.forEach(n=>{ const s=Math.hypot(n.vx,n.vy); if(s>speed) speed=s; });
-    if(S.drag || (S.alpha>0.01 && (S.alpha>0.25 || speed>0.2))) S.raf=requestAnimationFrame(frame);
+    // Alpha cools per frame, so a slow screen keeps the picture creeping. Rest once
+    // the nodes are barely moving, and never let a settle run past a couple of seconds.
+    if(S.alpha>0.9 || S.drag) S.coolT=0;
+    else if(!S.coolT) S.coolT=performance.now();
+    const age=S.coolT?performance.now()-S.coolT:0;
+    if(S.drag || (S.alpha>0.01 && age<1800 && speed>0.12)) S.raf=requestAnimationFrame(frame);
   }
   function kick(){ if(S.visible && !S.raf) S.raf=requestAnimationFrame(frame); }
   function measure(){ const r=wrap.getBoundingClientRect(); if(r.width>10&&r.height>10){ const ow=S.w, oh=S.h; S.w=r.width; S.h=r.height;
