@@ -128,7 +128,7 @@ def rebuild_tracks():
     gen = [_track_entry(p) for p in _unique_paths([
         os.path.join(REPO, "tracks", "*.mp3"),
         os.path.join(ROOT, "tracks", "*.mp3"),
-    ])]
+    ]) if not os.path.basename(p).endswith(".vocals.mp3")]
     gen.sort(key=lambda t: t["modified"], reverse=True)
     tracks = gen + beats  # newest URL tracks first in the picker
     atomic_write_json(TRACKS, {"generated": now_iso(), "count": len(tracks), "tracks": tracks})

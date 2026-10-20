@@ -52,10 +52,13 @@ server = MCPServer(
 @server.tool(description="Fetch a public web page, analyze its mood deterministically and render an original ~44 s lofi "
                          "track. Returns {url, page_summary, sentiment, lofi_prompt, musical_attributes, cover_art_prompt} "
                          "plus track_path, track_url and timing.")
-async def synthesize_url(url: str, force: bool = False, agent_id: str = "") -> dict:
+async def synthesize_url(url: str, force: bool = False, vocals: str = "none", script: str = "",
+                        agent_id: str = "") -> dict:
     who, started = _who(agent_id), time.perf_counter()
     try:
-        r = await anyio.to_thread.run_sync(lambda: pipeline.synthesize(url, force=force))
+        r = await anyio.to_thread.run_sync(
+            lambda: pipeline.synthesize(url, force=force, vocals=vocals or "none", script=script or None,
+                                        agent=agent_id or "anonymous"))
     except Exception as e:
         _note(who, "synthesize", started, ok=False, error=str(e))
         raise
@@ -63,8 +66,11 @@ async def synthesize_url(url: str, force: bool = False, agent_id: str = "") -> d
     audio = float((r.get("track") or {}).get("duration_s") or 0)
     cached = bool(timing.get("track_cached"))
     _note(who, "synthesize", started, ok=True, audio_s=audio, tracks=0 if cached or not audio else 1)
-    return dict(r["mood"], track_path=r["track"]["path"], track_file=r["track"]["file"],
-                track_url=BASE + r["track"]["url"], timing=r["timing"])
+    out = dict(r["mood"], track_path=r["track"]["path"], track_file=r["track"]["file"],
+               track_url=BASE + r["track"]["url"], timing=r["timing"])
+    if r.get("vocals"):
+        out["vocals"] = r["vocals"]
+    return out
 
 
 @server.tool(description="Fetch a public web page and return its lofi mood analysis (PRD schema: url, page_summary, "
@@ -91,15 +97,18 @@ async def get_mood_analysis(url: str, agent_id: str = "") -> dict:
                          "omit them to try the X API (X_BEARER_TOKEN) and then x_topics.json. An empty topic or a "
                          "source other than web or x is an error you can show the user. Returns the PRD mood JSON "
                          "plus note, track_path and track_url. X also returns what_people_are_saying, post_count, "
-                         "post_source and x_search_url. agent_id credits the usage log.")
+                         "post_source and x_search_url. vocals defaults to none. agent_id credits the usage log.")
 async def synthesize_topic(topic: str, posts: Optional[list[str]] = None, force: bool = False,
-                           source: str = "web", agent_id: str = "") -> dict:
+                           source: str = "web", vocals: str = "none", script: str = "",
+                           agent_id: str = "") -> dict:
     from mcp.server.mcpserver.exceptions import ToolError
     from engine.topic_web import BadSource, EmptyTopic
     who, started = _who(agent_id), time.perf_counter()
     try:
         r = await anyio.to_thread.run_sync(
-            lambda: pipeline.synthesize_topic(topic, posts=posts, force=force, source=source))
+            lambda: pipeline.synthesize_topic(topic, posts=posts, force=force, source=source,
+                                              vocals=vocals or "none", script=script or None,
+                                              agent=agent_id or "anonymous"))
     except Exception as e:
         _note(who, "synthesize_topic", started, ok=False, error=str(e))
         if isinstance(e, (pipeline.TopicNotFound, IngestError, EmptyTopic, BadSource)):
@@ -115,6 +124,8 @@ async def synthesize_topic(topic: str, posts: Optional[list[str]] = None, force:
                requested_source=t.get("requested_source") or source,
                track_path=r["track"]["path"], track_file=r["track"]["file"],
                track_url=BASE + r["track"]["url"], timing=r["timing"])
+    if r.get("vocals"):
+        out["vocals"] = r["vocals"]
     if t.get("source") == "web" or t.get("requested_source") == "web":
         pages = t.get("pages") or []
         out.update(source="web", pages=pages, page_count=t.get("page_count") or len(pages))

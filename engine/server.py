@@ -7,6 +7,7 @@
   POST /api/agents                       -> register or update one agent
   GET  /api/topics                       -> cached topics + trend chips (post texts omitted)
   POST /api/synthesize {"url": ...}      -> {"mood": {...PRD...}, "track_url": "/tracks/....mp3", ...}
+       optional "vocals": "none"|"summary"|"song" (default none; ignored if Chatterbox is missing)
        add "async": true                 -> {"job_id": ...}; poll GET /api/jobs/<id>
        add "force": true                 -> re-render even if this exact track exists
   POST /api/synthesize_topic {"topic": "AI agents", "source": "web"|"x"}
@@ -39,6 +40,8 @@ def _result(r):
            "analysis": r["analysis"], "timing": r["timing"]}
     if r.get("topic"):
         out["topic"] = r["topic"]
+    if r.get("vocals"):
+        out["vocals"] = r["vocals"]
     return out
 
 
@@ -53,12 +56,25 @@ def note_synthesize(agent, started, result=None, error=""):
                  audio_s=audio, tracks=made, error=error)
 
 
-def _run_job(jid, url, force, agent):
+def _vocal_request(body):
+    """vocals defaults to none. Anything else is ignored so a typo cannot change the instrumental."""
+    mode = str(body.get("vocals") or "none").strip().lower()
+    if mode not in ("summary", "song"):
+        mode = "none"
+    script = body.get("script")
+    if script is None:
+        script = body.get("lyrics")
+    if script is not None:
+        script = str(script)[:4000]
+    return mode, script
+
+
+def _run_job(jid, url, force, agent, vocals="none", script=None):
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
-        r = pipeline.synthesize(url, force=force, progress=prog)
+        r = pipeline.synthesize(url, force=force, progress=prog, vocals=vocals, script=script, agent=agent)
         with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_synthesize(agent, started, r)
     except Exception as e:
@@ -167,16 +183,17 @@ def route_synthesize_post(handler, path):
         handler._json(400, {"error": "missing url"})
         return True
     force = bool(body.get("force"))
+    vocals, script = _vocal_request(body)
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
         with JOBS_LOCK:
             JOBS[jid] = {"id": jid, "url": url, "state": "running", "stage": "queued", "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_job, args=(jid, url, force, who), daemon=True).start()
+        threading.Thread(target=_run_job, args=(jid, url, force, who, vocals, script), daemon=True).start()
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
         return True
     started = time.perf_counter()
     try:
-        r = pipeline.synthesize(url, force=force)
+        r = pipeline.synthesize(url, force=force, vocals=vocals, script=script, agent=who)
     except IngestError as e:
         note_synthesize(who, started, error=str(e))
         handler._json(422, {"error": str(e)})
@@ -223,12 +240,13 @@ def note_topic(agent, started, result=None, error=""):
                  audio_s=audio, tracks=made, x_reads=reads, error=error)
 
 
-def _run_topic_job(jid, topic, posts, force, agent, source="web"):
+def _run_topic_job(jid, topic, posts, force, agent, source="web", vocals="none", script=None):
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog, source=source)
+        r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog, source=source,
+                                     vocals=vocals, script=script, agent=agent)
         with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_topic(agent, started, r)
     except Exception as e:
@@ -289,18 +307,21 @@ def route_synthesize_topic_post(handler, path):
         handler._json(400, payload)
         return True
     force = bool(body.get("force"))
+    vocals, script = _vocal_request(body)
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
         with JOBS_LOCK:
             JOBS[jid] = {"id": jid, "url": topic, "source": source, "state": "running", "stage": "queued",
                          "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who, source), daemon=True).start()
+        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who, source, vocals, script),
+                         daemon=True).start()
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
         return True
     started = time.perf_counter()
     from engine.topic_web import BadSource, EmptyTopic
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source)
+        r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source,
+                                     vocals=vocals, script=script, agent=who)
     except (EmptyTopic, BadSource) as e:
         note_topic(who, started, error=str(e))
         handler._json(e.http_status, {"error": str(e), "error_kind": e.error_kind})

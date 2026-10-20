@@ -66,7 +66,7 @@ def track_url(rel):
     return "/" + rel.replace(os.sep, "/")
 
 
-def synthesize(url, force=False, progress=None, report_status=True):
+def synthesize(url, force=False, progress=None, report_status=True, vocals="none", script=None, agent="anonymous"):
     """Full pipeline. progress(stage, pct) optional. Returns dict with mood + track info."""
     def step(stage, pct, task):
         if progress: progress(stage, pct)
@@ -104,14 +104,21 @@ def synthesize(url, force=False, progress=None, report_status=True):
         if progress: progress("finishing", 95)
         total = round(time.time() - t0, 2)
         timing.update({"render_s": render.get("render_s"), "encode_s": render.get("encode_s"), "total_s": total, "track_cached": cached})
-        if report_status:
-            _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {page['title'][:60] or url[:60]} ({total}s)",
-                    progress=100, artifact=rel_mp3)
-        else:
-            subprocess.run(["python3", os.path.join(ROOT, "dashboard", "botstatus.py"), "refresh"], cwd=ROOT, capture_output=True, timeout=10)
-        return {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
+        result = {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
                                         "duration_s": render.get("duration_s")},
                 "page": page, "analysis": debug, "timing": timing}
+        artifact = rel_mp3
+        if str(vocals or "none").strip().lower() in ("summary", "song"):
+            from engine.vocals import apply as apply_vocals
+            result = apply_vocals(result, vocals, script, agent, name)
+            if (result.get("vocals") or {}).get("state") == "ready":
+                artifact = result["track"]["file"]
+        if report_status:
+            _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {page['title'][:60] or url[:60]} ({total}s)",
+                    progress=100, artifact=artifact)
+        else:
+            subprocess.run(["python3", os.path.join(ROOT, "dashboard", "botstatus.py"), "refresh"], cwd=ROOT, capture_output=True, timeout=10)
+        return result
     except Exception as e:
         if report_status:
             _status(state="error", task=f"Failed on {url[:80]}", error=str(e)[:200], no_progress=True)
@@ -206,7 +213,7 @@ def live_x_posts(topic, token=None, max_results=MAX_POSTS):
 
 
 def synthesize_text(title, text, source_url, kind="text", force=False, progress=None, report_status=True,
-                    extra=None, label=None, notes=None):
+                    extra=None, label=None, notes=None, vocals="none", script=None, agent="anonymous"):
     """Mood + render from arbitrary text (no fetching). Cache name tracks/<kind-prefix>-<slug>-<hash>.mp3."""
     def step(stage, pct, task):
         if progress: progress(stage, pct)
@@ -259,17 +266,24 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
         total = round(time.time() - t0, 2)
         timing = {"ingest_s": 0.0, "mood_s": round(t1 - t0, 2), "render_s": render.get("render_s"),
                   "encode_s": render.get("encode_s"), "total_s": total, "track_cached": cached}
+        page = {"title": title, "url": source_url, "requested_url": source_url, "words": len(text.split()),
+                "method": kind, "truncated": False}
+        result = {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
+                                        "duration_s": render.get("duration_s")},
+                "page": page, "analysis": debug, "timing": timing}
+        artifact = rel_mp3
+        if str(vocals or "none").strip().lower() in ("summary", "song"):
+            from engine.vocals import apply as apply_vocals
+            result = apply_vocals(result, vocals, script, agent, name)
+            if (result.get("vocals") or {}).get("state") == "ready":
+                artifact = result["track"]["file"]
         if report_status:
             _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {title[:60]} ({total}s)",
-                    progress=100, artifact=rel_mp3)
+                    progress=100, artifact=artifact)
         else:
             subprocess.run(["python3", os.path.join(ROOT, "dashboard", "botstatus.py"), "refresh"],
                            cwd=ROOT, capture_output=True, timeout=10)
-        page = {"title": title, "url": source_url, "requested_url": source_url, "words": len(text.split()),
-                "method": kind, "truncated": False}
-        return {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
-                                        "duration_s": render.get("duration_s")},
-                "page": page, "analysis": debug, "timing": timing}
+        return result
     except Exception as e:
         if report_status:
             _status(state="error", task=f"Failed on {title[:80]}", error=str(e)[:200], no_progress=True)
@@ -305,17 +319,20 @@ def resolve_topic_posts(topic, posts=None):
         f"x_topics.json with engine/x_topics_snapshot.py).")
 
 
-def synthesize_topic(topic, posts=None, force=False, progress=None, report_status=True, source="web"):
+def synthesize_topic(topic, posts=None, force=False, progress=None, report_status=True, source="web",
+                     vocals="none", script=None, agent="anonymous"):
     """Topic -> mood -> original lofi.
 
     source is 'web' (default: Wikipedia, news RSS, Hacker News via engine/topic_web.py)
     or 'x' (public X posts: live API if X_BEARER_TOKEN is set, else x_topics.json).
     posts is only used when source is 'x'.
+    vocals defaults to none and does nothing when Chatterbox is missing.
     """
     from engine.topic_web import normalize_source, normalize_topic, synthesize_web
     source = normalize_source(source)
     if source != "x":
-        return synthesize_web(topic, force=force, progress=progress, report_status=report_status)
+        return synthesize_web(topic, force=force, progress=progress, report_status=report_status,
+                              vocals=vocals, script=script, agent=agent)
     # --- X source (optional). The block below is the X-posts path. ---
     # Passed-in posts with a blank topic stay the route's "custom posts" case.
     if not posts:
@@ -332,7 +349,8 @@ def synthesize_topic(topic, posts=None, force=False, progress=None, report_statu
                         extra={"topic": name, "post_source": source, "post_count": len(lines),
                                "posts_fetched_at": meta.get("fetched_at")},
                         notes=f"Original lofi whose mood comes from {len(lines)} recent public X posts about {name} "
-                              f"(deterministic, no samples).")
+                              f"(deterministic, no samples).",
+                        vocals=vocals, script=script, agent=agent)
     r["mood"]["page_summary"] = summarize_posts(lines) or r["mood"]["page_summary"]
     r["topic"] = {"topic": name, "post_count": len(lines), "source": source, "requested_source": "x",
                   "fetched_at": meta.get("fetched_at"),
