@@ -1,4 +1,5 @@
 """Zlatan Beat 001 - fully synthesized original lofi instrumental. No samples."""
+import os
 import numpy as np, scipy.signal as ss, scipy.io.wavfile as wf, pyloudnorm as pyln
 SR = 44100
 rng = np.random.default_rng(1)
@@ -171,4 +172,4 @@ from scipy.ndimage import minimum_filter1d, uniform_filter1d
 g = uniform_filter1d(minimum_filter1d(g, win * 2), win)
 mix *= g; mix = np.clip(mix, -ceil, ceil)
 print("LUFS", meter.integrated_loudness(mix.T), "peak dBFS", 20 * np.log10(np.abs(mix).max()), "dur", N / SR)
-wf.write("/workspace/lofi-dashboard/src/beat-001.wav", SR, (mix.T * 32767).astype(np.int16))
+wf.write(os.path.join(os.path.dirname(os.path.abspath(__file__)), "beat-001.wav"), SR, (mix.T * 32767).astype(np.int16))

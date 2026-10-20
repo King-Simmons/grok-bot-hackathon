@@ -90,7 +90,7 @@ def _track_entry(p):
     rel = os.path.relpath(p, ROOT).replace(os.sep, "/")
     t = {"file": rel, "title": os.path.basename(p)[:-4], "bytes": st.st_size,
          "modified": datetime.datetime.fromtimestamp(st.st_mtime, TZ).isoformat(timespec="seconds")}
-    side = p[:-4] + ".json"  # optional sidecar metadata, e.g. beat-002.json {"title": ...}
+    side = p[:-4] + ".json"  # optional sidecar metadata, e.g. beat-001.json {"title": ...}
     if os.path.exists(side):
         try:
             with open(side, encoding="utf-8") as f:
@@ -127,7 +127,7 @@ def rebuild_tracks():
         os.path.join(ROOT, "tracks", "*.mp3"),
     ])]
     gen.sort(key=lambda t: t["modified"], reverse=True)
-    tracks = beats + gen
+    tracks = gen + beats  # newest URL tracks first in the picker
     atomic_write_json(TRACKS, {"generated": now_iso(), "count": len(tracks), "tracks": tracks})
     return tracks
 

@@ -148,7 +148,7 @@ def analyze(url, title, text):
 
     label = "positive" if comp >= 0.25 else "mildly positive" if comp >= 0.05 else \
             "negative" if comp <= -0.25 else "mildly negative" if comp <= -0.05 else "neutral"
-    sentiment = f"{primary}, {label}"
+    sentiment = f"{primary} mood, {label} tone"
     mood_tags = [primary] + ([secondary] if secondary else []) + tags
     mood_tags = list(dict.fromkeys(mood_tags))[:5]
     tps = topics(title, text)
