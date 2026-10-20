@@ -931,6 +931,15 @@ wirePlayer();
 
 /* ---------- URL -> Lofi (engine/server.py API) ---------- */
 const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
+// A restart drops in-memory jobs. Polling a missing id used to spin forever.
+async function nextJob(id){
+  const r=await fetch('/api/jobs/'+id,{cache:'no-store'});
+  let s=null;
+  try{ s=await r.json(); }catch(e){ s=null; }
+  if(!r.ok || !s || (s.state!=='running' && s.state!=='done' && s.state!=='error'))
+    return {state:'error', error:(s&&s.error)||'lost the job'};
+  return s;
+}
 function showU2L(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{};
   const when = t.total_s==null ? '' : (t.track_cached ? `already made, loaded in ${t.total_s}s` : `made in ${t.total_s}s`);
@@ -953,7 +962,7 @@ $('u2lForm').addEventListener('submit', async e=>{
     loadBots();
     while(true){
       await new Promise(ok=>setTimeout(ok,400));
-      const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
+      const s=await nextJob(j.job_id);
       $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
       if(s.state==='error') return fail(s.error||'failed');
       if(s.state==='done'){
@@ -1066,7 +1075,7 @@ $('xForm').addEventListener('submit', async e=>{
     loadBots();
     while(true){
       await new Promise(ok=>setTimeout(ok,400));
-      const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
+      const s=await nextJob(j.job_id);
       $('u2lBar').style.width=(s.progress||4)+'%';
       let stageText=STAGES[s.stage]||s.stage||'';
       if(s.stage==='searching') stageText = TOPIC_SOURCE==='web' ? 'Searching public pages…' : 'Finding posts on X…';
