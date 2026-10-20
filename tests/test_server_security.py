@@ -94,7 +94,7 @@ class ServerSecurityTest(unittest.TestCase):
             headers={"Content-Type": "application/json", "Origin": origin},
         )
         self.assertEqual(status, 400)
-        self.assertEqual(json.loads(body)["error"], "missing topic")
+        self.assertEqual(json.loads(body).get("error_kind"), "empty_topic")
 
     def test_bad_origin_and_host_rejected(self):
         status, _loc, body = self.request(
