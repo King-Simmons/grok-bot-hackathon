@@ -1205,7 +1205,7 @@ function applyAll(){
   AE.rain.gain.setTargetAtTime(g(state.rain)*0.5,t,0.08);
   AE.crackle.gain.setTargetAtTime(g(state.crackle)*5,t,0.08);
   AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
-  AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
+  AE.amb.gain.setTargetAtTime(ambOn && powered() ? 1 : 0, t, 0.3);
 }
 const sliderBox=$('sliders');
 KNOBS.forEach(k=>{
@@ -1458,6 +1458,7 @@ setInterval(()=>{
 /* Wire the beat to the radio */
 audioEl.addEventListener('play',()=>{ mixNow(); if(radio.station==='talk') Host.start(); });
 audioEl.addEventListener('pause',()=>{ if(radio.station==='talk') Host.pause(); mixNow(); });
+audioEl.addEventListener('ended',()=>{ mixNow(); });
 
 /* Build the dial */
 function initRadio(){
