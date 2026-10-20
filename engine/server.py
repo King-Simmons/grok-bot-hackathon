@@ -13,8 +13,11 @@
        unknown topic -> 404 {"error_kind": "topic_not_found"}
        optional "agent_id" (or header X-Agent-Id) is who the usage log credits
 Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
-The process serves the repo root. Open /dashboard/ for the control room. API routes are /api/*.
-Binds to 127.0.0.1 by default. No auth secrets.
+Static files are only dashboard/, samples/, tracks/ and status/. `/` redirects to `/dashboard/`.
+Dotfiles are not served. API routes are /api/*.
+Binds to 127.0.0.1 by default. Host and Origin are allowed for localhost, 127.0.0.1, ::1,
+the bind address, and LOFI_PUBLIC_BASE. Missing or unparseable values are allowed and logged.
+No auth secrets.
 
 Live agents and the usage meter live in the named helpers below (route_agents_*,
 route_mood_get, route_synthesize_post, note_synthesize). Topic search is
@@ -22,6 +25,7 @@ route_topics_get / route_synthesize_topic_post / note_topic. Polls of /api/agent
 /api/usage, and /api/topics are not recorded.
 """
 import argparse, json, os, sys, threading, time, uuid, urllib.parse
+from http import HTTPStatus
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +35,123 @@ from engine.ingest import IngestError  # noqa: E402
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
+STATIC_ROOTS = {"dashboard", "samples", "tracks", "status"}
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def public_hostname():
+    """Host from LOFI_PUBLIC_BASE, or None. Used as an extra allowlist entry."""
+    raw = os.environ.get("LOFI_PUBLIC_BASE", "").strip()
+    if not raw:
+        return None
+    if "://" not in raw:
+        raw = "http://" + raw
+    try:
+        host = urllib.parse.urlsplit(raw).hostname
+    except ValueError:
+        return None
+    return host.lower().rstrip(".") if host else None
+
+
+def split_host(value):
+    """Return a hostname, or None when the header is not a simple host[:port]."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.startswith("["):
+        end = text.find("]")
+        if end < 0:
+            return None
+        rest = text[end + 1:]
+        if rest and not rest.startswith(":"):
+            return None
+        return text[1:end].lower().rstrip(".") or None
+    if text.count(":") > 1:
+        return None
+    host = text.split(":", 1)[0].lower().rstrip(".")
+    return host or None
+
+
+def origin_host(value):
+    """('missing'|'empty'|'null'|'bad'|'ok', hostname or None)."""
+    if value is None:
+        return "missing", None
+    text = str(value).strip()
+    if not text:
+        return "empty", None
+    if text.lower() == "null":
+        return "null", None
+    try:
+        parts = urllib.parse.urlsplit(text)
+        host = parts.hostname
+    except ValueError:
+        return "bad", None
+    if parts.scheme not in ("http", "https") or not host:
+        return "bad", None
+    return "ok", host.lower().rstrip(".")
+
+
+def request_gate(host_header, origin_header, allowed):
+    """'allow', 'allow-log', or 'deny', plus a short reason.
+
+    Clear foreign hosts and origins are refused. Anything we cannot parse is
+    allowed and logged so a proxy or older client keeps working.
+    """
+    if host_header is None or not str(host_header).strip():
+        host_kind, host = "missing", None
+    else:
+        host = split_host(host_header)
+        host_kind = "ok" if host else "bad"
+    if host_kind == "ok" and host not in allowed:
+        return "deny", "host"
+    kind, ohost = origin_host(origin_header)
+    if kind == "ok" and ohost not in allowed:
+        return "deny", "origin"
+    if host_kind == "ok" and kind in ("ok", "missing"):
+        return "allow", ""
+    bits = []
+    if host_kind != "ok":
+        bits.append("host " + host_kind)
+    if kind not in ("ok", "missing"):
+        bits.append("origin " + kind)
+    return "allow-log", ", ".join(bits)
+
+
+def static_allowed(url_path):
+    """True when url_path is a file under dashboard/, samples/, tracks/ or status/."""
+    path = url_path.split("?", 1)[0].split("#", 1)[0]
+    try:
+        path = urllib.parse.unquote(path, errors="strict")
+    except UnicodeDecodeError:
+        return False
+    if "\\" in path or "\x00" in path:
+        return False
+    parts = []
+    for seg in path.split("/"):
+        if seg in ("", "."):
+            continue
+        if seg == ".." or seg.startswith("."):
+            return False
+        parts.append(seg)
+    if not parts or parts[0] not in STATIC_ROOTS:
+        return False
+    full = os.path.normpath(os.path.join(ROOT, *parts))
+    real = os.path.realpath(full)
+    root = os.path.realpath(ROOT)
+    try:
+        if os.path.commonpath([real, root]) != root:
+            return False
+    except ValueError:
+        return False
+    rel = os.path.relpath(real, root)
+    rel_parts = rel.split(os.sep)
+    if rel_parts[0] not in STATIC_ROOTS:
+        return False
+    if any(part.startswith(".") for part in rel_parts):
+        return False
+    return True
 
 
 def _result(r):
@@ -299,6 +420,42 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=ROOT, **kw)
 
+    def _allowed_names(self):
+        names = set(LOCAL_HOSTS)
+        public = public_hostname()
+        if public:
+            names.add(public)
+        try:
+            bind = self.server.server_address[0]
+        except Exception:
+            bind = ""
+        if bind and bind not in {"0.0.0.0", "::"}:
+            names.add(str(bind).lower().rstrip("."))
+        return names
+
+    def _gate(self):
+        """False when a response was already sent."""
+        decision, why = request_gate(self.headers.get("Host"), self.headers.get("Origin"), self._allowed_names())
+        if decision == "deny":
+            self.log_message("rejected %s host=%s origin=%s", why, self.headers.get("Host"), self.headers.get("Origin"))
+            self._json(403, {"error": "forbidden"})
+            return False
+        if decision == "allow-log":
+            self.log_message("allowing request (%s) host=%s origin=%s", why, self.headers.get("Host"), self.headers.get("Origin"))
+        ctype = self.headers.get("Content-Type")
+        if self.command == "POST" and ctype and ctype.split(";", 1)[0].strip().lower() != "application/json":
+            self.log_message("POST Content-Type %s is not application/json; allowing", ctype.split(";", 1)[0].strip())
+        return True
+
+    def _redirect_root(self, parsed):
+        loc = "/dashboard/"
+        if parsed.query:
+            loc += "?" + parsed.query
+        self.send_response(302)
+        self.send_header("Location", loc)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def end_headers(self):
         if self.path.startswith("/api/") or self.path.endswith(".json"):
             self.send_header("Cache-Control", "no-store")
@@ -311,8 +468,21 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers(); self.wfile.write(body)
 
+    def list_directory(self, path):
+        self.send_error(HTTPStatus.NOT_FOUND, "Not found")
+        return None
+
+    def translate_path(self, path):
+        if not static_allowed(path):
+            return os.path.join(ROOT, ".not-served")
+        return super().translate_path(path)
+
     def do_GET(self):
+        if not self._gate():
+            return
         u = urllib.parse.urlparse(self.path)
+        if u.path in ("", "/"):
+            return self._redirect_root(u)
         if u.path == "/api/health":
             return self._json(200, {"ok": True, "jobs": len(JOBS)})
         if route_agents_and_usage_get(self, u.path):
@@ -326,9 +496,25 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200 if j else 404, j or {"error": "no such job"})
         if u.path.startswith("/api/"):
             return self._json(404, {"error": "unknown endpoint"})
+        if not static_allowed(u.path):
+            return self._json(403, {"error": "forbidden"})
         return super().do_GET()
 
+    def do_HEAD(self):
+        if not self._gate():
+            return
+        u = urllib.parse.urlparse(self.path)
+        if u.path in ("", "/"):
+            return self._redirect_root(u)
+        if u.path.startswith("/api/"):
+            return self._json(404, {"error": "unknown endpoint"})
+        if not static_allowed(u.path):
+            return self._json(403, {"error": "forbidden"})
+        return super().do_HEAD()
+
     def do_POST(self):
+        if not self._gate():
+            return
         u = urllib.parse.urlparse(self.path)
         if route_agents_post(self, u.path):
             return
