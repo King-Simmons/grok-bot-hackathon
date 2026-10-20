@@ -726,10 +726,16 @@ async function loadUsage(){
 
 /* ---------- Headlines (headlines.json, optionally refreshed live from Hacker News) ---------- */
 let HEADLINES=[], HL_EXAMPLE=false, HL_META={}, HL_PENDING=null; // also read by the News Talk host and the News Graph
+/* Demo mode: episode.json "podcast_audio" is a pre-rendered briefing (Chatterbox) of a frozen headlines.json.
+   "podcast_headlines" fingerprints what it reads (hn_id or title of the top 8, in order). While it matches, live HN
+   refresh stays off (unless ?hn=1); if the headlines ever differ, the browser voice hosts instead of the stale file. */
+const EP_JSON=getJSON('episode.json').catch(()=>null);
+const hlKey = list => (list||[]).filter(h=>h&&h.title).slice(0,8).map(h=>h.hn_id||h.title);
+const sameKey = (fp,list) => Array.isArray(fp) && JSON.stringify(fp)===JSON.stringify(hlKey(list));
 function renderHlSrc(){
   const m=HL_META, el=$('hlSrc'); if(!el) return;
   const when = m.updated && !isNaN(new Date(m.updated)) ? new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(m.updated))+' CT' : '';
-  el.textContent = m.source ? `${m.source} · ${m.live?'live':'snapshot'}${when?' · '+when:''}` : '';
+  el.textContent = m.source ? `${m.source} · ${m.live?'live':m.demo?'demo snapshot':'snapshot'}${when?' · '+when:''}` : '';
   el.classList.toggle('live', !!m.live);
 }
 function setHeadlines(list, meta){
@@ -744,13 +750,15 @@ function setHeadlines(list, meta){
   $('ticker').innerHTML = items ? items + items : '<span>No headlines yet.</span>'; // duplicated for seamless loop
   renderHlSrc();
   document.dispatchEvent(new CustomEvent('headlines:changed'));
+  if(typeof Host!=='undefined' && Host.running && Host.engine===FileVoice && !useFile()){ Host.pause(); Host.start(); } // recording no longer matches
 }
 function applyPendingHeadlines(){ if(HL_PENDING){ const p=HL_PENDING; HL_PENDING=null; setHeadlines(p.list, p.meta); } }
 async function loadHeadlines(){
   try{
-    const data=await getJSON('headlines.json');
-    setHeadlines(data.headlines, {source:data.source, updated:data.updated, example:data.example, live:false});
-    if(data.source==='Hacker News' || /[?&]hn=1\b/.test(location.search)) refreshHN();
+    const data=await getJSON('headlines.json'), ep=(await EP_JSON)||{};
+    const demo=!!ep.podcast_audio && sameKey(ep.podcast_headlines, data.headlines);
+    setHeadlines(data.headlines, {source:data.source, updated:data.updated, example:data.example, live:false, demo});
+    if((data.source==='Hacker News' && !demo) || /[?&]hn=1\b/.test(location.search)) refreshHN();
   }catch(e){
     $('ticker').innerHTML = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`;
     document.dispatchEvent(new CustomEvent('headlines:changed'));
@@ -758,7 +766,7 @@ async function loadHeadlines(){
   }
 }
 /* Live Hacker News (official Firebase API, CORS-enabled). Same schema as scripts/fetch_hn.py.
-   Runs only when headlines.json says source "Hacker News" (or ?hn=1); ?hn=0 turns it off. Any failure keeps headlines.json. */
+   Runs only when headlines.json says source "Hacker News" and no demo recording matches it (or ?hn=1); ?hn=0 turns it off. Any failure keeps headlines.json. */
 const HN_API='https://hacker-news.firebaseio.com/v0', HN_N=15, HN_EVERY=10*60*1000;
 let hnTimer=null;
 async function hnGet(path, signal){ const r=await fetch(`${HN_API}/${path}`,{signal, cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
@@ -1055,6 +1063,7 @@ function tuneTo(id){
 }
 function settle(){ const {st,d}=nearest(radio.freq); if(d>0 && d<0.8) tuneTo(st.id); else saveRadio(); }
 
+const useFile = () => !!EP.podcast_audio && !Host.speech && (!Array.isArray(EP.podcast_headlines) || sameKey(EP.podcast_headlines, HEADLINES));
 function talkAvailable(){ return !!EP.podcast_audio || ('speechSynthesis' in window); }
 function onStationChange(prev, next){
   dropGen++; // cancel any in-flight lofi drop
@@ -1145,7 +1154,7 @@ const FileVoice={
   el:null, wired:false,
   ensure(){
     if(this.el) return this.el;
-    const el=new Audio(); el.preload='auto'; el.src=EP.podcast_audio;
+    const el=new Audio(); el.preload='auto'; el.src=EP.podcast_blob||EP.podcast_audio;
     el.addEventListener('playing',()=>duck(true));
     el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let i=-1;
       for(const c of cues) if(c.t<=el.currentTime) i=c.headline??-1;
@@ -1163,22 +1172,22 @@ const FileVoice={
 };
 
 const Host={
-  running:false, idx:0, segs:[], gen:0, timers:[], engine:null,
+  running:false, idx:0, segs:[], gen:0, timers:[], engine:null, speech:false, // speech: browser voice for this briefing even if a recording exists
   later(fn,ms){ const g=this.gen; this.timers.push(setTimeout(()=>{ if(g===this.gen) fn(); },ms)); },
   clear(){ this.gen++; this.timers.forEach(clearTimeout); this.timers=[]; },
   start(){
     if(this.running) return; this.running=true; this.clear(); if(!SpeechVoice.failed) radioNote('');
-    this.engine = EP.podcast_audio ? FileVoice : SpeechVoice;
+    this.engine = useFile() ? FileVoice : SpeechVoice;
     if(this.engine===FileVoice) FileVoice.start();
     else { if(!this.segs.length||this.idx>=this.segs.length){ this.segs=buildBriefing(); this.idx=0; } this.playSeg(); }
     renderOnAir(); mixNow();
   },
   pause(){ if(!this.running) return; this.running=false; this.clear(); if(this.engine) this.engine.stop(); duck(false); renderOnAir(); mixNow(); },
-  stop(){ this.pause(); this.idx=0; this.segs=[]; FileVoice.reset(); highlight(-1); setNow(''); applyPendingHeadlines(); },
+  stop(){ this.pause(); this.idx=0; this.segs=[]; this.speech=false; FileVoice.reset(); highlight(-1); setNow(''); applyPendingHeadlines(); },
   playSeg(){
     const seg=this.segs[this.idx], g=this.gen;
-    if(!seg){ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…'); this.idx=0; this.segs=[]; applyPendingHeadlines();
-      this.later(()=>{ this.segs=buildBriefing(); this.playSeg(); },20000); return; }
+    if(!seg){ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…'); this.idx=0; this.segs=[]; this.speech=false; applyPendingHeadlines();
+      this.later(()=>{ if(useFile()){ this.engine=FileVoice; FileVoice.reset(); FileVoice.start(); return; } this.segs=buildBriefing(); this.playSeg(); },20000); return; }
     highlight(seg.hl);
     if(seg.hl>=0) setNow(seg.title||(HEADLINES[seg.hl]||{}).title,'NOW READING'); else setNow(seg.text,'HOST');
     SpeechVoice.say(seg.text,{
@@ -1242,7 +1251,9 @@ function initRadio(){
   radio.ready=true;
 }
 initRadio();
-getJSON('episode.json').then(e=>{ EP=e||{}; if(EP.podcast_audio){ const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='Pre-rendered briefing: '+EP.podcast_audio; } }).catch(()=>{});
+EP_JSON.then(e=>{ EP=e||{}; if(EP.podcast_audio){
+  // Keep a blob copy so seeking (cues, "Hear it on 101.5") works even when the server ignores Range requests (python http.server).
+  fetch(EP.podcast_audio).then(r=>r.ok?r.blob():null).then(b=>{ if(b && !FileVoice.el) EP.podcast_blob=URL.createObjectURL(b); }).catch(()=>{}); const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='Pre-rendered briefing: '+EP.podcast_audio; } }).catch(()=>{});
 
 /* ---------- News Graph tab ----------
    Nodes = headlines.json items. Edges = client-side relatedness:
@@ -1516,11 +1527,16 @@ window.NG=NG;
 function hearOnTalk(i){
   const h=HEADLINES[i]; if(!h) return;
   if(!talkAvailable()){ NG.note('News Talk needs a browser with speech (speechSynthesis).'); return; }
-  if(EP.podcast_audio){
-    const cue=(EP.podcast_cues||[]).find(c=>c.headline===i); FileVoice.ensure(); if(cue) FileVoice.el.currentTime=cue.t;
-  } else {
+  const cue = EP.podcast_audio && sameKey(EP.podcast_headlines||hlKey(HEADLINES), HEADLINES) ? (EP.podcast_cues||[]).find(c=>c.headline===i) : null;
+  if(cue){ // in the recording: seek to its cue
+    if(Host.running && Host.engine!==FileVoice) Host.pause();
+    Host.speech=false; Host.segs=[]; Host.idx=0;
+    FileVoice.ensure().currentTime=cue.t;
+    if(Host.running){ Host.clear(); FileVoice.el.play().catch(()=>{}); }
+  } else { // not in the recording (or no recording): browser voice reads it
     const wasOn = radio.station==='talk' && Host.running;
     if(wasOn) Host.pause();
+    if(EP.podcast_audio){ Host.speech=true; FileVoice.stop(); }
     const segs=buildBriefing(); let k=segs.findIndex(s=>s.hl===i);
     if(k<0){ // past the top-8 briefing: read this one, then the outro
       const t=cleanTitle(h.title), main=t.indexOf(', ')>0?t.slice(0,t.indexOf(', ')):t;

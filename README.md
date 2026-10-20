@@ -17,9 +17,10 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `dashboard/index.html` | Control room: clock, CSS lofi scene, player, Web Audio mixer sliders, bot panel, paste-a-link box |
 | `dashboard/botstatus.py` | Stdlib status CLI. Writes repo-root `status/` and `dashboard/tracks.json` |
 | `dashboard/status` | Symlink to `../status`, so the page's relative `status/index.json` fetch works |
-| `dashboard/headlines.json` | Hacker News top stories, written by `scripts/fetch_hn.py` |
+| `dashboard/headlines.json` | Hacker News top stories, written by `scripts/fetch_hn.py` (frozen snapshot that matches `host_briefing.mp3`) |
 | `dashboard/*.json` | Sample inbox and episode data |
 | `scripts/fetch_hn.py` | Stdlib script that refreshes `headlines.json` from the Hacker News API |
+| `scripts/render_host_voice.py` | Optional: renders the 101.5 host briefing with Chatterbox into `dashboard/host_briefing.mp3` + `episode.json` cues ([demo mode](#chatterbox-host-voice-demo-mode)) |
 | `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API |
 | `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis`, `report_status`, `list_agents`, `get_usage` |
 | `audio/` | Original beat generator, plot, and vocal lofi chain |
@@ -110,7 +111,7 @@ Tune by clicking a preset, dragging the needle, scrolling, or with the keyboard 
 
 Host voice, in order of preference:
 
-1. **Pre-rendered audio.** If `dashboard/episode.json` has `"podcast_audio": "../tracks/briefing-001.mp3"` (for example a Chatterbox render), News Talk plays that file through the Voice slider instead. Optional `"podcast_cues": [{"t": 0, "headline": -1}, {"t": 6.5, "headline": 0}]` drives the headline highlight.
+1. **Pre-rendered audio.** If `dashboard/episode.json` has `"podcast_audio"` (see [Chatterbox host voice](#chatterbox-host-voice-demo-mode)), News Talk plays that file through the Voice slider instead. Optional `"podcast_cues": [{"t": 0, "headline": -1}, {"t": 6.5, "headline": 0}]` drives the headline highlight.
 2. **Browser speech** (`speechSynthesis`). Zero dependencies. It picks a good English voice when one is installed (Google US English, Samantha, any "Natural" or "Neural" voice). The Voice slider sets the host volume for each sentence; the Music slider still sets the beat.
 3. **Captions.** If the browser has the API but no voice, for example headless Chrome, the briefing runs as timed captions. If `speechSynthesis` is missing entirely, the tuner stays on 88.1 and says why.
 
@@ -150,6 +151,32 @@ How relatedness is computed (all in the browser, from `headlines.json` only):
 4. The graph keeps links at or above Link strength (0.12 by default). Each node gets at most 4 links, and at most 2 of those can be topic-only links, so big topics become loose chains instead of a hairball.
 
 The layout is a small force simulation in vanilla JS on SVG. It uses no libraries and no CDN, so it works offline. Empty or one-item data shows a short note instead of a broken graph.
+
+## Chatterbox host voice (demo mode)
+
+101.5 NEWS TALK can play a pre-rendered host instead of the browser voice. `dashboard/host_briefing.mp3` is the briefing read by [Chatterbox](https://github.com/resemble-ai/chatterbox), Resemble AI's open-source TTS, using its built-in default voice (no voice cloning). It sounds the same on every machine, which is what you want for a demo.
+
+**Frozen snapshot.** The recording reads specific headlines, including their points and comment counts, so `dashboard/headlines.json` is committed as the exact snapshot it was made from. `dashboard/episode.json` carries `podcast_audio`, `podcast_cues` (when each headline starts, for the highlight and for **Hear it on 101.5** in the News Graph, which seeks to that headline), and `podcast_headlines`, a fingerprint of the top 8 headlines it reads (`hn_id`s, in order).
+
+- While the fingerprint matches `headlines.json`, the page stays on the snapshot: live Hacker News refresh is off and the ticker says `Hacker News · demo snapshot`.
+- `?hn=1` still forces live refresh. Once the live list differs from the fingerprint, the browser voice takes over (mid-briefing too), so the host never reads stale audio over new headlines. If the refresh fails, the recording keeps playing.
+- Headlines that aren't in the recording (9 and beyond, picked from the graph) are read by the browser voice, then the next briefing goes back to the recording.
+
+**Refresh it** (about 2.5 minutes on an 8-core CPU, roughly 1.6 s of compute per second of audio, plus a one-time ~3.5 GB model download):
+
+```bash
+python3 scripts/fetch_hn.py                       # new snapshot
+. .venv-voice/bin/activate                        # see scripts/requirements-voice.txt
+python scripts/render_host_voice.py dashboard/headlines.json --part evening \
+    --out dashboard/host_briefing.mp3 --cues /tmp/podcast_cues.json \
+    --merge-episode dashboard/episode.json
+```
+
+`--print-text` shows the script (and the spoken form) without rendering. `--part` sets the greeting baked into the file (`evening`, `morning`, ..., `auto` for the render time, or `none` for "Welcome to ..."). The script mirrors the page's briefing text, then applies a speech-only cleanup (for example `ipinfo dot io` is spoken as "I P info dot I O", `6.18` as "6 point 18"); add your own with `--say words.json`. Settings: exaggeration 0.4, cfg_weight 0.35, temperature 0.7, fixed seed, so a calm late-night read that renders the same every time. Output is loudness-normalized, peaks at about -1.4 dBFS, 96 kbps mono MP3.
+
+To go back to the live browser host, remove `podcast_audio` from `episode.json` (or just run `fetch_hn.py` without re-rendering: the fingerprint stops matching and the browser voice hosts).
+
+Chatterbox output carries Resemble AI's Perth watermark, which is inaudible and identifies the audio as AI-generated.
 
 ## Dependencies
 
