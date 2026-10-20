@@ -11,7 +11,11 @@ Usage:
       --out dashboard/host_briefing.mp3 --cues dashboard/podcast_cues.json \
       [--audio-path host_briefing.mp3] [--part none|auto|morning|afternoon|evening|night] \
       [--exaggeration 0.4 --cfg-weight 0.35 --temperature 0.7 --seed 7] \
-      [--max-segments N] [--merge-episode dashboard/episode.json]
+      [--max-segments N] [--merge-episode dashboard/episode.json] \
+      [--x-news dashboard/x_news.json --x-count 3]
+
+With --x-news, the top --x-count X stories (title + the first sentence or two of X's summary) are read
+after the headlines, before the outro, and their x_id list goes into episode.json "podcast_x".
 
 Re-run whenever headlines.json changes. CPU render speed ~4-5 s per second of audio.
 """
@@ -82,18 +86,72 @@ def build_briefing(data, part="auto"):
     segs.append({"hl": -1, "text": "That's the briefing. You've been listening to News Talk on Lofi News Radio. Back to the beat."})
     return segs
 
+# ---- X stories (x_news.json): mirrors xSegments()/xTrim() in index.html ---------
+X_WHEN = {"morning": "this morning", "afternoon": "this afternoon", "evening": "tonight", "night": "tonight", "none": ""}
+ABBR = re.compile(r"(?:\b[A-Z]\.){1,3}$|\b(?:Mr|Mrs|Ms|Dr|St|vs|Inc|Jr|Sr|Co|Corp|Ltd)\.$")
+
+def split_sentences(t):
+    out = []
+    for p in re.split(r"(?<=[.!?])\s+(?=[A-Z0-9\"'\u201c])", str(t or "").strip()):
+        if out and ABBR.search(out[-1]): out[-1] += " " + p   # "U.S. job postings" stays one sentence
+        elif p: out.append(p)
+    return out
+
+def x_trim(summary, limit=240):
+    """First sentence of X's summary, plus the second if both fit in ~limit characters."""
+    ss = split_sentences(summary)
+    if not ss: return ""
+    out = ss[0]
+    if len(ss) > 1 and len(out) + 1 + len(ss[1]) <= limit: out += " " + ss[1]
+    return out
+
+def x_segments(xdata, part, count=3):
+    xs = [h for h in (xdata or {}).get("stories") or [] if h and h.get("title")][:count]
+    if not xs: return []
+    when = X_WHEN.get(part_of_day(part), "")
+    segs = [{"hl": -1, "text": f"And from X{' ' + when if when else ''}, {'a story' if len(xs) == 1 else 'a few stories'} people are talking about."}]
+    leads = ["", "Also on X. ", "One more from X. "]
+    for j, h in enumerate(xs):
+        segs.append({"hl": -1, "x": j, "text": f"{leads[min(j, 2)]}{sentence(clean_title(h['title']))} {sentence(x_trim(h.get('summary')))}".strip()})
+    return segs
+
+def x_fingerprint(xdata, count=3):
+    return [h.get("x_id") or h["title"] for h in ((xdata or {}).get("stories") or []) if h and h.get("title")][:count]
+
 def fingerprint(data):
     """hn_id (or title) of each headline the briefing reads, in order. Mirrors podcastFingerprint() in index.html."""
     hs = [h for h in (data.get("headlines") or []) if h and h.get("title")][:8]
     return [h.get("hn_id") or h["title"] for h in hs]
 
 # ---- TTS-only text tweaks (spoken form; captions/cues unaffected) -------------
+SAY_X = {  # extra spoken-form fixes, applied to the X segments only (the headline segments render exactly as before)
+    "François Chollet": "Fran swah Shollay", "Chollet": "Shollay", "U.S.": "U S", "Inc.": "Incorporated", "T3": "T three",
+}
+
 SAY = {  # spoken-form fixes for words the default voice stumbles on (extend with --say file.json)
     "ipinfo": "I P info", "IPinfo": "I P info", "MiniMax": "Mini Max", "amdgpu": "A M D G P U", "OpenBSD": "Open B S D", "bsd": "B S D",
 }
 
-def speakable(text, say=SAY):
-    t = re.sub(r"\bShow HN\b:?", "Show H N:", text)
+ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+def words_lt100(n):
+    return ONES[n] if n < 20 else TENS[n // 10] + ("" if n % 10 == 0 else "-" + ONES[n % 10])
+
+def say_numbers(t):
+    """X summaries keep digits; the default voice drops or garbles some ("20%", "2025"), so spell them out."""
+    t = re.sub(r"\b(\d{1,2})%", lambda m: words_lt100(int(m.group(1))) + " percent", t)
+    t = re.sub(r"\b(?:19|20)(\d\d)\b", lambda m: m.group(0)[:2].replace("19", "nineteen").replace("20", "twenty") + " "
+               + ("hundred" if m.group(1) == "00" else "oh " + ONES[int(m.group(1))] if m.group(1)[0] == "0" else words_lt100(int(m.group(1)))), t)
+    t = re.sub(r"\b(\d{1,2})(?=-)", lambda m: words_lt100(int(m.group(1))), t)   # 10-point -> ten-point
+    return t
+
+def speakable(text, say=SAY, x=False):
+    t = text
+    if x:
+        for k, v in SAY_X.items(): t = t.replace(k, v)
+        t = say_numbers(t)
+    t = re.sub(r"\bShow HN\b:?", "Show H N:", t)
     t = re.sub(r"\bAsk HN\b:?", "Ask H N:", t)
     t = re.sub(r"\bHN\b", "H N", t)
     t = re.sub(r"https?://\S+", "", t)
@@ -155,17 +213,24 @@ def main():
     ap.add_argument("--merge-episode", default=None, help="also write podcast_audio/podcast_cues into this episode.json")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--say", default=None, help="JSON {word: spoken form} merged into the built-in SAY fixes")
+    ap.add_argument("--x-news", default=None, help="x_news.json: read its top stories after the headlines")
+    ap.add_argument("--x-count", type=int, default=3)
+    ap.add_argument("--reseed", action="append", default=[], metavar="SEG:OFFSET",
+                    help="re-roll one segment's take: add OFFSET to its seed (repeatable), e.g. --reseed 10:1")
     ap.add_argument("--print-text", action="store_true", help="print the briefing (and spoken form) and exit")
     a = ap.parse_args()
 
     data = json.loads(Path(a.headlines).read_text())
     say = dict(SAY, **(json.loads(Path(a.say).read_text()) if a.say else {}))
     segs = build_briefing(data, a.part)
+    xdata = json.loads(Path(a.x_news).read_text()) if a.x_news else None
+    xsegs = x_segments(xdata, a.part, a.x_count) if xdata else []
+    if xsegs: segs = segs[:-1] + xsegs + segs[-1:]  # before the outro
     if a.max_segments: segs = segs[:a.max_segments]
     if a.print_text:
         for s in segs:
             print(f"[{s['hl']:>2}] {s['text']}")
-            sp = speakable(s["text"], say)
+            sp = speakable(s["text"], say, "x" in s)
             if sp != s["text"]: print(f"     say: {sp}")
         return
 
@@ -180,16 +245,19 @@ def main():
     lead = np.zeros(int(a.lead_in * sr), dtype=np.float32); pieces.append(lead); cursor += len(lead) / sr
     gap = np.zeros(int(a.pause * sr), dtype=np.float32)
     t_render = time.time()
+    reseed = {int(k): int(v) for k, v in (r.split(":") for r in a.reseed)}
     for k, s in enumerate(segs):
         parts = []
-        for j, chunk in enumerate(chunks(speakable(s["text"], say))):  # long segments (summaries) render per sentence group
-            torch.manual_seed(a.seed + k + 100 * j)
+        for j, chunk in enumerate(chunks(speakable(s["text"], say, "x" in s))):  # long segments (summaries) render per sentence group
+            torch.manual_seed(a.seed + k + 100 * j + 1000 * reseed.get(k, 0))
             w = model.generate(chunk, exaggeration=a.exaggeration, cfg_weight=a.cfg_weight, temperature=a.temperature)
             if parts: parts.append(np.zeros(int(0.28 * sr), dtype=np.float32))
             parts.append(trim_silence(w.squeeze(0).cpu().numpy().astype(np.float32), sr))
         w = np.concatenate(parts)
-        cues.append({"t": round(cursor, 2), "headline": s["hl"]})
-        segs_meta.append({"start": round(cursor, 3), "end": round(cursor + len(w) / sr, 3), "headline": s["hl"], "text": s["text"]})
+        cue = {"t": round(cursor, 2), "headline": s["hl"]}
+        if "x" in s: cue["x"] = s["x"]  # X story index in x_news.json "stories"
+        cues.append(cue)
+        segs_meta.append({"start": round(cursor, 3), "end": round(cursor + len(w) / sr, 3), **{k: v for k, v in cue.items() if k != "t"}, "text": s["text"]})
         print(f"  seg {k} hl={s['hl']:>2} {len(w)/sr:5.2f}s", file=sys.stderr)
         pieces.append(w); cursor += len(w) / sr
         if k < len(segs) - 1: pieces.append(gap); cursor += len(gap) / sr
@@ -210,6 +278,7 @@ def main():
     snippet = {"podcast_audio": a.audio_path or out.name, "podcast_cues": cues,
                # fingerprint of the headlines this audio reads (dashboard falls back to the browser voice on mismatch)
                "podcast_headlines": fingerprint(data),
+               **({"podcast_x": x_fingerprint(xdata, a.x_count)} if xsegs else {}),
                "podcast_meta": {"engine": "chatterbox-tts (default voice)", "duration_s": round(dur, 2),
                                 "exaggeration": a.exaggeration, "cfg_weight": a.cfg_weight, "temperature": a.temperature,
                                 "seed": a.seed, "part_of_day": part_of_day(a.part),
@@ -220,8 +289,10 @@ def main():
         p = Path(a.merge_episode); ep = json.loads(p.read_text()) if p.exists() else {}
         ep["podcast_audio"] = snippet["podcast_audio"]; ep["podcast_cues"] = cues
         ep["podcast_headlines"] = snippet["podcast_headlines"]
+        if "podcast_x" in snippet: ep["podcast_x"] = snippet["podcast_x"]
+        else: ep.pop("podcast_x", None)
         ep["podcast_voice"] = {k: snippet["podcast_meta"][k] for k in
-                               ("engine", "duration_s", "exaggeration", "cfg_weight", "temperature", "seed", "rendered")}
+                               ("engine", "duration_s", "exaggeration", "cfg_weight", "temperature", "seed", "part_of_day", "rendered")}
         p.write_text(json.dumps(ep, indent=2, ensure_ascii=False) + "\n")
     print(f"wrote {out} ({dur:.1f}s) and {a.cues}; render {render_s:.0f}s = {render_s/dur:.2f}s per audio second",
           file=sys.stderr)

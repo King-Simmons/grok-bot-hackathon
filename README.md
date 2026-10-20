@@ -164,7 +164,9 @@ python3 scripts/fetch_x_news.py --out -          # print instead of writing
 
 Stdlib only. Without `X_BEARER_TOKEN` it exits and leaves the file alone; so does a failed request. `--from-raw news.json [--posts-raw posts.json]` builds the file from saved API responses instead (the committed snapshot was made that way, from Grok Bot's X tools). Each story has `title`, `source: "X"`, `url` (the story's x.com page), `domain`, `x_id`, and, when X returns them, `hook`, `summary`, `category`, `topics`, `entities`, `time` (UTC), `cluster_posts` (distinct posts X lists for the story), and `top_post` (`url`, `username`, `likes`, `reposts`, `replies`, `quotes`, `impressions`). Nothing is filled in. X's story summaries are AI-generated from posts; the file keeps X's `disclaimer`.
 
-The browser can't call the X API (it needs the token), so the page reads `x_news.json` after load and re-reads it every 10 minutes, the same interval as Hacker News; run the script on a schedule to keep it fresh. X stories are a separate list from `headlines.json`: they scroll in the ticker (marked 𝕏) and appear in the News Graph (dashed outline, linked by shared words, topics and the `entities` X returns), but they never enter the 101.5 briefing or its `podcast_headlines` fingerprint, so the demo recording keeps playing. Picking an X story in the graph and pressing "Hear it on 101.5" reads its summary in the browser voice. 88.1 LOFI stays music only. Add `?x=0` to the URL to hide X.
+The browser can't call the X API (it needs the token), so the page reads `x_news.json` after load and re-reads it every 10 minutes, the same interval as Hacker News; run the script on a schedule to keep it fresh. X stories are a separate list from `headlines.json`: they scroll in the ticker (marked 𝕏) and appear in the News Graph (dashed outline, linked by shared words, topics and the `entities` X returns), and they stay out of the `podcast_headlines` fingerprint. On 101.5 NEWS TALK the host reads the top 3 X stories after the headlines and before the outro: "And from X tonight, a few stories people are talking about.", then each title with the first sentence of X's summary (two sentences if both fit in about 240 characters). The Chatterbox recording and the browser voice read the same text. 88.1 LOFI stays music only.
+
+Add `?x=0` to the URL to hide X from the ticker, the graph and the browser-voice briefing. The Chatterbox recording still plays as rendered, X lines included; while it reads those, nothing in the ticker lights up and the tuner says "A story from X".
 
 ## News Graph tab
 
@@ -189,23 +191,25 @@ The layout is a small force simulation in vanilla JS on SVG. It uses no librarie
 
 101.5 NEWS TALK can play a pre-rendered host instead of the browser voice. `dashboard/host_briefing.mp3` is the briefing read by [Chatterbox](https://github.com/resemble-ai/chatterbox), Resemble AI's open-source TTS, using its built-in default voice (no voice cloning). It sounds the same on every machine, which is what you want for a demo.
 
-**Frozen snapshot.** The recording reads specific headlines, including their points, comment counts, and the `summary` fields on the top 3, so `dashboard/headlines.json` is committed as the exact snapshot it was made from. `dashboard/episode.json` carries `podcast_audio`, `podcast_cues` (when each headline starts, for the highlight and for **Hear it on 101.5** in the News Graph, which seeks to that headline), and `podcast_headlines`, a fingerprint of the top 8 headlines it reads (`hn_id`s, in order).
+**Frozen snapshot.** The recording reads specific headlines, including their points, comment counts, and the `summary` fields on the top 3, so `dashboard/headlines.json` is committed as the exact snapshot it was made from. `dashboard/episode.json` carries `podcast_audio`, `podcast_cues` (when each headline starts, for the highlight and for **Hear it on 101.5** in the News Graph, which seeks to that headline), `podcast_headlines`, a fingerprint of the top 8 headlines it reads (`hn_id`s, in order), and `podcast_x`, the `x_id`s of the 3 X stories it reads from the committed `dashboard/x_news.json`. An X cue looks like `{"t": 136.2, "headline": -1, "x": 0}`, where `x` is the story's index in `x_news.json`.
 
 - While the fingerprint matches `headlines.json`, the page stays on the snapshot: live Hacker News refresh is off and the ticker says `Hacker News · demo snapshot`.
 - `?hn=1` still forces live refresh. Once the live list differs from the fingerprint, the browser voice takes over (mid-briefing too), so the host never reads stale audio over new headlines. If the refresh fails, the recording keeps playing.
+- The same goes for X: if `x_news.json` changes (a new `fetch_x_news.py` run) and its top 3 no longer match `podcast_x`, the browser voice hosts. If `x_news.json` is missing, the browser voice hosts too.
 - Headlines that aren't in the recording (9 and beyond, picked from the graph) are read by the browser voice, then the next briefing goes back to the recording.
 
-**Refresh it** (about 5 minutes on an 8-core CPU for the current 129 s briefing, roughly 2 s of compute per second of audio, plus a one-time ~3.5 GB model download):
+**Refresh it** (about 6 minutes on an 8-core CPU for the current briefing with X, roughly 2 s of compute per second of audio, plus a one-time ~3.5 GB model download):
 
 ```bash
 python3 scripts/fetch_hn.py                       # new snapshot
 . .venv-voice/bin/activate                        # see scripts/requirements-voice.txt
 python scripts/render_host_voice.py dashboard/headlines.json --part evening \
+    --x-news dashboard/x_news.json --reseed 10:1 --reseed 11:3 \
     --out dashboard/host_briefing.mp3 --cues /tmp/podcast_cues.json \
     --merge-episode dashboard/episode.json
 ```
 
-`--print-text` shows the script (and the spoken form) without rendering. `--part` sets the greeting baked into the file (`evening`, `morning`, ..., `auto` for the render time, or `none` for "Welcome to ..."). The script mirrors the page's briefing text, then applies a speech-only cleanup (for example `ipinfo dot io` is spoken as "I P info dot I O", `6.18` as "6 point 18"); add your own with `--say words.json`. Settings: exaggeration 0.4, cfg_weight 0.35, temperature 0.7, fixed seed, so a calm late-night read that renders the same every time. Output is loudness-normalized, peaks at about -1.4 dBFS, 96 kbps mono MP3.
+`--print-text` shows the script (and the spoken form) without rendering. `--part` sets the greeting baked into the file (`evening`, `morning`, ..., `auto` for the render time, or `none` for "Welcome to ..."). The script mirrors the page's briefing text, then applies a speech-only cleanup (for example `ipinfo dot io` is spoken as "I P info dot I O", `6.18` as "6 point 18"); add your own with `--say words.json`. The X lines get a few extra fixes, applied only to them so the headline audio stays the same: numbers such as `20%`, `2025` and `10-point` are spelled out, `U.S.` is spoken as "U S", `Inc.` as "Incorporated", `T3` as "T three", and "François Chollet" is spelled out by sound. Omit `--x-news` to render headlines only. If one segment comes out garbled (check with a transcript), `--reseed SEG:N` re-rolls just that segment's take; the committed file used `--reseed 10:1 --reseed 11:3` for the first two X stories. Settings: exaggeration 0.4, cfg_weight 0.35, temperature 0.7, fixed seed, so a calm late-night read that renders the same every time. Output is loudness-normalized, peaks at about -1.4 dBFS, 96 kbps mono MP3.
 
 To go back to the live browser host, remove `podcast_audio` from `episode.json` (or just run `fetch_hn.py` without re-rendering: the fingerprint stops matching and the browser voice hosts).
 
