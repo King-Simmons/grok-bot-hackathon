@@ -96,8 +96,8 @@ Tune by clicking a preset, dragging the needle, scrolling, or with the keyboard 
 
 Host voice, in order of preference:
 
-1. **Pre-rendered audio.** If `dashboard/episode.json` has `"podcast_audio": "../tracks/briefing-001.mp3"` (for example a Chatterbox render), News Talk plays that file through the Voice knob instead. Optional `"podcast_cues": [{"t": 0, "headline": -1}, {"t": 6.5, "headline": 0}]` drives the headline highlight.
-2. **Browser speech** (`speechSynthesis`). Zero dependencies. It picks a good English voice when one is installed (Google US English, Samantha, any "Natural" or "Neural" voice). The Voice knob sets the host volume for each sentence; the Music knob still sets the beat.
+1. **Pre-rendered audio.** If `dashboard/episode.json` has `"podcast_audio": "../tracks/briefing-001.mp3"` (for example a Chatterbox render), News Talk plays that file through the Voice slider instead. Optional `"podcast_cues": [{"t": 0, "headline": -1}, {"t": 6.5, "headline": 0}]` drives the headline highlight.
+2. **Browser speech** (`speechSynthesis`). Zero dependencies. It picks a good English voice when one is installed (Google US English, Samantha, any "Natural" or "Neural" voice). The Voice slider sets the host volume for each sentence; the Music slider still sets the beat.
 3. **Captions.** If the browser has the API but no voice, for example headless Chrome, the briefing runs as timed captions. If `speechSynthesis` is missing entirely, the tuner stays on 88.1 and says why.
 
 The host only says what is in `headlines.json`: the title, the source, and, if a headline has them, optional `take` or `summary` fields. Today those headlines are placeholders, and the intro says so.

@@ -901,7 +901,7 @@ const SpeechVoice={
     if(!this.ok||this.failed){ wd=setTimeout(fin, est+1200); return; } // captions only
     const u=new SpeechSynthesisUtterance(text);
     this.voice=this.voice||this.pick(); if(this.voice){ u.voice=this.voice; u.lang=this.voice.lang; } else u.lang='en-US';
-    u.rate=0.97; u.pitch=1; u.volume=Math.max(0,Math.min(1,state.voice/100)); // Voice knob (applies per sentence)
+    u.rate=0.97; u.pitch=1; u.volume=Math.max(0,Math.min(1,state.voice/100)); // Voice slider (applies per sentence)
     let started=false;
     u.onstart=()=>{ started=true; onstart&&onstart(); };
     u.onend=fin;
@@ -915,7 +915,7 @@ const SpeechVoice={
 if(SpeechVoice.ok) speechSynthesis.addEventListener('voiceschanged',()=>{ SpeechVoice.voice=null; });
 
 // Pre-rendered briefing (episode.json "podcast_audio", optional "podcast_cues":[{"t":6.5,"headline":0}]).
-// Routed through the Web Audio voice bus, so the Voice knob and Warmth apply.
+// Routed through the Web Audio voice bus, so the Voice slider and Warmth apply.
 const FileVoice={
   el:null, wired:false,
   ensure(){
