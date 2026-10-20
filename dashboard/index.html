@@ -1645,7 +1645,7 @@ const NG=(()=>{
     for(let i=0;i<N;i++){ const A=ns[i];
       for(let j=i+1;j<N;j++){ const B=ns[j]; let dx=A.x-B.x, dy=A.y-B.y, d2=dx*dx+dy*dy;
         if(d2<1){ dx=rg()-.5; dy=rg()-.5; d2=1; } const d=Math.sqrt(d2), f=Math.min(k*k/d, 300)*0.035*a;
-        const mn=A.r+B.r+26; const push = d<mn ? (mn-d)*0.25 : 0;
+        const mn=A.r+B.r+26; const push = (d<mn ? (mn-d)*0.25 : 0)*a;
         const fx=dx/d*(f+push), fy=dy/d*(f+push); A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; } }
     S.edges.forEach(e=>{ const A=ns[e.a], B=ns[e.b], dx=B.x-A.x, dy=B.y-A.y, d=Math.sqrt(dx*dx+dy*dy)||1;
       const L=k*(1.25-0.6*e.score), f=(d-L)*0.04*(0.4+e.score)*a, fx=dx/d*f, fy=dy/d*f; A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; });
@@ -1659,7 +1659,8 @@ const NG=(()=>{
     for(let t=0;t<2;t++) stepSim(); paint();
     S.alpha*=0.985; if(S.drag) S.alpha=Math.max(S.alpha,0.25);
     S.nodes.forEach(n=>S.pos.set(n.key,{x:n.x,y:n.y}));
-    if(S.alpha>0.01 || S.drag) S.raf=requestAnimationFrame(frame);
+    let speed=0; S.nodes.forEach(n=>{ const s=Math.hypot(n.vx,n.vy); if(s>speed) speed=s; });
+    if(S.drag || (S.alpha>0.01 && (S.alpha>0.25 || speed>0.2))) S.raf=requestAnimationFrame(frame);
   }
   function kick(){ if(S.visible && !S.raf) S.raf=requestAnimationFrame(frame); }
   function measure(){ const r=wrap.getBoundingClientRect(); if(r.width>10&&r.height>10){ const ow=S.w, oh=S.h; S.w=r.width; S.h=r.height;
