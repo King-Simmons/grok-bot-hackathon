@@ -6,7 +6,7 @@ Lofi News Radio is a control room for a small crew of bots, plus a URL-to-lofi e
 
 ![Lofi News Radio dashboard](docs/dashboard.png)
 
-*Control room, Oct 19, 2026, 6:56 PM CT.*
+*Control room, Oct 19, 2026, 8:00 PM CT. Three agents checked in, and the usage meter is reading the local log.*
 
 Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-Lofi Synthesizer*. The team PRD and research notes live in the team's Google Drive folder.
 
