@@ -17,7 +17,9 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `dashboard/index.html` | Control room: clock, CSS lofi scene, player, Web Audio mixer sliders, bot panel, paste-a-link box |
 | `dashboard/botstatus.py` | Stdlib status CLI. Writes repo-root `status/` and `dashboard/tracks.json` |
 | `dashboard/status` | Symlink to `../status`, so the page's relative `status/index.json` fetch works |
-| `dashboard/*.json` | Sample headlines, inbox, and episode data |
+| `dashboard/headlines.json` | Hacker News top stories, written by `scripts/fetch_hn.py` |
+| `dashboard/*.json` | Sample inbox and episode data |
+| `scripts/fetch_hn.py` | Stdlib script that refreshes `headlines.json` from the Hacker News API |
 | `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API |
 | `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis` |
 | `audio/` | Original beat generator, plot, and vocal lofi chain |
@@ -100,7 +102,42 @@ Host voice, in order of preference:
 2. **Browser speech** (`speechSynthesis`). Zero dependencies. It picks a good English voice when one is installed (Google US English, Samantha, any "Natural" or "Neural" voice). The Voice slider sets the host volume for each sentence; the Music slider still sets the beat.
 3. **Captions.** If the browser has the API but no voice, for example headless Chrome, the briefing runs as timed captions. If `speechSynthesis` is missing entirely, the tuner stays on 88.1 and says why.
 
-The host only says what is in `headlines.json`: the title, the source, and, if a headline has them, optional `take` or `summary` fields. Today those headlines are placeholders, and the intro says so.
+The host only says what is in `headlines.json`: the title, the source, optional `take` or `summary` fields when a headline has them, and for Hacker News items the site, points, and comment count. When the headlines are placeholders (`"example": true`), the intro says so.
+
+## News source: Hacker News
+
+`dashboard/headlines.json` holds real top stories from [Hacker News](https://news.ycombinator.com), pulled from the official API (`https://hacker-news.firebaseio.com/v0/topstories.json` and `item/{id}.json`). Refresh it from the repository root:
+
+```bash
+python3 scripts/fetch_hn.py            # top 15 stories
+python3 scripts/fetch_hn.py -n 25      # more stories
+python3 scripts/fetch_hn.py --list best   # top | new | best
+```
+
+Stdlib only. The write is atomic, and if the API can't be reached the old file is left alone. Each item keeps the original schema (`title`, `source: "Hacker News"`) and adds `url`, `domain`, `score`, `by`, `time` (UTC), `comments`, `hn_id`, and `discussion` (the HN thread). Text posts such as Ask HN link to their thread.
+
+The page also refreshes live in the browser: when `headlines.json` has `"source": "Hacker News"`, it fetches the same API (it allows CORS) after load and every 10 minutes. If that fails, for example offline, the page keeps what `headlines.json` gave it. The ticker label says `Hacker News · live` or `Hacker News · snapshot`. Add `?hn=0` to the URL to turn live refresh off, or `?hn=1` to force it on when the file comes from another source, such as the News Gatherer bot. A refresh that arrives in the middle of a News Talk briefing waits until the briefing ends, so the host never reads a list that changed under it.
+
+On 101.5 NEWS TALK the host says the source once in the intro ("straight from the top of Hacker News"), then reads each title with what the API reports: the site, points, and comment count. It reads nothing beyond that.
+
+## News Graph tab
+
+The tab bar at the top switches between **Radio** and **News Graph** in place. The page doesn't reload, and the beat, the host, and the tuner keep playing while you look at the graph. The tab bar shows what is on air. `#graph` in the URL opens the graph directly.
+
+- **Nodes** are the headlines in `headlines.json`, labeled with a short title. Color shows the topic, and size grows with the number of links.
+- **Links** join headlines that are related. Solid lines mean the headlines share words, and thicker lines mean a stronger link. Dashed lines mean the headlines share only a topic.
+- **Hover** a node to see the full headline, its site, points, and comments, plus what links it to its neighbors (the shared words and topic). Hover a link to see why it exists.
+- **Drag** a node to move it. **Click** a node to light up its neighbors and open a detail panel with the story and discussion links. In that panel, **▶ Hear it on 101.5 News Talk** tunes the radio and starts the briefing at that headline. The node being read pulses red.
+- **Link strength** sets the minimum score for a link (saved in `localStorage`). **Shake** re-runs the layout.
+
+How relatedness is computed (all in the browser, from `headlines.json` only):
+
+1. Each title is cut into keywords. Stopwords, bare numbers, and tags like `[video]` or `Show HN:` are dropped. Plurals and `-ing`/`-ed` endings are trimmed, and hyphenated words also count as their parts. Optional `keywords` and `entities` fields on a headline count 1.5×. The story's site counts as a weak extra term: 0.7×, or 0.25× for catch-all hosts like github.com and youtube.com.
+2. TF-IDF weights make rare shared words count more than common ones. The score between two headlines is the cosine similarity of their weight vectors.
+3. A small lexicon (AI and models, OS and hardware, programming, security, games, science, and so on) assigns topics from the title words and the site name. For example, `mistral.ai` counts as AI. A headline's own `topic` field always wins. Each shared topic adds 0.12 to the score, up to two topics.
+4. The graph keeps links at or above Link strength (0.12 by default). Each node gets at most 4 links, and at most 2 of those can be topic-only links, so big topics become loose chains instead of a hairball.
+
+The layout is a small force simulation in vanilla JS on SVG. It uses no libraries and no CDN, so it works offline. Empty or one-item data shows a short note instead of a broken graph.
 
 ## Dependencies
 
