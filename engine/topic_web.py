@@ -76,7 +76,7 @@ _SSL = _ssl_context()
 
 def _tokens(s):
     out = []
-    for w in re.findall(r"[a-z0-9]{2,}", (s or "").lower()):
+    for w in re.findall(r"[^\W_]{2,}", (s or "").lower()):
         if w in _STOP:
             continue
         if len(w) > 4 and w.endswith("s"):
@@ -86,7 +86,7 @@ def _tokens(s):
 
 
 def _compact(s):
-    return re.sub(r"[^a-z0-9]+", "", (s or "").lower())
+    return re.sub(r"[\W_]+", "", (s or "").lower())
 
 
 def _relevant(topic, title, extra=""):
