@@ -1,0 +1,429 @@
+{
+  "source": "X",
+  "feed": "https://api.x.com/2/news/search",
+  "query": "AI technology",
+  "max_age_hours": 24,
+  "topic_filter": "Technology",
+  "fetched_via": "Grok Bot X tools (search_news, get_posts_by_ids)",
+  "updated": "2026-10-20T02:44:00Z",
+  "disclaimer": "This story is a summary of posts on X and may evolve over time. Grok can make mistakes, verify its outputs.",
+  "stories": [
+    {
+      "title": "AI Developers Favor Speed and Cost Over Raw Intelligence Gains",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112287617815306316",
+      "domain": "x.com",
+      "x_id": "2112287617815306316",
+      "hook": "Engineers once chased every point of model smarts, but now a 10-point edge barely moves the needle on usage. It's a clear sign that 'good enough' AI is reshaping daily work.",
+      "summary": "New data shows a 10-point intelligence boost now drives just 20% more developer traffic, down from 69% in late 2025, as many tasks hit an 'intelligence saturated' point where cost and speed matter more. Leaders like Cognition's Russell Kaplan confirm this in software engineering, while fields like drug discovery still see steep gains from smarter models. Developers such as Andrew Ho default to medium settings, and voices like Peter Yang praise practical experiences from models like Anthropic’s Opus 5.5, shifting competition toward reliability, price, and seamless tools.",
+      "category": "News",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "OpenAI",
+        "Anthropic"
+      ],
+      "time": "2026-10-19T21:07:31.000Z",
+      "cluster_posts": 10,
+      "top_post": {
+        "id": "2112179725372391829",
+        "url": "https://x.com/russelljkaplan/status/2112179725372391829",
+        "username": "russelljkaplan",
+        "likes": 987,
+        "reposts": 64,
+        "replies": 55,
+        "quotes": 39,
+        "impressions": 118918,
+        "created_at": "2026-10-19T13:51:03.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Software Engineering Jobs Grow Despite AI Coding Agents",
+      "source": "X",
+      "url": "https://x.com/i/trending/2111571558787432776",
+      "domain": "x.com",
+      "x_id": "2111571558787432776",
+      "hook": "AI now writes nearly all the code, yet engineers report working harder than ever as new industries turn to software solutions.",
+      "summary": "François Chollet notes more software engineers today than in 2025, with U.S. job postings up 15% since early that year, especially for senior and AI-skilled roles. Aaron Levie explains that AI agents enable software for previously undigitized problems in banks, life sciences, and manufacturing, expanding demand for engineers who orchestrate these systems. While entry-level jobs for young developers dipped 20%, overall employment holds steady, with engineers shifting from coding to designing reliable processes.",
+      "category": "News",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "OpenAI",
+        "Anthropic"
+      ],
+      "time": "2026-10-19T20:19:57.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2111507711653564543",
+        "url": "https://x.com/fchollet/status/2111507711653564543",
+        "username": "fchollet",
+        "likes": 2773,
+        "reposts": 249,
+        "replies": 307,
+        "quotes": 70,
+        "impressions": 276258,
+        "created_at": "2026-10-17T17:20:43.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "T3 Code Nightly Builds Deliver Blazing Speed Across Machines",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112048453438021791",
+      "domain": "x.com",
+      "x_id": "2112048453438021791",
+      "hook": "Theo calls the latest T3 Code nightlies 'insane' in speed, with threads now flying across remote VPSs, Linux boxes, and high-spec Windows setups.",
+      "summary": "T3 Code, a free open-source app from Theo Browne's T3 Tools Inc., unifies control for AI coding agents like Codex and Claude, supporting parallel threads, Git isolation, and remote access. Recent demos show massive productivity gains, with the system autonomously merging 600 pull requests and featuring in-app charts for data exploration. While some praise 'vibe coding' for letting AI handle implementation from plain descriptions, others worry about engineering details like security; minor gripes include cluttered sidebars in team projects.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "Software Development"
+      ],
+      "entities": [
+        "Roblox",
+        "Kit Langton"
+      ],
+      "time": "2026-10-19T05:13:25.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2111955962781384846",
+        "url": "https://x.com/kitlangton/status/2111955962781384846",
+        "username": "kitlangton",
+        "likes": 2825,
+        "reposts": 112,
+        "replies": 177,
+        "quotes": 66,
+        "impressions": 229077,
+        "created_at": "2026-10-18T23:01:54.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Sabine Hossenfelder: AI Needed for Science Beyond Human Grasp",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112228075597615388",
+      "domain": "x.com",
+      "x_id": "2112228075597615388",
+      "hook": "Physicist Sabine Hossenfelder shared a bold take: science must embrace ideas too complex for our minds, with AI leading the way forward.",
+      "summary": "On October 19, Hossenfelder posted that insisting on human understanding limits progress, adding she's sure AI Claude knows more than her. Supporters like immunologist Derya Unutmaz agreed AI or superintelligence is key to breakthroughs, while critics such as microbiologist JonnyMicro called AIs mere search engines unable to create original thoughts. The conversation drew on diagrams of cognitive limits and Borges' tale of an overly perfect map, highlighting tensions between AI-driven discovery and the need for human insight.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "AI",
+        "Science"
+      ],
+      "entities": [
+        "Sabine Hossenfelder",
+        "Derya Unutmaz"
+      ],
+      "time": "2026-10-20T01:06:37.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2112042730297958683",
+        "url": "https://x.com/skdh/status/2112042730297958683",
+        "username": "skdh",
+        "likes": 5207,
+        "reposts": 508,
+        "replies": 1074,
+        "quotes": 355,
+        "impressions": 331179,
+        "created_at": "2026-10-19T04:46:41.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Debate Heats Up Over AI Replacing Human Code Reviews",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112365275928739958",
+      "domain": "x.com",
+      "x_id": "2112365275928739958",
+      "hook": "A security engineer called requiring humans to review every line of code outdated, as AI now follows rules more consistently than people. Others warn that skipping those checks could erode real programming skills.",
+      "summary": "Tech discussions highlight a divide: some see AI coding tools making traditional human reviews obsolete by generating consistent code faster, while critics argue it skips building deep understanding for complex tasks. A study of hundreds of firms found AI boosted output but increased review times by nearly 50 percent, with more comments per pull request and no gains in shipped software. Game developers note double standards on AI use, and practical voices suggest using AI for small tasks while humans handle architecture, with new frameworks aiding risk assessment in outputs.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "time": "2026-10-20T02:13:21.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2112296765785342428",
+        "url": "https://x.com/IceSolst/status/2112296765785342428",
+        "username": "IceSolst",
+        "likes": 147,
+        "reposts": 14,
+        "replies": 13,
+        "quotes": 4,
+        "impressions": 5539,
+        "created_at": "2026-10-19T21:36:08.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Anthropic Staff Predict 17% Annual US GDP Growth by 2030 from AI",
+      "source": "X",
+      "url": "https://x.com/i/trending/2111906025196696000",
+      "domain": "x.com",
+      "x_id": "2111906025196696000",
+      "hook": "Anthropic employees see AI automating most of their work by 2030, fueling bold forecasts of explosive economic growth that few others share.",
+      "summary": "In its October report 'The AI Expectations Gap,' Anthropic polled over 1,300 staff who expect AI to handle 75% of current work hours by 2030 and deliver Nobel-level discoveries, implying 17.1% annual US GDP growth—far above the 5.4% from typical adults. The company itself cut junior technical hires from 27% to 9% of roles last year, with AI agents now outpacing human hours and staff shifting to oversight and meetings. Skeptics question the projections' realism amid flat economy-wide productivity, while defenders argue rapid automation could make them feasible.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "Anthropic"
+      ],
+      "time": "2026-10-19T04:03:25.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2111894493993861536",
+        "url": "https://x.com/sporadica/status/2111894493993861536",
+        "username": "sporadica",
+        "likes": 1963,
+        "reposts": 71,
+        "replies": 161,
+        "quotes": 26,
+        "impressions": 121558,
+        "created_at": "2026-10-18T18:57:39.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Tim Sweeney Predicts AI Golden Age for Gaming Development",
+      "source": "X",
+      "url": "https://x.com/i/trending/2111589576468828183",
+      "domain": "x.com",
+      "x_id": "2111589576468828183",
+      "hook": "Tim Sweeney remembers spending 70% of his early coding days on repetitive typing and refactoring. Now, he sees AI handling that grind, freeing developers for real creativity.",
+      "summary": "Epic Games CEO Tim Sweeney, creator of the original Unreal Engine, predicts AI will usher in a golden age for gaming by automating routine tasks and enabling smaller teams to tackle ambitious projects. Elon Musk endorsed the idea, while Epic shifts resources toward AI acceleration to boost output without cutting staff. The gaming community offers mixed views: supporters highlight productivity gains like enhanced mods, but critics fear slop, job losses, and a drop in craftsmanship that treats games as art.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "Gaming",
+        "AI"
+      ],
+      "entities": [
+        "Epic Games",
+        "Tim Sweeney"
+      ],
+      "time": "2026-10-19T18:52:02.000Z",
+      "cluster_posts": 5,
+      "top_post": {
+        "id": "2111633221725122769",
+        "url": "https://x.com/TimSweeneyEpic/status/2111633221725122769",
+        "username": "TimSweeneyEpic",
+        "likes": 18646,
+        "reposts": 1621,
+        "replies": 970,
+        "quotes": 385,
+        "impressions": 1544501,
+        "created_at": "2026-10-18T01:39:26.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "LLMs Excel at Coding Thanks to Human Open Source Data",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112278407094710568",
+      "domain": "x.com",
+      "x_id": "2112278407094710568",
+      "hook": "Large language models churn out code at lightning speed, but only because they've feasted on trillions of lines of human-written open source software.",
+      "summary": "Discussions highlight how LLMs perform well on popular languages like Python due to abundant training data, but struggle with scarce ones like COBOL or ALGOL, where accuracy drops sharply—GPT-4o hits just 16% on COBOL tasks. Benchmarks and graphs show smaller models plateau on basic patterns, while larger ones improve longer-form coherence, yet legacy languages with thin corpora remain a challenge. OpenAI is working on low-resource languages vital to systems like banking, as the talks stress LLMs build on decades of human coding effort, with frontiers in rarer domains still ahead.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "Anil Seth",
+        "Giulio Tononi"
+      ],
+      "time": "2026-10-19T23:02:23.000Z",
+      "cluster_posts": 8,
+      "top_post": {
+        "id": "2112102963137417615",
+        "url": "https://x.com/__d_1ggin/status/2112102963137417615",
+        "username": "__d_1ggin",
+        "likes": 6485,
+        "reposts": 328,
+        "replies": 169,
+        "quotes": 29,
+        "impressions": 192451,
+        "created_at": "2026-10-19T08:46:02.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Developers Weigh Gemini 4 Argon's Coding Power Against Tight Quotas",
+      "source": "X",
+      "url": "https://x.com/i/trending/2111797404546556249",
+      "domain": "x.com",
+      "x_id": "2111797404546556249",
+      "hook": "Google's Logan Kilpatrick jumped into the chat, asking developers straight up: have you tried Gemini 4 Argon yet? It's sparking real talk about its coding chops versus those pesky usage limits.",
+      "summary": "Gemini 4 Argon launched globally around mid-October as Google's frontier model for tough tasks like software engineering, finance, legal work, and cybersecurity, boasting a huge context window and top scores on coding benchmarks like DeepSWE v1.1. Developers praise its real-world performance, with some saying it beats GPT-6 Astra, but many gripe about quick quota hits on paid plans—Google AI Pro gets just 1x weekly usage compared to 7x on ChatGPT and 17x on Claude. Users are mixing models, testing alternatives like Claude, and tweaking tools like Codex for better context reuse to make the most of what they've got.",
+      "category": "News",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "Google",
+        "Gemini 4 Argon launch"
+      ],
+      "time": "2026-10-19T16:15:27.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2111965350472655241",
+        "url": "https://x.com/OfficialLoganK/status/2111965350472655241",
+        "username": "OfficialLoganK",
+        "likes": 816,
+        "reposts": 5,
+        "replies": 150,
+        "quotes": 6,
+        "impressions": 63648,
+        "created_at": "2026-10-18T23:39:12.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Experts Argue AI Lacks Consciousness in New Nature Paper",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112365274674630756",
+      "domain": "x.com",
+      "x_id": "2112365274674630756",
+      "hook": "Neuroscientists and a philosopher just explained why today's AI systems fall short of true consciousness, sparking thoughtful exchanges on their real limits.",
+      "summary": "A Nature article from October 19, 2026, co-authored by Anil K. Seth, Giulio Tononi, and Ned Block, states that large language models are not conscious. They argue intelligence differs from subjective experience, silicon systems lack key properties for consciousness, and biological brain factors are essential. Discussions highlight LLMs' reliance on human data—like trillions of open-source code lines—for remixing solutions, not original understanding, with some urging caution against overhyping AI capabilities.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "Anil Seth",
+        "Giulio Tononi"
+      ],
+      "time": "2026-10-20T02:13:12.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2112102963137417615",
+        "url": "https://x.com/__d_1ggin/status/2112102963137417615",
+        "username": "__d_1ggin",
+        "likes": 6485,
+        "reposts": 328,
+        "replies": 169,
+        "quotes": 29,
+        "impressions": 192451,
+        "created_at": "2026-10-19T08:46:02.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Voice AI Struggles with Audio Cues in Conversations",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112188365835547109",
+      "domain": "x.com",
+      "x_id": "2112188365835547109",
+      "hook": "AI voice agents handle billions of calls but often miss the human touch—like hesitation, tone, or frustration—because they rely on text transcripts instead of raw audio.",
+      "summary": "AI researcher Naman Jain points out that current systems process calls through speech-to-text conversion, discarding vital cues such as prosody, background noise, and emotional inflections. This leads to awkward pauses, interruptions, and misread intent, as echoed by former OpenAI CTO Mira Murati who called agents 'deaf and blind' during thinking. While cascaded pipelines offer modularity for tasks like compliance, developers push for speech-to-speech models to enable more natural, fluid interactions. The discussion highlights a shift toward audio-native designs for better real-world voice AI.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "namanjn1998"
+      ],
+      "time": "2026-10-19T14:31:33.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2112166969499861352",
+        "url": "https://x.com/namanjn1998/status/2112166969499861352",
+        "username": "namanjn1998",
+        "likes": 819,
+        "reposts": 101,
+        "replies": 105,
+        "quotes": 31,
+        "impressions": 624962,
+        "created_at": "2026-10-19T13:00:22.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Roblox Creators Debate AI's Role in Game Development",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112047122082353162",
+      "domain": "x.com",
+      "x_id": "2112047122082353162",
+      "hook": "A developer hunches over a keyboard in a cozy home office, plants nearby, lost in the joy of building a game from scratch. Yet many wonder if AI is quietly changing that hands-on magic.",
+      "summary": "KreekCraft pointed out that most popular Roblox games now use AI, though creators rarely admit it publicly to avoid backlash. Developers like sleitnick and CrimsonForce_ push back, saying the struggle of solving problems on a whiteboard brings the real reward and sense of ownership, with AI often draining the fun. Proponents see it as a helpful tool, backed by Roblox's new text-to-game features and surveys showing 36% of game pros using it, though many worry about the industry's future. The divide pits efficiency against the personal thrill of crafting games by hand.",
+      "category": "Other",
+      "topics": [
+        "Technology",
+        "Gaming",
+        "AI"
+      ],
+      "entities": [
+        "Roblox",
+        "Boris Manevski"
+      ],
+      "time": "2026-10-19T05:07:31.000Z",
+      "cluster_posts": 7,
+      "top_post": {
+        "id": "2111934142204256410",
+        "url": "https://x.com/KreekCraft/status/2111934142204256410",
+        "username": "KreekCraft",
+        "likes": 3329,
+        "reposts": 147,
+        "replies": 120,
+        "quotes": 45,
+        "impressions": 254822,
+        "created_at": "2026-10-18T21:35:11.000Z"
+      },
+      "posts_checked": 4
+    },
+    {
+      "title": "Report Outlines Steps to Double US AI Lead Over China by 2027",
+      "source": "X",
+      "url": "https://x.com/i/trending/2112275132202820043",
+      "domain": "x.com",
+      "x_id": "2112275132202820043",
+      "hook": "The US currently holds a 6.5-month edge in frontier AI over China. A new report shows how federal actions could nearly double that lead without new laws.",
+      "summary": "Authors Tim Fist, Georgia Adamson, and Konstantin Pilz analyzed AI compute flows and found China's progress relies heavily on US chips and techniques like adversarial distillation, which halves the US's natural 13-month advantage from superior training compute. They recommend immediate steps, such as blocking remote Chinese access to US AI clusters and allowing companies to coordinate against distillation, potentially extending the lead to 13 months by late 2027. These measures would strengthen US cyber defenses and give firms more time for safety work, with an interactive tool letting users test scenarios.",
+      "category": "News",
+      "topics": [
+        "Technology",
+        "AI"
+      ],
+      "entities": [
+        "Institute for Progress",
+        "Bureau of Industry and Security",
+        "Department of Justice",
+        "Federal Trade Commission",
+        "Georgia C. Adamson",
+        "Konstantin Pilz"
+      ],
+      "time": "2026-10-19T23:11:30.000Z",
+      "cluster_posts": 8,
+      "top_post": {
+        "id": "2112262515531137121",
+        "url": "https://x.com/fiiiiiist/status/2112262515531137121",
+        "username": "fiiiiiist",
+        "likes": 219,
+        "reposts": 73,
+        "replies": 13,
+        "quotes": 26,
+        "impressions": 54076,
+        "created_at": "2026-10-19T19:20:02.000Z"
+      },
+      "posts_checked": 4
+    }
+  ]
+}

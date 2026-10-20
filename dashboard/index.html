@@ -102,6 +102,7 @@
   .track .inner span{color:var(--ink); font-size:14px}
   .track .inner span em{color:var(--muted); font-style:normal; font-size:12px; margin-left:6px}
   .track .inner span::before{content:"✦"; color:var(--rose); margin-right:10px}
+  .track .inner span.xsrc::before{content:"𝕏"; color:var(--sage)}
   @keyframes scroll{from{transform:translateX(0)} to{transform:translateX(-50%)}}
   .err{color:var(--rose); font-size:13px}
 
@@ -333,6 +334,8 @@
   .gnode.live .ring{opacity:1; animation:pulse 1.6s infinite}
   .gnode.live text{fill:var(--amber)}
   .gnode.sel .core{stroke:var(--ink); stroke-width:3}
+  .gnode.xsrc .core{stroke:#e9e2d6; stroke-dasharray:3 2.5} /* X news stories: dashed outline */
+  .glegend .xk{display:inline-block; width:10px; height:10px; border-radius:50%; border:1.5px dashed #e9e2d6; margin-right:5px; vertical-align:-1px}
   .gdim .gnode:not(.nb){opacity:.2} .gdim .gedge:not(.nb){stroke-opacity:.04!important} .gdim .gnode.nb text{fill:var(--amber)}
   .gtip{position:absolute; max-width:340px; pointer-events:none; background:#1a1420f2; border:1px solid var(--line); border-radius:10px;
     padding:9px 11px; font-size:12px; line-height:1.4; box-shadow:0 8px 20px #0008; z-index:3; color:var(--muted)}
@@ -782,7 +785,7 @@ async function loadUsage(){
 }
 
 /* ---------- Headlines (headlines.json, optionally refreshed live from Hacker News) ---------- */
-let HEADLINES=[], HL_EXAMPLE=false, HL_META={}, HL_PENDING=null; // also read by the News Talk host and the News Graph
+let HEADLINES=[], HL_EXAMPLE=false, HL_META={}, HL_PENDING=null, HL_ERR=null; // also read by the News Talk host and the News Graph
 /* Demo mode: episode.json "podcast_audio" is a pre-rendered briefing (Chatterbox) of a frozen headlines.json.
    "podcast_headlines" fingerprints what it reads (hn_id or title of the top 8, in order). While it matches, live HN
    refresh stays off (unless ?hn=1); if the headlines ever differ, the browser voice hosts instead of the stale file. */
@@ -791,8 +794,9 @@ const hlKey = list => (list||[]).filter(h=>h&&h.title).slice(0,8).map(h=>h.hn_id
 const sameKey = (fp,list) => Array.isArray(fp) && JSON.stringify(fp)===JSON.stringify(hlKey(list));
 function renderHlSrc(){
   const m=HL_META, el=$('hlSrc'); if(!el) return;
-  const when = m.updated && !isNaN(new Date(m.updated)) ? new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(m.updated))+' CT' : '';
-  el.textContent = m.source ? `${m.source} · ${m.live?'live':m.demo?'demo snapshot':'snapshot'}${when?' · '+when:''}` : '';
+  const ct = u => u && !isNaN(new Date(u)) ? new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(u))+' CT' : '';
+  const when = ct(m.updated), x = XNEWS.length ? `X · ${XNEWS.length} stor${XNEWS.length>1?'ies':'y'}${ct(XN_META.updated)?' · '+ct(XN_META.updated):''}` : '';
+  el.textContent = [m.source ? `${m.source} · ${m.live?'live':m.demo?'demo snapshot':'snapshot'}${when?' · '+when:''}` : '', x].filter(Boolean).join(' + ');
   el.classList.toggle('live', !!m.live);
 }
 function setHeadlines(list, meta){
@@ -803,11 +807,16 @@ function setHeadlines(list, meta){
   HL_META=meta||{};
   HL_EXAMPLE=!!(HL_META.example || HEADLINES.some(h=>h.example));
   $('hlTag').hidden = !HL_EXAMPLE;
-  const items=HEADLINES.map((h,i)=>`<span data-i="${i}" title="${esc(h.title)}">${esc(h.title)}<em>${esc(h.domain||h.source)}</em></span>`).join('');
-  $('ticker').innerHTML = items ? items + items : '<span>No headlines yet.</span>'; // duplicated for seamless loop
-  renderHlSrc();
+  HL_ERR=null; renderTicker(); renderHlSrc();
   document.dispatchEvent(new CustomEvent('headlines:changed'));
   if(typeof Host!=='undefined' && Host.running && Host.engine===FileVoice && !useFile()){ Host.pause(); Host.start(); } // recording no longer matches
+}
+function renderTicker(){
+  if(HL_ERR && !XNEWS.length){ $('ticker').innerHTML=HL_ERR; return; }
+  const items=HEADLINES.map((h,i)=>`<span data-i="${i}" title="${esc(h.title)}">${esc(h.title)}<em>${esc(h.domain||h.source)}</em></span>`).join('')
+    + XNEWS.map((h,j)=>`<span class="xsrc" data-x="${j}" title="${esc(h.title)} · from X">${esc(h.title)}<em>X</em></span>`).join('');
+  const t=$('ticker'); t.innerHTML = items ? items + items : '<span>No headlines yet.</span>'; // duplicated for seamless loop
+  t.style.animationDuration = Math.max(60, (HEADLINES.length+XNEWS.length)*4)+'s'; // same reading pace with more items
 }
 function applyPendingHeadlines(){ if(HL_PENDING){ const p=HL_PENDING; HL_PENDING=null; setHeadlines(p.list, p.meta); } }
 async function loadHeadlines(){
@@ -817,7 +826,7 @@ async function loadHeadlines(){
     setHeadlines(data.headlines, {source:data.source, updated:data.updated, example:data.example, live:false, demo});
     if((data.source==='Hacker News' && !demo) || /[?&]hn=1\b/.test(location.search)) refreshHN();
   }catch(e){
-    $('ticker').innerHTML = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`;
+    HL_ERR = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`; renderTicker();
     document.dispatchEvent(new CustomEvent('headlines:changed'));
     if(/[?&]hn=1\b/.test(location.search)) refreshHN();
   }
@@ -843,6 +852,26 @@ async function refreshHN(){
     if(list.length) setHeadlines(list, {source:'Hacker News', updated:new Date().toISOString(), live:true});
   }catch(e){ /* offline or API down: keep what headlines.json gave us */ }
   finally{ clearTimeout(to); }
+}
+
+/* ---------- X news (x_news.json, written by scripts/fetch_x_news.py from the X API v2 News endpoint) ----------
+   The browser can't call the X API (needs a bearer token), so it reads the snapshot file and re-reads it every
+   10 minutes like Hacker News. X stories are a separate list: they show in the ticker and the News Graph but never
+   enter HEADLINES, so the 101.5 demo recording's podcast_headlines fingerprint still matches. ?x=0 hides them. */
+let XNEWS=[], XN_META={}, xnTimer=null;
+const X_OFF=/[?&]x=0\b/.test(location.search);
+const allNews = () => HEADLINES.concat(XNEWS); // News Graph order: headlines first, so their indices match the host's
+async function loadXNews(){
+  if(X_OFF) return;
+  clearTimeout(xnTimer); xnTimer=setTimeout(loadXNews, HN_EVERY);
+  try{
+    const d=await getJSON('x_news.json');
+    if(XN_META.updated && d.updated===XN_META.updated) return; // unchanged
+    XNEWS=(d.stories||[]).filter(h=>h&&h.title).map(h=>({...h, source:'X'}));
+    XN_META={source:'X', updated:d.updated, query:d.query};
+    renderTicker(); renderHlSrc();
+    document.dispatchEvent(new CustomEvent('xnews:changed'));
+  }catch(e){ /* no snapshot yet: X is simply absent */ }
 }
 
 /* ---------- Episode + track picker (episode.json + tracks.json) ---------- */
@@ -1123,7 +1152,7 @@ $('xForm').addEventListener('submit', async e=>{
 }
 
 loadTopics();
-loadBots(); loadUsage(); loadHeadlines(); loadEpisode();
+loadBots(); loadUsage(); loadHeadlines(); loadXNews(); loadEpisode();
 setInterval(loadTopics, 120000);
 setInterval(loadBots, 3000); // GET /api/agents, so a new check-in shows within a few seconds
 setInterval(loadUsage, 5000);
@@ -1640,8 +1669,8 @@ const NG=(()=>{
   const mk=(t,a,p)=>{ const e=document.createElementNS(SVGNS,t); for(const k in a) e.setAttribute(k,a[k]); p&&p.appendChild(e); return e; };
 
   function build(){
-    S.M=model(HEADLINES); const docs=S.M.docs;
-    const key=h=>h.hn_id?('hn'+h.hn_id):h.title;
+    S.M=model(allNews()); const docs=S.M.docs;
+    const key=h=>h.hn_id?('hn'+h.hn_id):h.x_id?('x'+h.x_id):h.title;
     S.nodes=docs.map(d=>{ const old=S.pos.get(key(d.h)); const ang=rg()*Math.PI*2, r=60+rg()*Math.min(S.w,S.h)*0.3;
       return {d, key:key(d.h), x:old?old.x:S.w/2+Math.cos(ang)*r, y:old?old.y:S.h/2+Math.sin(ang)*r, vx:0, vy:0, fixed:false}; });
     if(S.sel>=S.nodes.length) S.sel=-1;
@@ -1661,7 +1690,7 @@ const NG=(()=>{
     });
     S.nodes.forEach((n,i)=>{
       const r=n.r=Math.min(19, 8+n.deg*2.2), c=colorOf(n.d);
-      const g=n.el=mk('g',{class:'gnode','data-i':i, tabindex:0, role:'button', 'aria-label':n.d.h.title},gN);
+      const g=n.el=mk('g',{class:'gnode'+(n.d.h.source==='X'?' xsrc':''),'data-i':i, tabindex:0, role:'button', 'aria-label':n.d.h.title},gN);
       mk('circle',{class:'halo', r:r+7, fill:c},g); mk('circle',{class:'ring', r:r+4},g);
       mk('circle',{class:'core', r, fill:c},g);
       const t=mk('text',{'text-anchor':'middle', y:r+15},g); t.textContent=brief(n.d.h.title);
@@ -1714,7 +1743,9 @@ const NG=(()=>{
   const topicLabel = t => TOPIC[t] ? TOPIC[t].label : t;
   function metaLine(h){ const b=[h.source, h.domain && h.domain!=='news.ycombinator.com' ? h.domain : ''];
     if(Number.isFinite(h.score)) b.push(`${h.score} pts`); if(Number.isFinite(h.comments)) b.push(`${h.comments} comments`);
-    if(h.by) b.push('by '+h.by); if(h.time) b.push(ago2(h.time)); return b.filter(Boolean).join(' · '); }
+    if(h.by) b.push('by '+h.by);
+    const tp=h.top_post; if(tp && Number.isFinite(tp.likes)) b.push(`top post ${tp.likes.toLocaleString('en-US')} likes${tp.username?' (@'+tp.username+')':''}`);
+    if(h.time) b.push(ago2(h.time)); return b.filter(Boolean).join(' · '); }
   const why = e => e.kind==='kw' ? (e.shared.slice(0,5).join(', ') + (e.topics.length?` · topic: ${e.topics.map(topicLabel).join(', ')}`:''))
                                  : `topic: ${e.topics.map(topicLabel).join(', ')}`;
   const edgeOf=(a,b)=>S.edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
@@ -1722,13 +1753,14 @@ const NG=(()=>{
     const used=[...new Set(S.nodes.map(n=>n.d.topics[0]||'_'))];
     $('gLegend').innerHTML = used.map(t=> t==='_' ? `<span><i style="background:${OTHER_COLORS[0]}"></i>other</span>`
         : `<span><i style="background:${esc(TOPIC[t]?TOPIC[t].color:OTHER_COLORS[1])}"></i>${esc(topicLabel(t))}</span>`).join('')
+      + (S.nodes.some(n=>n.d.h.source==='X')?`<span><span class="xk"></span>from X</span>`:'')
       + (S.edges.length?`<span><span class="ek"></span>shared words</span><span><span class="ek t"></span>same topic only</span>`:'');
   }
   function summary(){
-    const n=S.nodes.length, e=S.edges.length, lone=S.nodes.filter(x=>!x.deg).length;
+    const n=S.nodes.length, e=S.edges.length, lone=S.nodes.filter(x=>!x.deg).length, nx=S.nodes.filter(x=>x.d.h.source==='X').length, nh=n-nx;
     $('gTag').hidden=!HL_EXAMPLE;
     $('gSub').textContent = !n ? 'Waiting for headlines.json' :
-      `${n} headline${n>1?'s':''}${HL_META.source?' from '+HL_META.source:''} · ${e} link${e===1?'':'s'}${lone?` · ${lone} on ${lone>1?'their':'its'} own`:''}`;
+      `${nh} headline${nh===1?'':'s'}${HL_META.source&&nh?' from '+HL_META.source:''}${nx?` + ${nx} from X`:''} · ${e} link${e===1?'':'s'}${lone?` · ${lone} on ${lone>1?'their':'its'} own`:''}`;
     if(n>1 && !e) { $('gEmpty').hidden=false; $('gEmpty').textContent='No two headlines share enough to link at this strength. Slide Link strength left to loosen it.'; }
     else if(n) $('gEmpty').hidden=true;
   }
@@ -1749,10 +1781,10 @@ const NG=(()=>{
     S.edges.forEach(e=>e.el.classList.toggle('nb', S.sel>=0 && (e.a===S.sel||e.b===S.sel)));
     const box=$('gSel');
     if(S.sel<0){ box.innerHTML='Hover a headline to see what links it. Drag to rearrange. Click to light up its neighbors.<div class="gnote" id="gNote"></div>'; return; }
-    const n=S.nodes[S.sel], h=n.d.h, url=safeHref(h.url), disc=h.discussion?safeHref(h.discussion):'';
+    const n=S.nodes[S.sel], h=n.d.h, url=safeHref(h.url), disc=h.discussion?safeHref(h.discussion):'', tpu=h.top_post&&h.top_post.url?safeHref(h.top_post.url):'';
     const nb=[...n.nb].map(j=>({j,e:edgeOf(S.sel,j)})).sort((x,y)=>y.e.score-x.e.score);
     box.innerHTML = `<div class="t">${h.url?`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(h.title)}</a>`:esc(h.title)}</div>
-      <div class="m">${esc(metaLine(h))}${disc?` · <a href="${esc(disc)}" target="_blank" rel="noopener">discussion</a>`:''}</div>
+      <div class="m">${esc(metaLine(h))}${disc?` · <a href="${esc(disc)}" target="_blank" rel="noopener">discussion</a>`:''}${tpu?` · <a href="${esc(tpu)}" target="_blank" rel="noopener">open post ↗</a>`:''}</div>
       ${nb.length?`<div class="nbs">${nb.map(({j,e})=>`<button data-j="${j}" title="${esc(S.nodes[j].d.h.title)} · ${esc(why(e))}">${esc(brief(S.nodes[j].d.h.title))} <em>${(e.score).toFixed(2)}</em></button>`).join('')}</div>`
                   :'<div class="m" style="margin-top:6px">Nothing else links to this one at this strength.</div>'}
       <button class="hear" id="gHear">▶ Hear it on 101.5 News Talk</button><div class="gnote" id="gNote"></div>`;
@@ -1790,6 +1822,7 @@ const NG=(()=>{
     if(S.M){ relink(); S.alpha=Math.max(S.alpha,0.5); kick(); } });
   $('gShake').onclick=()=>{ S.nodes.forEach(n=>{ n.x=S.w/2+(rg()-.5)*S.w*0.7; n.y=S.h/2+(rg()-.5)*S.h*0.7; }); S.alpha=1; kick(); };
   document.addEventListener('headlines:changed', build);
+  document.addEventListener('xnews:changed', build);
 
   return {
     show(){ S.visible=true; measure(); if(!S.M) build(); else { S.alpha=Math.max(S.alpha,0.2); kick(); } },
@@ -1805,9 +1838,9 @@ window.NG=NG;
 
 /* Jump from the graph to a headline on 101.5 NEWS TALK */
 function hearOnTalk(i){
-  const h=HEADLINES[i]; if(!h) return;
+  const h=allNews()[i]; if(!h) return; // i is a News Graph index: headlines first, then X stories
   if(!talkAvailable()){ NG.note('News Talk needs a browser with speech (speechSynthesis).'); return; }
-  const cue = EP.podcast_audio && sameKey(EP.podcast_headlines||hlKey(HEADLINES), HEADLINES) ? (EP.podcast_cues||[]).find(c=>c.headline===i) : null;
+  const cue = i<HEADLINES.length && EP.podcast_audio && sameKey(EP.podcast_headlines||hlKey(HEADLINES), HEADLINES) ? (EP.podcast_cues||[]).find(c=>c.headline===i) : null;
   if(cue){ // in the recording: seek to its cue
     if(Host.running && Host.engine!==FileVoice) Host.pause();
     Host.speech=false; Host.segs=[]; Host.idx=0;

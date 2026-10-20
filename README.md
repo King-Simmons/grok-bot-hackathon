@@ -20,6 +20,8 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `dashboard/headlines.json` | Hacker News top stories, written by `scripts/fetch_hn.py` (frozen snapshot that matches `host_briefing.mp3`) |
 | `dashboard/*.json` | Sample inbox and episode data |
 | `scripts/fetch_hn.py` | Stdlib script that refreshes `headlines.json` from the Hacker News API |
+| `dashboard/x_news.json` | X news stories (title, summary, x.com link, top-post engagement), written by `scripts/fetch_x_news.py` |
+| `scripts/fetch_x_news.py` | Stdlib script that refreshes `x_news.json` from the X API v2 News endpoint (`X_BEARER_TOKEN`) |
 | `scripts/render_host_voice.py` | Optional: renders the 101.5 host briefing with Chatterbox into `dashboard/host_briefing.mp3` + `episode.json` cues ([demo mode](#chatterbox-host-voice-demo-mode)) |
 | `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API, X topic cache |
 | `engine/x_topics_snapshot.py` | Merges a raw X search dump into `x_topics.json` |
@@ -146,6 +148,23 @@ Stdlib only. The write is atomic, and if the API can't be reached the old file i
 The page also refreshes live in the browser: when `headlines.json` has `"source": "Hacker News"`, it fetches the same API (it allows CORS) after load and every 10 minutes. If that fails, for example offline, the page keeps what `headlines.json` gave it. The ticker label says `Hacker News · live` or `Hacker News · snapshot`. Add `?hn=0` to the URL to turn live refresh off, or `?hn=1` to force it on when the file comes from another source, such as the News Gatherer bot. A refresh that arrives in the middle of a News Talk briefing waits until the briefing ends, so the host never reads a list that changed under it.
 
 On 101.5 NEWS TALK the host says the source once in the intro ("straight from the top of Hacker News"), then reads each title with what the API reports: the site, points, and comment count. If an item has an optional `summary` (with `summary_source`, the article it came from), the host reads it right after that line, in both the browser voice and the Chatterbox recording. The demo snapshot has hand-written summaries for the top 3 stories. Beyond that, it reads nothing the data doesn't contain.
+
+
+## News source: X
+
+`dashboard/x_news.json` holds current tech news stories from X, pulled from the official X API v2 News endpoint (`GET https://api.x.com/2/news/search`), plus engagement for each story's most-liked post (`GET https://api.x.com/2/tweets`, `public_metrics`). Refresh it from the repository root:
+
+```bash
+export X_BEARER_TOKEN=...                        # app-only bearer token from developer.x.com
+python3 scripts/fetch_x_news.py                  # "AI technology", last 24 h, stories tagged Technology
+python3 scripts/fetch_x_news.py -q "startups" --max-age 48 -n 20
+python3 scripts/fetch_x_news.py --topic ""       # keep every story the search returns
+python3 scripts/fetch_x_news.py --out -          # print instead of writing
+```
+
+Stdlib only. Without `X_BEARER_TOKEN` it exits and leaves the file alone; so does a failed request. `--from-raw news.json [--posts-raw posts.json]` builds the file from saved API responses instead (the committed snapshot was made that way, from Grok Bot's X tools). Each story has `title`, `source: "X"`, `url` (the story's x.com page), `domain`, `x_id`, and, when X returns them, `hook`, `summary`, `category`, `topics`, `entities`, `time` (UTC), `cluster_posts` (distinct posts X lists for the story), and `top_post` (`url`, `username`, `likes`, `reposts`, `replies`, `quotes`, `impressions`). Nothing is filled in. X's story summaries are AI-generated from posts; the file keeps X's `disclaimer`.
+
+The browser can't call the X API (it needs the token), so the page reads `x_news.json` after load and re-reads it every 10 minutes, the same interval as Hacker News; run the script on a schedule to keep it fresh. X stories are a separate list from `headlines.json`: they scroll in the ticker (marked 𝕏) and appear in the News Graph (dashed outline, linked by shared words, topics and the `entities` X returns), but they never enter the 101.5 briefing or its `podcast_headlines` fingerprint, so the demo recording keeps playing. Picking an X story in the graph and pressing "Hear it on 101.5" reads its summary in the browser voice. 88.1 LOFI stays music only. Add `?x=0` to the URL to hide X.
 
 ## News Graph tab
 
