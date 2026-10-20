@@ -1,8 +1,13 @@
 # URL-to-Lofi MCP server
 
 Tools:
-- `get_mood_analysis(url)` → PRD mood JSON: `{url, page_summary, sentiment, lofi_prompt, musical_attributes{bpm, key, primary_instruments[], mood_tags[]}, cover_art_prompt}`
-- `synthesize_url(url, force=false)` → the same JSON, plus `track_path` (absolute path on the box), `track_file` (relative), `track_url` (served by the dashboard) and `timing`.
+- `get_mood_analysis(url, agent_id="")` → PRD mood JSON: `{url, page_summary, sentiment, lofi_prompt, musical_attributes{bpm, key, primary_instruments[], mood_tags[]}, cover_art_prompt}`
+- `synthesize_url(url, force=false, agent_id="")` → the same JSON, plus `track_path` (absolute path on the box), `track_file` (relative), `track_url` (served by the dashboard) and `timing`.
+- `report_status(id, state, task, name="", owner="", role="", progress=-1, artifact="", error="", agent_id="")` → create or update one agent. Example: `report_status(id="alex-news", owner="Alex", state="running", task="Pulling headlines")`
+- `list_agents()` → the same list as `GET /api/agents`, including `presence` and `stale_after_s`.
+- `get_usage()` → local usage totals (today, all-time, per agent, last 24 hours, X reads against the free-tier budget). No network.
+
+`agent_id` credits the usage log. Leave it blank and synthesize/mood calls are `anonymous`; `report_status` credits the status id.
 
 It renders an original ~42-44 s lofi mp3 in about 2-4 s. It also reports progress to the dashboard as bot `url-lofi`.
 
