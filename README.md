@@ -89,6 +89,8 @@ POST /api/synthesize_topic {"topic": "our demo", "posts": ["Bots shipped the das
 
 An unknown topic returns `404` with `"error_kind": "topic_not_found"`. With `X_BEARER_TOKEN` set, the engine searches the X API first and counts those reads on the usage meter. Otherwise it uses `x_topics.json`. `synthesize_topic` is the usage tool name.
 
+![Learn a topic, SpaceX](docs/learn-topic.png)
+
 `force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`. `agent_id` (or the `X-Agent-Id` header) is who the usage log credits; the dashboard sends `dashboard`, and a missing id is `anonymous`.
 
 One-line check-in:
