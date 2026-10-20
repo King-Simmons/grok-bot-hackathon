@@ -10,7 +10,7 @@ usage: lofi_vocals.py --vocal VOX --beat BEAT --src-bpm 90 --beat-bpm 83 --out o
 Only use on audio you own or have rights to.
 """
 import argparse, os, subprocess, sys, tempfile
-import numpy as np, scipy.signal as ss, scipy.io.wavfile as wf, pyloudnorm as pyln
+import numpy as np, scipy.signal as ss, scipy.io.wavfile as wf
 from scipy.ndimage import minimum_filter1d, uniform_filter1d
 SR = 44100
 
@@ -64,6 +64,7 @@ def lofi_chain(v, seed=7):
     return v + 0.02 * crk
 
 def main():
+    import pyloudnorm as pyln  # mixer only; lofi_chain stays importable without it
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--vocal", required=True); ap.add_argument("--beat", required=True)
     ap.add_argument("--src-bpm", type=float, required=True); ap.add_argument("--beat-bpm", type=float, required=True)

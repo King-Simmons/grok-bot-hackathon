@@ -10,3 +10,7 @@ mcp>=2.3,<3              # MCP server (mcp/lofi_mcp_server.py) - v2 API (MCPServ
 
 # dev / screenshots only
 # playwright>=1.47       # used with the system Chrome to capture screenshots
+
+# Optional voice engine (Chatterbox TTS). Not installed here: torch is large.
+# Python 3.11, then pip install -r requirements-voice.txt && pip install 'setuptools>=61,<81'
+# See docs/VOICE.md. Speech degrades to the browser voice when this is absent.

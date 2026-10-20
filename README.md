@@ -22,9 +22,9 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `scripts/fetch_hn.py` | Stdlib script that refreshes `headlines.json` from the Hacker News API |
 | `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API |
 | `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis` |
-| `audio/` | Original beat generator, plot, and vocal lofi chain |
+| `audio/` | Original beat generator, plot, vocal lofi chain, and Chatterbox voice (`voice.py`) |
 | `samples/beat-001.mp3` | One original code-synthesized demo beat |
-| `docs/` | Status protocol and the dashboard screenshot |
+| `docs/` | Status protocol, [voice notes](docs/VOICE.md), and the dashboard screenshot |
 | `status/` | One JSON file per bot. `example-zlatan.json` is the sample check-in |
 | `tracks/` | URL-generated mp3s (gitignored) plus a JSON sidecar |
 | `run.sh` | Creates `./.venv` on first run, then serves the repo root |
@@ -75,9 +75,12 @@ GET  /api/health
 GET  /api/mood?url=https://example.com
 POST /api/synthesize {"url": "https://example.com"}
 POST /api/synthesize {"url": "https://example.com", "async": true}
+POST /api/speak {"text": "...", "preset": "news"}
 ```
 
 `force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`.
+
+`/api/speak` is a thin wrapper around `audio.voice.synthesize_speech(text, exaggeration, cfg_weight, speed, out_path)`. It returns `503` when chatterbox-tts is not installed. The music routes still work. See [docs/VOICE.md](docs/VOICE.md).
 
 ### MCP
 
@@ -139,11 +142,19 @@ How relatedness is computed (all in the browser, from `headlines.json` only):
 
 The layout is a small force simulation in vanilla JS on SVG. It uses no libraries and no CDN, so it works offline. Empty or one-item data shows a short note instead of a broken graph.
 
+Pre-render a host line with Chatterbox instead of speaking live. On CPU the model takes about 8 seconds to load and about 2 seconds of compute per second of audio. The function other modes should call is `synthesize_speech(text, exaggeration, cfg_weight, speed, out_path)` in `audio/voice.py`. Install, the watermark, and the no-cloning rule are in [docs/VOICE.md](docs/VOICE.md).
+
+```bash
+python3 -m audio.voice --text "Good evening. You're listening to News Talk." --preset news --out tracks/host-line.wav
+```
+
 ## Dependencies
 
 `./run.sh` installs [requirements.txt](requirements.txt): numpy, scipy, certifi, and optional pyloudnorm, lameenc, trafilatura, and vaderSentiment. `mcp` is required for the MCP server.
 
-`ffmpeg` on `PATH` is the fallback MP3 encoder and is used by `audio/lofi_vocals.py`. `demucs` is optional and is not installed by `requirements.txt`. Only pass `--separate` when you have installed it yourself, and only on audio you own or have rights to.
+`ffmpeg` on `PATH` is the fallback MP3 encoder and is used by `audio/lofi_vocals.py` and by the voice `speed` control (`atempo`). `demucs` is optional and is not installed by `requirements.txt`. Only pass `--separate` when you have installed it yourself, and only on audio you own or have rights to.
+
+The voice engine is optional and is not installed by `./run.sh`. It needs Python 3.11, [requirements-voice.txt](requirements-voice.txt), and `setuptools<81` (newer setuptools crashes the watermark library while Chatterbox loads). See [docs/VOICE.md](docs/VOICE.md).
 
 ## How teammates' Grok Bots report status
 

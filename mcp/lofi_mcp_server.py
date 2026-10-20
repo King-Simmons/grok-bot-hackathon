@@ -3,6 +3,8 @@
 Tools:
   synthesize_url(url, force=False) -> PRD mood JSON + track file path/URL (renders an original ~44 s lofi mp3)
   get_mood_analysis(url)           -> PRD mood JSON only (no audio)
+  speak_text(text, ...)            -> Chatterbox default voice (audio.voice.synthesize_speech). No cloning.
+                                      Returns an error dict if chatterbox-tts is not installed.
 
 Transports:
   stdio (default):        python3 mcp/lofi_mcp_server.py
@@ -19,6 +21,7 @@ sys.path.insert(0, ROOT)
 import anyio  # noqa: E402
 from mcp.server.mcpserver import MCPServer  # noqa: E402
 from engine import pipeline  # noqa: E402
+from audio import voice as voice_mod  # noqa: E402
 
 BASE = os.environ.get("LOFI_PUBLIC_BASE", "http://127.0.0.1:53343").rstrip("/")
 
@@ -27,7 +30,10 @@ server = MCPServer(
     title="URL-to-Lofi Synthesizer",
     version="0.1.0",
     instructions="Turn any public web page into an original lofi track. get_mood_analysis returns the mood JSON; "
-                 "synthesize_url also renders an mp3 and returns its path and URL.",
+                 "synthesize_url also renders an mp3 and returns its path and URL. "
+                 "speak_text uses Chatterbox's built-in default voice (no reference clip, no cloning) and returns "
+                 "the same dict as audio.voice.synthesize_speech. If chatterbox-tts is not installed, speak_text "
+                 "returns an error and the music tools still work.",
 )
 
 
@@ -46,6 +52,27 @@ async def synthesize_url(url: str, force: bool = False) -> dict:
 async def get_mood_analysis(url: str) -> dict:
     mood, _debug, _page, _t = await anyio.to_thread.run_sync(lambda: pipeline.mood_for(url))
     return mood
+
+
+@server.tool(description="Speak text with Chatterbox's built-in default voice (audio.voice.synthesize_speech). "
+                         "No reference clip and no voice cloning. "
+                         "preset 'news' is exaggeration 0.7, cfg_weight 0.3, speed 0.9; 'dj' is 0.5, 0.5, 0.9. "
+                         "Explicit exaggeration, cfg_weight, or speed override the preset. speed is ffmpeg atempo "
+                         "(1 = model pace, 0.9 = lofi pace). lofi runs the vocal chain. "
+                         "Returns path, url, and metadata, or {error, chatterbox: false} if chatterbox-tts is missing. "
+                         "Pre-generate: about 8s to load the model and about 2s of CPU per 1s of audio.")
+async def speak_text(text: str, exaggeration: float | None = None, cfg_weight: float | None = None,
+                     speed: float | None = None, lofi: bool = False, preset: str | None = None,
+                     out_path: str | None = None) -> dict:
+    def go():
+        try:
+            ex, cfg, spd = voice_mod.resolve_controls(exaggeration, cfg_weight, speed, preset or None)
+            return voice_mod.synthesize_speech(text, ex, cfg, spd, out_path, lofi=lofi)
+        except voice_mod.VoiceUnavailable as exc:
+            return {"error": str(exc), "chatterbox": False}
+        except (ValueError, OSError, RuntimeError) as exc:
+            return {"error": str(exc), "chatterbox": voice_mod.available()}
+    return await anyio.to_thread.run_sync(go)
 
 
 if __name__ == "__main__":
