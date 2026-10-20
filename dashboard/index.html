@@ -1127,7 +1127,11 @@ function ensureAudio(){
   const ctx=new (window.AudioContext||window.webkitAudioContext)(); AE.ctx=ctx;
   AE.master=ctx.createGain();
   AE.warmth=ctx.createBiquadFilter(); AE.warmth.type='lowpass'; AE.warmth.Q.value=0;
-  AE.warmth.connect(AE.master); AE.master.connect(ctx.destination);
+  AE.warmth.connect(AE.master);
+  AE.limit=ctx.createDynamicsCompressor();
+  AE.limit.threshold.value=-3; AE.limit.knee.value=0; AE.limit.ratio.value=20;
+  AE.limit.attack.value=0.003; AE.limit.release.value=0.25;
+  AE.master.connect(AE.limit); AE.limit.connect(ctx.destination);
   // episode (music) path
   AE.music=ctx.createGain(); AE.music.connect(AE.warmth);
   try{ ctx.createMediaElementSource(audioEl).connect(AE.music); }catch(e){}
@@ -1168,7 +1172,7 @@ const KNOBS=[
   {id:'music',  label:'Music',   sub:'volume',      min:0,  max:100, def:80, fmt:v=>`${Math.round(v)}%`},
   {id:'voice',  label:'Voice',   sub:'volume · stem', min:0,  max:100, def:85, fmt:v=>`${Math.round(v)}%`},
   {id:'rain',   label:'Rain',    sub:'ambience',    min:0,  max:100, def:45, fmt:v=>`${Math.round(v)}%`},
-  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:30, fmt:v=>`${Math.round(v)}%`},
+  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:60, fmt:v=>`${Math.round(v)}%`},
   {id:'warmth', label:'Warmth',  sub:'low-pass',    min:0,  max:100, def:35, fmt:v=>`${Math.round(cutoff(v)/100)/10}k`},
   {id:'tempo',  label:'Tempo',   sub:'playback',    min:60, max:90,  def:72, step:1, fmt:v=>`${Math.round(v)} BPM`},
 ];
