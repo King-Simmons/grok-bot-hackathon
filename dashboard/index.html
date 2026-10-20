@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lofi News Radio · Dashboard</title>
+<style>
+  :root{
+    --bg:#1a1420; --bg2:#231a29; --card:#2a2030cc; --line:#4a3a4a;
+    --ink:#f3e6d3; --muted:#b9a58f; --amber:#ffb86b; --rose:#e88a8a;
+    --sage:#9fd3a8; --plum:#7a5c8a; --red:#ff6b6b;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background: radial-gradient(1200px 700px at 30% 10%, #2e2236 0%, var(--bg) 60%, #120d16 100%);
+    color:var(--ink); font-family: ui-rounded, "Nunito", "Segoe UI", system-ui, sans-serif;
+    min-height:100vh; padding:18px; display:flex; flex-direction:column; gap:14px;
+  }
+  .grid{display:grid; grid-template-columns: 1fr 400px; gap:14px; flex:1; min-height:0}
+  .left,.right{display:flex; flex-direction:column; gap:14px; min-height:0}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    box-shadow: 0 10px 30px #0006, inset 0 1px 0 #ffffff0d; backdrop-filter: blur(6px);
+  }
+  .tag{font:600 10px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+    color:#1a1420; background:var(--amber); padding:4px 7px; border-radius:999px; white-space:nowrap}
+  .tag.sample{background:#3a2c3c; color:var(--amber); border:1px dashed var(--amber)}
+  h2{margin:0; font-size:13px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
+  .head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px}
+
+  /* Clock */
+  .clock{padding:16px 22px; display:flex; align-items:center; justify-content:space-between; gap:16px}
+  .greet{font-size:18px; color:var(--amber); margin-bottom:2px}
+  .time{font: 700 76px/1 var(--mono); letter-spacing:-2px; text-shadow:0 0 24px #ffb86b55}
+  .time .sec{font-size:28px; color:var(--muted); letter-spacing:0; margin-left:6px}
+  .date{color:var(--muted); font-size:15px; margin-top:6px}
+  .brand{text-align:right}
+  .brand .name{font-weight:800; font-size:22px}
+  .brand .sub{color:var(--muted); font-size:13px; margin-top:4px}
+  .onair{display:inline-flex; align-items:center; gap:8px; margin-top:10px; font:700 11px var(--mono);
+    letter-spacing:.12em; color:var(--rose); border:1px solid var(--rose); padding:5px 10px; border-radius:999px}
+  .onair i{width:8px;height:8px;border-radius:50%;background:var(--rose);animation:pulse 1.6s infinite}
+
+  /* Scene */
+  .scene{flex:1; min-height:300px; overflow:hidden; position:relative; padding:0}
+  .scene svg{width:100%; height:100%; display:block}
+  .drop{stroke:#a9c4ff; stroke-opacity:.55; stroke-width:1.4; stroke-linecap:round; animation: fall linear infinite}
+  @keyframes fall{from{transform:translateY(-60px)} to{transform:translateY(360px)}}
+  .steam{fill:none; stroke:#fff; stroke-opacity:.0; stroke-width:3; stroke-linecap:round; animation: steam 4s ease-in-out infinite}
+  @keyframes steam{0%{stroke-opacity:0; transform:translateY(8px)} 40%{stroke-opacity:.35} 100%{stroke-opacity:0; transform:translateY(-22px)}}
+  .twinkle{animation: tw 3s ease-in-out infinite}
+  @keyframes tw{0%,100%{opacity:1} 50%{opacity:.45}}
+  .glow{animation: glow 5s ease-in-out infinite}
+  @keyframes glow{0%,100%{opacity:.85} 50%{opacity:1}}
+  .tail{transform-origin: 612px 362px; animation: tail 3s ease-in-out infinite}
+  @keyframes tail{0%,100%{transform:rotate(0)} 50%{transform:rotate(12deg)}}
+  .zz{font: 700 14px var(--mono); fill:var(--muted); animation: zz 3.5s ease-in-out infinite}
+  @keyframes zz{0%{opacity:0; transform:translate(0,0)} 50%{opacity:.9} 100%{opacity:0; transform:translate(10px,-18px)}}
+  @keyframes pulse{0%,100%{opacity:1} 50%{opacity:.3}}
+
+  /* Now playing */
+  .np{padding:16px 18px}
+  .np .title{font-size:17px; font-weight:800; line-height:1.25}
+  .np .meta{color:var(--muted); font-size:13px; margin-top:4px}
+  .player{display:flex; align-items:center; gap:14px; margin-top:14px}
+  .play{width:52px; height:52px; border-radius:50%; border:none; cursor:pointer; flex:none;
+    background: var(--amber); color:#1a1420; font-size:20px; box-shadow:0 0 22px #ffb86b66}
+  .play:disabled{background:#4a3a4a; color:#8a7a70; box-shadow:none; cursor:not-allowed}
+  .bar{flex:1; height:6px; background:#3a2c3c; border-radius:6px; overflow:hidden}
+  .bar>div{height:100%; width:0; background:linear-gradient(90deg,var(--rose),var(--amber))}
+  .times{font:12px var(--mono); color:var(--muted); min-width:84px; text-align:right}
+  .eq{display:flex; gap:3px; align-items:flex-end; height:18px}
+  .eq span{width:4px; background:var(--sage); border-radius:2px; height:4px}
+  .playing .eq span{animation: eq .9s ease-in-out infinite}
+  .eq span:nth-child(2){animation-delay:.2s}.eq span:nth-child(3){animation-delay:.4s}.eq span:nth-child(4){animation-delay:.1s}
+  @keyframes eq{0%,100%{height:4px} 50%{height:18px}}
+
+  /* Bots */
+  .bots{padding:16px 18px; flex:1; min-height:0; overflow:auto}
+  .bot{display:grid; grid-template-columns: 14px 1fr auto; gap:4px 10px; align-items:center;
+    padding:10px 0; border-top:1px solid #ffffff10}
+  .bot:first-of-type{border-top:none}
+  .dot{width:10px; height:10px; border-radius:50%}
+  .dot.running{background:var(--sage); box-shadow:0 0 10px var(--sage); animation:pulse 1.6s infinite}
+  .dot.idle{background:#c9b38a}
+  .dot.error{background:var(--red); box-shadow:0 0 10px var(--red)}
+  .bot .n{font-weight:700; font-size:15px}
+  .bot .s{font:600 10px var(--mono); text-transform:uppercase; letter-spacing:.08em; padding:3px 6px; border-radius:6px}
+  .s.running{color:var(--sage); background:#9fd3a81a} .s.idle{color:#d9c39a; background:#c9b38a1a} .s.error{color:var(--red); background:#ff6b6b1a}
+  .bot .t{grid-column:2 / 4; color:var(--muted); font-size:13px}
+  .bot .r{grid-column:2 / 4; color:#8f7d6e; font:11px var(--mono)}
+
+  /* Ticker */
+  .ticker{display:flex; align-items:center; gap:14px; padding:10px 14px; overflow:hidden}
+  .ticker .label{display:flex; align-items:center; gap:8px; flex:none}
+  .ticker .label b{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--amber)}
+  .track{overflow:hidden; flex:1; mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+  .track .inner{display:inline-flex; gap:40px; white-space:nowrap; animation: scroll 60s linear infinite; padding-left:20px}
+  .track .inner span{color:var(--ink); font-size:14px}
+  .track .inner span em{color:var(--muted); font-style:normal; font-size:12px; margin-left:6px}
+  .track .inner span::before{content:"✦"; color:var(--rose); margin-right:10px}
+  @keyframes scroll{from{transform:translateX(0)} to{transform:translateX(-50%)}}
+  .err{color:var(--rose); font-size:13px}
+
+  @media (max-width: 980px){
+    .grid{grid-template-columns:1fr}
+    .scene{min-height:260px; aspect-ratio: 16/10}
+    .time{font-size:56px}
+  }
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important} }
+
+  /* Compact tweaks for mixer layout */
+  body{padding:14px; gap:12px}
+  .grid,.left,.right{gap:12px}
+  .clock{padding:12px 20px}
+  .time{font-size:62px}
+  .scene{min-height:220px}
+  .bot{padding:6px 0; gap:2px 10px}
+  .bot .n{font-size:14px} .bot .t{font-size:12px}
+  .np{padding:14px 16px} .player{margin-top:10px}
+  .bots{padding:14px 16px}
+
+  /* Mixer */
+  .mixer{padding:12px 18px 14px; background:linear-gradient(180deg,#3a2a2acc,#2a1f24cc); position:relative}
+  .mixer::before{content:""; position:absolute; inset:6px; border-radius:12px; border:1px solid #ffffff08; pointer-events:none}
+  .mixer .head{margin-bottom:8px}
+  .knobs{display:grid; grid-template-columns:repeat(6,1fr); gap:6px}
+  .knob{display:flex; flex-direction:column; align-items:center; gap:4px; user-select:none; touch-action:none}
+  .knob .dial{position:relative; width:74px; height:74px; cursor:ns-resize; outline:none; border-radius:50%}
+  .knob .dial:focus-visible{box-shadow:0 0 0 2px var(--amber)}
+  .knob svg{position:absolute; inset:0; overflow:visible}
+  .knob .track{fill:none; stroke:#1a1216; stroke-width:6; stroke-linecap:round}
+  .knob .lvl{fill:none; stroke:var(--amber); stroke-width:6; stroke-linecap:round; filter:drop-shadow(0 0 5px #ffb86bcc)}
+  .knob .cap{position:absolute; inset:13px; border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #8a6a52 0%, #5a4033 45%, #2e211c 100%);
+    box-shadow: 0 6px 10px #0009, inset 0 2px 2px #ffffff30, inset 0 -3px 5px #0007;}
+  .knob .cap::after{content:""; position:absolute; inset:7px; border-radius:50%;
+    background: repeating-conic-gradient(#ffffff0a 0 4deg, #0000 4deg 12deg), radial-gradient(circle at 40% 35%, #6e523f, #3b2a22)}
+  .knob .ptr{position:absolute; left:50%; top:4px; width:4px; height:14px; margin-left:-2px; border-radius:2px;
+    background:var(--ink); box-shadow:0 0 6px #ffe6b0; z-index:2}
+  .knob .rot{position:absolute; inset:0; z-index:2}
+  .knob .val{font:700 12px var(--mono); color:var(--amber); min-height:14px}
+  .knob .lbl{font-size:11px; color:var(--muted); text-align:center; line-height:1.15}
+  .knob .lbl small{display:block; font-size:9px; color:#8f7d6e; letter-spacing:.05em; text-transform:uppercase}
+  .toggle{display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:1px solid var(--line); background:#1f171d;
+    color:var(--muted); font:700 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; padding:6px 12px; border-radius:999px}
+  .toggle i{width:9px; height:9px; border-radius:50%; background:#4a3a4a}
+  .toggle[aria-pressed="true"]{color:var(--sage); border-color:var(--sage)}
+  .toggle[aria-pressed="true"] i{background:var(--sage); box-shadow:0 0 8px var(--sage)}
+  .mixnote{font-size:11px; color:#8f7d6e}
+
+  /* Inbox zero */
+  .inbox{padding:12px 16px}
+  .inbox .row{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
+  .inbox .big{font:700 24px var(--mono)} .inbox .big small{font-size:12px; color:var(--muted); margin-left:6px}
+  .inbox .pbar{height:8px; border-radius:6px; background:#3a2c3c; overflow:hidden; margin-top:8px}
+  .inbox .pbar>div{height:100%; background:linear-gradient(90deg,var(--sage),var(--amber)); width:0; transition:width .6s}
+  .inbox .meta{color:var(--muted); font-size:11px; margin-top:6px}
+  @media (max-width: 980px){ .knobs{grid-template-columns:repeat(3,1fr)} }
+
+  /* Control room (status protocol) */
+  .tag.live{background:#9fd3a822; color:var(--sage); border:1px solid var(--sage)}
+  .dot.done{background:#8fb3ff; box-shadow:0 0 8px #8fb3ff88}
+  .dot.stale{background:#6b5b62; box-shadow:none; animation:none}
+  .s.done{color:#8fb3ff; background:#8fb3ff1a} .s.stale{color:#c9a0a0; background:#c9a0a01a; border:1px dashed #c9a0a066}
+  .bot .who{font-size:11px; color:var(--muted); font-weight:400; margin-left:6px}
+  .bot .pb{grid-column:2 / 4; height:5px; border-radius:4px; background:#3a2c3c; overflow:hidden; margin:2px 0}
+  .bot .pb>div{height:100%; background:linear-gradient(90deg,var(--sage),var(--amber))}
+  .bot .t.e{color:var(--red)}
+  .bot a{color:var(--amber); text-decoration:none; border-bottom:1px dotted var(--amber)}
+  .botsum{font:11px var(--mono); color:#8f7d6e}
+  .empty{color:var(--muted); font-size:13px; line-height:1.5; padding:6px 0}
+  .empty code{font:11px var(--mono); color:var(--amber); background:#1f171d; padding:2px 5px; border-radius:4px}
+  .tracks{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+  .trk{cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--muted); font:600 11px var(--mono);
+    padding:5px 9px; border-radius:999px}
+  .trk[aria-pressed="true"]{color:#1a1420; background:var(--amber); border-color:var(--amber)}
+
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="left">
+    <section class="card clock">
+      <div>
+        <div class="greet" id="greet">Hello</div>
+        <div class="time"><span id="hm">--:--</span><span class="sec" id="ampm"></span></div>
+        <div class="date" id="date">—</div>
+      </div>
+      <div class="brand">
+        <div class="name">☕ Lofi News Radio</div>
+        <div class="sub">a Grok Bot hackathon project · America/Chicago</div>
+        <div class="onair"><i></i>ON AIR · CONTROL ROOM</div>
+      </div>
+    </section>
+
+    <section class="card scene" aria-label="Illustrated lofi scene: rainy window over a city at night, desk lamp, mug and a sleeping cat">
+      <svg viewBox="0 0 800 440" preserveAspectRatio="xMidYMid slice" id="scene">
+        <defs>
+          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1b1838"/><stop offset=".6" stop-color="#3a2a52"/><stop offset="1" stop-color="#6b3f5e"/>
+          </linearGradient>
+          <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#2b2030"/><stop offset="1" stop-color="#3a2a33"/>
+          </linearGradient>
+          <linearGradient id="desk" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#6a4632"/><stop offset="1" stop-color="#3e2a20"/>
+          </linearGradient>
+          <radialGradient id="lampglow" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color="#ffcf8a" stop-opacity=".75"/><stop offset=".5" stop-color="#ffb86b" stop-opacity=".22"/><stop offset="1" stop-color="#ffb86b" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="moon" cx=".5" cy=".5" r=".5">
+            <stop offset="0" stop-color="#fff3d6"/><stop offset=".7" stop-color="#ffe6b0" stop-opacity=".9"/><stop offset="1" stop-color="#ffe6b0" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="win"><rect x="150" y="40" width="440" height="270" rx="6"/></clipPath>
+        </defs>
+
+        <!-- wall -->
+        <rect width="800" height="440" fill="url(#wall)"/>
+        <!-- poster -->
+        <g transform="translate(640 70)">
+          <rect width="96" height="124" rx="4" fill="#4a3346" stroke="#5e4458" stroke-width="3"/>
+          <circle cx="48" cy="52" r="26" fill="#e88a8a" opacity=".8"/>
+          <rect x="14" y="88" width="68" height="6" rx="3" fill="#ffb86b" opacity=".7"/>
+          <rect x="24" y="100" width="48" height="5" rx="2.5" fill="#b9a58f" opacity=".6"/>
+        </g>
+        <!-- fairy lights -->
+        <path d="M20 22 Q 210 70 400 22 T 780 22" fill="none" stroke="#5a4450" stroke-width="2"/>
+        <g id="lights"></g>
+
+        <!-- window -->
+        <g clip-path="url(#win)">
+          <rect x="150" y="40" width="440" height="270" fill="url(#sky)"/>
+          <circle cx="510" cy="95" r="34" fill="url(#moon)"/>
+          <g id="stars"></g>
+          <!-- far skyline -->
+          <path fill="#2a2140" d="M150 250 h30 v-50 h24 v30 h20 v-70 h30 v60 h18 v-40 h26 v80 h22 v-55 h30 v35 h24 v-90 h28 v95 h20 v-45 h30 v60 h26 v-30 h24 v40 h18 v-60 h30 V310 H150z"/>
+          <!-- near skyline -->
+          <path fill="#1a1428" d="M150 280 h40 v-60 h36 v40 h30 v-80 h40 v90 h26 v-50 h44 v70 h30 v-100 h44 v110 h36 v-60 h44 V310 H150z"/>
+          <g id="citylights"></g>
+          <g id="rain"></g>
+        </g>
+        <!-- window frame -->
+        <rect x="150" y="40" width="440" height="270" rx="6" fill="none" stroke="#5b3f35" stroke-width="12"/>
+        <line x1="370" y1="40" x2="370" y2="310" stroke="#5b3f35" stroke-width="8"/>
+        <line x1="150" y1="175" x2="590" y2="175" stroke="#5b3f35" stroke-width="6"/>
+        <rect x="134" y="306" width="472" height="14" rx="3" fill="#6e4b3c"/>
+        <!-- plant on sill -->
+        <g transform="translate(190 268)">
+          <path d="M18 40 C 0 20, 4 0, 16 -6 C 20 10, 22 24, 18 40Z" fill="#6fa77a"/>
+          <path d="M22 40 C 40 22, 44 4, 34 -4 C 26 12, 22 26, 22 40Z" fill="#87c08f"/>
+          <path d="M20 40 C 16 18, 20 4, 22 -14 C 28 6, 26 22, 20 40Z" fill="#5d9468"/>
+          <rect x="4" y="36" width="32" height="24" rx="3" fill="#c97a5a"/>
+        </g>
+
+        <!-- desk -->
+        <rect x="0" y="352" width="800" height="88" fill="url(#desk)"/>
+        <rect x="0" y="348" width="800" height="8" fill="#7d553e"/>
+
+        <!-- lamp glow -->
+        <ellipse class="glow" cx="128" cy="300" rx="190" ry="150" fill="url(#lampglow)"/>
+        <!-- lamp -->
+        <g>
+          <ellipse cx="110" cy="350" rx="38" ry="7" fill="#2a1d18"/>
+          <rect x="104" y="250" width="8" height="100" fill="#3b2a26"/>
+          <path d="M70 255 L150 255 L132 205 L88 205 Z" fill="#e8a25c"/>
+          <path d="M70 255 L150 255 L146 247 L74 247Z" fill="#ffcf8a"/>
+        </g>
+
+        <!-- books -->
+        <g transform="translate(220 316)">
+          <rect x="0" y="22" width="110" height="14" rx="2" fill="#7a5c8a"/>
+          <rect x="6" y="9" width="100" height="13" rx="2" fill="#c96b6b"/>
+          <rect x="2" y="-3" width="104" height="12" rx="2" fill="#5f8a7a"/>
+        </g>
+
+        <!-- laptop -->
+        <g transform="translate(360 268)">
+          <path d="M8 0 h132 a6 6 0 0 1 6 6 v74 h-144 v-74 a6 6 0 0 1 6 -6z" fill="#2b2433"/>
+          <rect x="10" y="8" width="128" height="66" rx="3" fill="#1d2a3a"/>
+          <g id="screen" font-family="ui-monospace,Menlo,monospace" font-size="7" fill="#9fd3a8">
+            <text x="16" y="22">&gt; gather_news ✓</text>
+            <text x="16" y="34">&gt; write_script …</text>
+            <text x="16" y="46" fill="#ffb86b">&gt; make_beat 72bpm</text>
+            <rect x="16" y="54" width="60" height="4" rx="2" fill="#3a4a5a"/>
+            <rect id="prog" x="16" y="54" width="10" height="4" rx="2" fill="#e88a8a"/>
+          </g>
+          <path d="M-12 80 h172 l-8 8 h-156z" fill="#3a3142"/>
+        </g>
+
+        <!-- mug -->
+        <g transform="translate(560 312)">
+          <path class="steam" d="M14 -4 C 6 -16, 22 -24, 14 -36" style="animation-delay:0s"/>
+          <path class="steam" d="M26 -4 C 18 -16, 34 -24, 26 -36" style="animation-delay:1.3s"/>
+          <path class="steam" d="M38 -4 C 30 -16, 46 -24, 38 -36" style="animation-delay:2.6s"/>
+          <rect x="4" y="0" width="44" height="40" rx="6" fill="#e88a8a"/>
+          <path d="M48 10 h6 a8 8 0 0 1 0 18 h-6" fill="none" stroke="#e88a8a" stroke-width="6"/>
+          <rect x="8" y="4" width="36" height="6" rx="3" fill="#5a3a2e"/>
+          <path d="M18 20 l6 6 l8 -10" fill="none" stroke="#fff3" stroke-width="3" stroke-linecap="round"/>
+        </g>
+
+        <!-- sleeping cat -->
+        <g transform="translate(640 330)">
+          <path class="tail" d="M-28 30 C -50 30, -48 6, -30 10" fill="none" stroke="#2a2228" stroke-width="9" stroke-linecap="round"/>
+          <ellipse cx="0" cy="22" rx="36" ry="16" fill="#2a2228"/>
+          <circle cx="28" cy="16" r="14" fill="#2a2228"/>
+          <path d="M18 6 l4 -12 l8 9z M32 4 l6 -11 l4 12z" fill="#2a2228"/>
+          <path d="M22 17 q3 2 6 0 M32 17 q3 2 6 0" stroke="#7a6a70" stroke-width="1.5" fill="none"/>
+          <text class="zz" x="44" y="-2">z</text>
+          <text class="zz" x="52" y="-12" style="animation-delay:1.2s; font-size:11px">z</text>
+        </g>
+
+        <!-- headphones -->
+        <g transform="translate(470 336)" fill="none" stroke="#7a5c8a" stroke-width="5" stroke-linecap="round">
+          <path d="M0 14 C 0 -6, 40 -6, 40 14"/>
+          <rect x="-6" y="10" width="12" height="10" rx="4" fill="#7a5c8a"/>
+          <rect x="34" y="10" width="12" height="10" rx="4" fill="#7a5c8a"/>
+        </g>
+      </svg>
+    </section>
+    <section class="card mixer" aria-label="Mixer">
+      <div class="head">
+        <h2>Mixer</h2>
+        <span class="mixnote" id="mixNote">Drag up/down or scroll · double-click to reset · saved on this device</span>
+        <button class="toggle" id="ambBtn" aria-pressed="false"><i></i>Ambience off</button>
+      </div>
+      <div class="knobs" id="knobs"></div>
+    </section>
+  </div>
+
+  <div class="right">
+    <section class="card np" id="np">
+      <div class="head"><h2>Now playing</h2><span class="tag sample" id="npTag">placeholder</span></div>
+      <div class="title" id="epTitle">Today's episode</div>
+      <div class="meta" id="epMeta">Checking for episode.mp3…</div>
+      <div class="player">
+        <button class="play" id="playBtn" aria-label="Play" disabled>▶</button>
+        <div class="bar"><div id="barFill"></div></div>
+        <div class="eq" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <div class="times" id="times">0:00 / 0:00</div>
+      </div>
+      <div class="tracks" id="tracks" aria-label="Pick a track"></div>
+      <audio id="audio" preload="metadata"></audio>
+    </section>
+
+
+    <section class="card inbox" id="inbox">
+      <div class="head" style="margin-bottom:6px"><h2>Inbox zero</h2><span class="tag sample" id="inboxTag" hidden title="Gmail/Outlook not connected yet">sample data · no mail connected</span></div>
+      <div class="row"><div class="big" id="inboxLeft">—<small>left</small></div><div class="mixnote" id="inboxPct"></div></div>
+      <div class="pbar"><div id="inboxBar"></div></div>
+      <div class="meta" id="inboxMeta"></div>
+    </section>
+
+    <section class="card bots">
+      <div class="head"><h2>Bot control room</h2><span class="botsum" id="botSum"></span><span class="tag live" id="botsTag">live · status/</span></div>
+      <div id="botList"><div class="meta">Loading status/index.json…</div></div>
+    </section>
+  </div>
+</div>
+
+<section class="card ticker">
+  <div class="label"><b>Today's headlines</b><span class="tag sample" id="hlTag" hidden title="News Gatherer not wired yet">sample data · placeholder</span></div>
+  <div class="track"><div class="inner" id="ticker"><span>Loading headlines.json…</span></div></div>
+</section>
+
+<script>
+const TZ = 'America/Chicago';
+const $ = id => document.getElementById(id);
+
+/* ---------- Clock ---------- */
+function tick(){
+  const now = new Date();
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit',hour12:true})
+    .formatToParts(now).map(p=>[p.type,p.value]));
+  $('hm').textContent = `${parts.hour}:${parts.minute}`;
+  $('ampm').textContent = `${parts.dayPeriod} CT`;
+  $('date').textContent = new Intl.DateTimeFormat('en-US',{timeZone:TZ,weekday:'long',month:'long',day:'numeric',year:'numeric'}).format(now);
+  const h = +new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',hour12:false}).format(now) % 24;
+  $('greet').textContent = h<5 ? 'Late night, King 🌙' : h<12 ? 'Good morning, King ☀️' : h<17 ? 'Good afternoon, King ☕' : h<22 ? 'Good evening, King 🌆' : 'Good night, King 🌙';
+}
+tick(); setInterval(tick, 1000);
+
+/* ---------- Scene generators ---------- */
+const NS='http://www.w3.org/2000/svg';
+function el(tag, attrs, parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); parent.appendChild(e); return e; }
+// seeded random so the scene looks the same each load
+let seed=42; const rnd=()=> (seed=(seed*16807)%2147483647)/2147483647;
+const rain=$('rain');
+for(let i=0;i<90;i++){
+  const x=150+rnd()*440, y=20+rnd()*260, len=10+rnd()*14;
+  const l=el('line',{x1:x,y1:y,x2:x-3,y2:y+len,class:'drop'},rain);
+  l.style.animationDuration=(0.7+rnd()*0.7)+'s'; l.style.animationDelay=(-rnd()*2)+'s';
+}
+const stars=$('stars');
+for(let i=0;i<26;i++){
+  const c=el('circle',{cx:150+rnd()*440,cy:45+rnd()*110,r:0.6+rnd()*1.1,fill:'#fff3d6',class:'twinkle'},stars);
+  c.style.animationDelay=(-rnd()*3)+'s';
+}
+const city=$('citylights'); const colors=['#ffcf8a','#ffb86b','#e88a8a','#fff3d6'];
+for(let i=0;i<70;i++){
+  const r=el('rect',{x:160+rnd()*420,y:205+rnd()*95,width:3,height:4,fill:colors[i%4],opacity:.5+rnd()*.5,class: rnd()>.7?'twinkle':''},city);
+  r.style.animationDelay=(-rnd()*3)+'s';
+}
+const lights=$('lights');
+for(let i=0;i<20;i++){
+  const t=i/19, x=20+t*760, y=22+Math.sin(t*Math.PI*2)*-0+ (Math.abs(Math.sin(t*Math.PI*2))*24);
+  const c=el('circle',{cx:x,cy:y+4,r:4,fill:colors[i%4],class:'twinkle'},lights);
+  c.style.animationDelay=(i*0.25)+'s';
+}
+// laptop progress bar
+let p=0; setInterval(()=>{p=(p+1)%60; $('prog').setAttribute('width',Math.max(4,p));},120);
+
+/* ---------- Helpers ---------- */
+const fmtDur = s => !isFinite(s) ? '0:00' : `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+function ago(iso){
+  const d=new Date(iso); if(isNaN(d)) return '—';
+  const mins=Math.round((Date.now()-d)/60000);
+  const rel = mins<1?'just now': mins<60?`${mins}m ago`: mins<1440?`${Math.round(mins/60)}h ago`:`${Math.round(mins/1440)}d ago`;
+  const abs = new Intl.DateTimeFormat('en-US',{timeZone:TZ,month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(d);
+  return `${abs} CT · ${rel}`;
+}
+async function getJSON(f){ const r=await fetch(f,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
+const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- Bots (status protocol: status/index.json, built by botstatus.py) ---------- */
+const STALE_MIN=30;
+function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const m=Math.round((Date.now()-d)/60000);
+  return m<1?'just now': m<60?`${m}m ago`: m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; }
+function safeHref(u){ u=String(u||''); return /^(https?:\/\/|[^:]+$)/i.test(u) ? u : '#'; }
+async function loadBots(){
+  try{
+    const data=await getJSON('status/index.json');
+    const bots=data.bots||[];
+    if(!bots.length){
+      $('botSum').textContent='';
+      $('botList').innerHTML=`<div class="empty">No bots are reporting yet.<br>Any bot can check in with<br><code>python3 botstatus.py set --id my-bot --owner King --state running --task "…"</code><br>See STATUS_PROTOCOL.md.</div>`;
+      return;
+    }
+    const counts={};
+    $('botList').innerHTML = bots.map(b=>{
+      let st=['running','idle','done','error'].includes(b.state)?b.state:'idle';
+      const age=(Date.now()-new Date(b.last_update))/60000;
+      const stale = (st==='running'||st==='idle') && !(age<=STALE_MIN);
+      counts[stale?'stale':st]=(counts[stale?'stale':st]||0)+1;
+      const label = stale?`stale · ${st}`:st, cls = stale?'stale':st;
+      const prog = Number.isFinite(+b.progress) && b.progress!==null && b.progress!==undefined
+        ? `<div class="pb" title="${+b.progress}%"><div style="width:${Math.max(0,Math.min(100,+b.progress))}%"></div></div>` : '';
+      const art = b.artifact ? ` · <a href="${esc(safeHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
+      const pct = prog ? ` · ${+b.progress}%` : '';
+      const abs = isNaN(new Date(b.last_update)) ? '' : new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(b.last_update))+' CT · ';
+      return `<div class="bot"><span class="dot ${cls}"></span><span class="n">${esc(b.name||b.id)}<span class="who">${esc(b.owner||'?')}${b.role?' · '+esc(b.role):''}</span></span><span class="s ${cls}">${label}</span>
+        <span class="t">${esc(b.task)}</span>${b.error?`<span class="t e">⚠ ${esc(b.error)}</span>`:''}${prog}
+        <span class="r">updated ${abs}${rel(b.last_update)}${pct}${art}</span></div>`;
+    }).join('');
+    $('botSum').textContent = Object.entries(counts).map(([k,v])=>`${v} ${k}`).join(' · ');
+  }catch(e){
+    $('botSum').textContent='';
+    $('botList').innerHTML = e.message==='404'
+      ? `<div class="empty">No status index yet. Run <code>python3 botstatus.py list</code> to build it.</div>`
+      : `<div class="err">Couldn't load status/index.json (${esc(e.message)}). Open this page through a local server, not file://.</div>`;
+  }
+}
+
+/* ---------- Headlines ---------- */
+async function loadHeadlines(){
+  try{
+    const data=await getJSON('headlines.json');
+    $('hlTag').hidden = !(data.example || (data.headlines||[]).some(h=>h.example));
+    const items=(data.headlines||[]).map(h=>`<span>${esc(h.title)}<em>${esc(h.source)}</em></span>`).join('');
+    $('ticker').innerHTML = items + items; // duplicated for seamless loop
+  }catch(e){ $('ticker').innerHTML = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`; }
+}
+
+/* ---------- Episode + track picker (episode.json + tracks.json) ---------- */
+let curFile=null;
+function wirePlayer(){
+  const a=$('audio'), btn=$('playBtn');
+  a.addEventListener('loadedmetadata',()=>{ $('times').textContent=`0:00 / ${fmtDur(a.duration)}`; $('epMeta').dataset.dur=fmtDur(a.duration); renderMeta(); });
+  a.addEventListener('timeupdate',()=>{ $('barFill').style.width=(a.currentTime/a.duration*100||0)+'%'; $('times').textContent=`${fmtDur(a.currentTime)} / ${fmtDur(a.duration)}`; });
+  a.addEventListener('ended',()=>{ btn.textContent='▶'; $('np').classList.remove('playing'); });
+  a.addEventListener('error',()=>{ if(a.getAttribute('src')){ $('epMeta').textContent=`Couldn't play ${curFile}.`; btn.disabled=true; } });
+  btn.onclick=()=>{ if(a.paused){ a.play(); btn.textContent='❚❚'; btn.setAttribute('aria-label','Pause'); $('np').classList.add('playing'); }
+                    else { a.pause(); btn.textContent='▶'; btn.setAttribute('aria-label','Play'); $('np').classList.remove('playing'); } };
+}
+let curMeta={};
+function renderMeta(){ const m=curMeta, bits=[];
+  if($('epMeta').dataset.dur) bits.push($('epMeta').dataset.dur);
+  if(m.bpm) bits.push(`${m.bpm} BPM`); if(m.key) bits.push(m.key); bits.push(curFile);
+  $('epMeta').textContent=bits.join(' · '); }
+function selectTrack(file, meta, isExample){
+  const a=$('audio'), btn=$('playBtn'), wasPlaying=!a.paused;
+  curFile=file; curMeta=meta||{}; delete $('epMeta').dataset.dur;
+  $('epTitle').textContent=(meta&&meta.title)||file;
+  $('npTag').hidden=!isExample;
+  a.src=file; btn.disabled=false; $('barFill').style.width='0%';
+  if(wasPlaying){ a.play(); } else { btn.textContent='▶'; $('np').classList.remove('playing'); }
+  renderMeta();
+  document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', b.dataset.file===file));
+  try{ localStorage.setItem('lofiDash.track', file); }catch(e){}
+}
+async function headOk(f){ try{ const r=await fetch(f,{method:'HEAD',cache:'no-store'}); return r.ok; }catch(e){ return false; } }
+let TRACKS=[];
+async function loadEpisode(){
+  let ep=null; try{ ep=await getJSON('episode.json'); }catch(e){}
+  try{ TRACKS=(await getJSON('tracks.json')).tracks||[]; }catch(e){ TRACKS=[]; }
+  const list=[];
+  if(ep && ep.example===false && ep.file) list.push({file:ep.file, title:`Episode: ${ep.title||ep.file}`, bpm:ep.bpm, key:ep.key, episode:true});
+  TRACKS.forEach(t=>{ if(!list.some(x=>x.file===t.file)) list.push(t); });
+  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.file.replace(/\.mp3$/,''))}</button>`).join('');
+  document.querySelectorAll('.trk').forEach(b=>b.onclick=()=>{ const t=list.find(x=>x.file===b.dataset.file); selectTrack(t.file,t,false); });
+  if(curFile && list.some(t=>t.file===curFile)){ document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', b.dataset.file===curFile)); return; }
+  let saved=null; try{ saved=localStorage.getItem('lofiDash.track'); }catch(e){}
+  const pick = list.find(t=>t.file===saved) || list[0];
+  if(pick && await headOk(pick.file)){ selectTrack(pick.file,pick,false); return; }
+  $('epTitle').textContent="Today's episode"; $('npTag').hidden=false;
+  $('epMeta').textContent='No track yet. The bots haven\'t made one.'; $('times').textContent='—';
+}
+wirePlayer();
+
+loadBots(); loadHeadlines(); loadEpisode();
+setInterval(loadBots, 10000); // status/index.json every 10s
+setInterval(loadEpisode, 60000); // pick up new beats
+
+/* ---------- Inbox zero (from inbox.json) ---------- */
+async function loadInbox(){
+  try{
+    const d=await getJSON('inbox.json');
+    $('inboxTag').hidden=!d.example;
+    const start=d.start||0, left=d.remaining||0, done=Math.max(0,start-left), pct=start?Math.round(done/start*100):0;
+    $('inboxLeft').innerHTML=`${left.toLocaleString()}<small>left of ${start.toLocaleString()}</small>`;
+    $('inboxPct').textContent=`${pct}% cleared`;
+    $('inboxBar').style.width=pct+'%';
+    $('inboxMeta').textContent=`${done.toLocaleString()} archived/handled · updated ${ago(d.updated)}`;
+  }catch(e){ $('inboxMeta').textContent="Couldn't load inbox.json"; }
+}
+loadInbox();
+
+/* ---------- Audio engine (Web Audio) ---------- */
+const audioEl=$('audio');
+const AE={ctx:null};
+function ensureAudio(){
+  if(AE.ctx) { if(AE.ctx.state==='suspended') AE.ctx.resume(); return AE; }
+  const ctx=new (window.AudioContext||window.webkitAudioContext)(); AE.ctx=ctx;
+  AE.master=ctx.createGain();
+  AE.warmth=ctx.createBiquadFilter(); AE.warmth.type='lowpass'; AE.warmth.Q.value=0.7;
+  AE.warmth.connect(AE.master); AE.master.connect(ctx.destination);
+  // episode (music) path
+  AE.music=ctx.createGain(); AE.music.connect(AE.warmth);
+  try{ ctx.createMediaElementSource(audioEl).connect(AE.music); }catch(e){}
+  // voice stem path (optional voice.mp3 played in sync with the episode)
+  AE.voice=ctx.createGain(); AE.voice.connect(AE.warmth);
+  if(voiceEl){ try{ ctx.createMediaElementSource(voiceEl).connect(AE.voice); }catch(e){} }
+  // ambience bus
+  AE.amb=ctx.createGain(); AE.amb.gain.value=0; AE.amb.connect(AE.warmth);
+  const sr=ctx.sampleRate, len=sr*4;
+  // Rain: brown-ish noise through a bandpass + a highpassed "patter" layer of tiny droplets
+  const rb=ctx.createBuffer(2,len,sr);
+  for(let c=0;c<2;c++){ const d=rb.getChannelData(c); let last=0;
+    for(let i=0;i<len;i++){ const w=Math.random()*2-1; last=(last+0.04*w)/1.04; d[i]=last*3.2;
+      if(Math.random()<0.0009){ const amp=0.25+Math.random()*0.35; for(let k=0;k<120&&i+k<len;k++) d[i+k]+= (Math.random()*2-1)*amp*Math.exp(-k/18); } } }
+  const rs=ctx.createBufferSource(); rs.buffer=rb; rs.loop=true;
+  const rbp=ctx.createBiquadFilter(); rbp.type='bandpass'; rbp.frequency.value=1400; rbp.Q.value=0.5;
+  AE.rain=ctx.createGain(); rs.connect(rbp).connect(AE.rain).connect(AE.amb); rs.start();
+  // Vinyl crackle: sparse random pops + faint surface hiss
+  const cb=ctx.createBuffer(2,len,sr);
+  for(let c=0;c<2;c++){ const d=cb.getChannelData(c);
+    for(let i=0;i<len;i++){ d[i]=(Math.random()*2-1)*0.012;
+      if(Math.random()<0.00035){ const amp=0.3+Math.random()*0.7, dec=2+Math.random()*10; for(let k=0;k<60&&i+k<len;k++) d[i+k]+=(Math.random()*2-1)*amp*Math.exp(-k/dec); } } }
+  const cs=ctx.createBufferSource(); cs.buffer=cb; cs.loop=true;
+  const chp=ctx.createBiquadFilter(); chp.type='highpass'; chp.frequency.value=900;
+  AE.crackle=ctx.createGain(); cs.connect(chp).connect(AE.crackle).connect(AE.amb); cs.start();
+  applyAll();
+  return AE;
+}
+const voiceEl = new Audio(); voiceEl.preload='auto'; let hasVoice=false;
+fetch('voice.mp3',{method:'HEAD',cache:'no-store'}).then(r=>{ if(r.ok){ hasVoice=true; voiceEl.src='voice.mp3'; } }).catch(()=>{});
+// keep optional voice stem in sync with episode
+audioEl.addEventListener('play',()=>{ ensureAudio(); if(hasVoice){ voiceEl.currentTime=audioEl.currentTime; voiceEl.play(); } });
+audioEl.addEventListener('pause',()=>{ if(hasVoice) voiceEl.pause(); });
+audioEl.addEventListener('seeked',()=>{ if(hasVoice) voiceEl.currentTime=audioEl.currentTime; });
+
+/* ---------- Knobs ---------- */
+const KNOBS=[
+  {id:'music',  label:'Music',   sub:'volume',      min:0,  max:100, def:80, fmt:v=>`${Math.round(v)}%`},
+  {id:'voice',  label:'Voice',   sub:'volume · stem', min:0,  max:100, def:85, fmt:v=>`${Math.round(v)}%`},
+  {id:'rain',   label:'Rain',    sub:'ambience',    min:0,  max:100, def:45, fmt:v=>`${Math.round(v)}%`},
+  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:30, fmt:v=>`${Math.round(v)}%`},
+  {id:'warmth', label:'Warmth',  sub:'low-pass',    min:0,  max:100, def:35, fmt:v=>`${Math.round(cutoff(v)/100)/10}k`},
+  {id:'tempo',  label:'Tempo',   sub:'display only',min:60, max:90,  def:72, step:1, fmt:v=>`${Math.round(v)} BPM`},
+];
+const LS='lofiDashMixer.v1';
+const state=Object.assign(Object.fromEntries(KNOBS.map(k=>[k.id,k.def])), JSON.parse(localStorage.getItem(LS)||'{}'));
+function cutoff(v){ return 18000*Math.pow(600/18000, v/100); } // 0% = open (18 kHz) -> 100% = very warm (600 Hz)
+const save=()=>localStorage.setItem(LS,JSON.stringify(state));
+const SWEEP=270, START=-135, R=31, C=37;
+function arc(a0,a1){ const p=a=>{const r=(a-90)*Math.PI/180; return [C+R*Math.cos(r), C+R*Math.sin(r)];};
+  const [x0,y0]=p(a0),[x1,y1]=p(a1); return `M${x0} ${y0} A${R} ${R} 0 ${a1-a0>180?1:0} 1 ${x1} ${y1}`; }
+function applyAll(){
+  if(!AE.ctx) return; const t=AE.ctx.currentTime, g=v=>Math.pow(v/100,2);
+  AE.music.gain.setTargetAtTime(g(state.music),t,0.05);
+  AE.voice.gain.setTargetAtTime(g(state.voice),t,0.05);
+  AE.rain.gain.setTargetAtTime(g(state.rain)*0.9,t,0.08);
+  AE.crackle.gain.setTargetAtTime(g(state.crackle)*1.2,t,0.08);
+  AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
+  AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
+}
+const knobBox=$('knobs');
+KNOBS.forEach(k=>{
+  const w=document.createElement('div'); w.className='knob';
+  w.innerHTML=`<div class="dial" tabindex="0" role="slider" aria-label="${k.label} ${k.sub}" aria-valuemin="${k.min}" aria-valuemax="${k.max}">
+      <svg viewBox="0 0 74 74"><path class="track" d="${arc(START,START+SWEEP)}"/><path class="lvl"/></svg>
+      <div class="cap"></div><div class="rot"><div class="ptr"></div></div></div>
+    <div class="val"></div><div class="lbl">${k.label}<small>${k.sub}</small></div>`;
+  knobBox.appendChild(w);
+  const dial=w.querySelector('.dial'), lvl=w.querySelector('.lvl'), rot=w.querySelector('.rot'), val=w.querySelector('.val');
+  const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min), a=START+f*SWEEP;
+    lvl.setAttribute('d', f>0.002?arc(START,a):''); rot.style.transform=`rotate(${a}deg)`;
+    lvl.style.strokeOpacity = .45+.55*f; val.textContent=k.fmt(state[k.id]); dial.setAttribute('aria-valuenow',Math.round(state[k.id])); };
+  const set=v=>{ v=Math.min(k.max,Math.max(k.min,v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v; render(); save(); applyAll(); };
+  let dragY=null, startV=0;
+  dial.addEventListener('pointerdown',e=>{ dragY=e.clientY; startV=state[k.id]; dial.setPointerCapture(e.pointerId); e.preventDefault(); });
+  dial.addEventListener('pointermove',e=>{ if(dragY===null) return; const range=k.max-k.min; set(startV+(dragY-e.clientY)/(e.shiftKey?600:180)*range); });
+  dial.addEventListener('pointerup',()=>dragY=null); dial.addEventListener('pointercancel',()=>dragY=null);
+  dial.addEventListener('wheel',e=>{ e.preventDefault(); set(state[k.id]+(e.deltaY<0?1:-1)*(k.max-k.min)/50); },{passive:false});
+  dial.addEventListener('keydown',e=>{ const s=(k.max-k.min)/50; if(['ArrowUp','ArrowRight'].includes(e.key)){set(state[k.id]+s);e.preventDefault();} if(['ArrowDown','ArrowLeft'].includes(e.key)){set(state[k.id]-s);e.preventDefault();} });
+  dial.addEventListener('dblclick',()=>set(k.def));
+  render();
+});
+let ambOn=false;
+$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; ensureAudio(); applyAll();
+  $('ambBtn').setAttribute('aria-pressed',ambOn); $('ambBtn').lastChild.textContent= ambOn?'Ambience on':'Ambience off'; });
+</script>
+</body>
+</html>

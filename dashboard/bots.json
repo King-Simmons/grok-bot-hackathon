@@ -1,0 +1,11 @@
+{
+  "example": true,
+  "note": "EXAMPLE DATA - placeholder bots for the prototype. Replace with real bot status later.",
+  "bots": [
+    {"name": "News Gatherer", "status": "running", "task": "Pulling trending topics from X and the web", "lastRun": "2026-10-19T07:00:00-05:00", "example": true},
+    {"name": "Script Writer", "status": "running", "task": "Drafting a 75-second calm morning script", "lastRun": "2026-10-19T07:04:00-05:00", "example": true},
+    {"name": "Beat Maker", "status": "idle", "task": "Waiting for script (72 BPM, jazzy Rhodes)", "lastRun": "2026-10-18T07:06:00-05:00", "example": true},
+    {"name": "Voice", "status": "idle", "task": "Queued: narrate script in warm low voice", "lastRun": "2026-10-18T07:09:00-05:00", "example": true},
+    {"name": "Video Renderer", "status": "error", "task": "Render failed: scene template missing", "lastRun": "2026-10-18T07:12:00-05:00", "example": true}
+  ]
+}

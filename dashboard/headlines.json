@@ -1,0 +1,11 @@
+{
+  "example": true,
+  "note": "PLACEHOLDER headlines - not real news. Will be filled by the News Gatherer bot.",
+  "headlines": [
+    {"title": "Placeholder headline: city council debates new rooftop gardens", "source": "Sample Source", "example": true},
+    {"title": "Placeholder headline: local café brews record-breaking batch of cold brew", "source": "Sample Source", "example": true},
+    {"title": "Placeholder headline: open-source agents trend on GitHub this week", "source": "Sample Source", "example": true},
+    {"title": "Placeholder headline: rain expected through the evening, cozy vibes ahead", "source": "Sample Source", "example": true},
+    {"title": "Placeholder headline: hackathon teams ship lofi radio bots", "source": "Sample Source", "example": true}
+  ]
+}
