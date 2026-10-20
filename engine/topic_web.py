@@ -7,7 +7,7 @@ uses an identifying User-Agent and does not retry with a browser UA.
 X posts stay in engine/pipeline.py. This module only collects public pages
 and calls pipeline.synthesize_text.
 """
-import html, json, re, ssl, threading, urllib.parse, urllib.request
+import html, json, re, ssl, urllib.parse, urllib.request
 from collections import Counter, namedtuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -17,12 +17,6 @@ DISCOVERY_UA = ("LofiNewsRadio-TopicLofi/1.0 "
                 "(hackathon; keyless public sources; +https://github.com/King-Simmons/grok-bot-hackathon)")
 MAX_PAGES = 5
 Cand = namedtuple("Cand", "url title via")
-# trafilatura.extract shares one lxml HTMLParser (trafilatura.utils.HTML_PARSER).
-# lxml parsers are not safe across threads. gather_pages used to ingest several
-# pages at once, and a SpaceX search that hit an MSN article aborted the process
-# inside trafilatura (free(): invalid pointer). One fetch at a time keeps the
-# same pages and the same per-request timeouts.
-_INGEST_LOCK = threading.Lock()
 
 _STOP = set("""the a an and or of to in on at by for with from as is are was were be it its this that
     you your we our they their not how what when where why who into about over new one two via www
@@ -261,8 +255,7 @@ def _clean_title(title):
 
 def _load_page(cand, ingest_fn):
     try:
-        with _INGEST_LOCK:
-            page = ingest_fn(cand.url)
+        page = ingest_fn(cand.url)
     except IngestError:
         return None
     if not page or not str(page.get("text") or "").strip():
