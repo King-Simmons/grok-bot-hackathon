@@ -50,7 +50,7 @@ The first run creates `./.venv`, installs [requirements.txt](requirements.txt), 
 - API: <http://127.0.0.1:53343/api/health>
 - With `--mcp`: streamable HTTP on <http://127.0.0.1:53350/mcp>
 
-`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>. `?topic=` runs Learn a topic, for example <http://127.0.0.1:53343/dashboard/?topic=SpaceX>.
+`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>. `?topic=` runs Learn a topic, for example <http://127.0.0.1:53343/dashboard/?topic=lofi>. Add `?source=web` (the default) or `?source=x`. The topic card has a Web / X selector; Web is selected unless you pick X or pass `?source=x`.
 
 You can also serve the static page alone:
 
@@ -83,15 +83,20 @@ POST /api/agents {"id":"alex-news","owner":"Alex","state":"running","task":"Pull
 POST /api/synthesize {"url": "https://example.com"}
 POST /api/synthesize {"url": "https://example.com", "async": true, "agent_id": "dashboard"}
 GET  /api/topics
-POST /api/synthesize_topic {"topic": "AI agents", "agent_id": "dashboard"}
-POST /api/synthesize_topic {"topic": "our demo", "posts": ["Bots shipped the dashboard.", "Late night lofi and cold pizza."]}
+POST /api/synthesize_topic {"topic": "lofi", "agent_id": "dashboard"}
+POST /api/synthesize_topic {"topic": "AI agents", "source": "x", "agent_id": "dashboard"}
+POST /api/synthesize_topic {"topic": "our demo", "source": "x", "posts": ["Bots shipped the dashboard.", "Late night lofi and cold pizza."]}
 ```
 
-An unknown topic returns `404` with `"error_kind": "topic_not_found"`. With `X_BEARER_TOKEN` set, the engine searches the X API first and counts those reads on the usage meter. Otherwise it uses `x_topics.json`. `synthesize_topic` is the usage tool name.
+`source` is `"web"` (default) or `"x"`. Web search reads a few public pages (Wikipedia, a public news RSS feed, Hacker News) through the same ingest path as paste-a-link, then lists those pages. A refused fetch falls back to the words in the URL. X is optional: with `X_BEARER_TOKEN` set, the engine searches the X API first and counts those reads on the usage meter; otherwise it uses `x_topics.json`. `posts` is only used when `source` is `"x"`.
+
+An empty topic returns `400` with `"error_kind": "empty_topic"`. A source other than web or x returns `400` with `"error_kind": "bad_source"`. An unknown topic returns `404` with `"error_kind": "topic_not_found"`. `synthesize_topic` is the usage tool name. Details: [docs/TOPIC_LOFI.md](docs/TOPIC_LOFI.md).
 
 ![Learn a topic, SpaceX](docs/learn-topic.png)
 
 `force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`. `agent_id` (or the `X-Agent-Id` header) is who the usage log credits; the dashboard sends `dashboard`, and a missing id is `anonymous`.
+
+`vocals` defaults to `none` on `/api/synthesize` and `/api/synthesize_topic`. The dashboard does not send it, and `./run.sh` does not install a voice. See [docs/VOCALS.md](docs/VOCALS.md).
 
 One-line check-in:
 
@@ -207,7 +212,7 @@ Example: `status/king-zlatan.json`. Prefix the id with the owner. After it lands
 python3 dashboard/botstatus.py refresh
 ```
 
-That rebuilds `status/index.json`. With `./run.sh` running, the control room reads `GET /api/agents` every 3 seconds instead, and a running or idle agent with no update for 120 seconds shows as offline. Do not hand-edit `status/index.json`.
+That rebuilds `status/index.json`. With `./run.sh` running, the control room reads `GET /api/agents` every 3 seconds instead, and a running or idle agent with no update for 30 minutes shows as offline. `LOFI_AGENT_STALE_S` overrides that window (default 1800). Do not hand-edit `status/index.json`.
 
 `docs/examples/bots.json` is an old sample roster. It is not wired to the page.
 

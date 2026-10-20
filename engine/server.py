@@ -7,10 +7,12 @@
   POST /api/agents                       -> register or update one agent
   GET  /api/topics                       -> cached topics + trend chips (post texts omitted)
   POST /api/synthesize {"url": ...}      -> {"mood": {...PRD...}, "track_url": "/tracks/....mp3", ...}
+       optional "vocals": "none"|"summary"|"song" (default none; ignored if Chatterbox is missing)
        add "async": true                 -> {"job_id": ...}; poll GET /api/jobs/<id>
        add "force": true                 -> re-render even if this exact track exists
-  POST /api/synthesize_topic {"topic": "AI agents"} or {"trend": "..."} or {"posts": [...]}
-       unknown topic -> 404 {"error_kind": "topic_not_found"}
+  POST /api/synthesize_topic {"topic": "AI agents", "source": "web"|"x"}
+       source defaults to web (engine/topic_web.py). "x" keeps the X-posts path.
+       empty topic -> 400 {"error_kind": "empty_topic"}; unknown -> 404 {"error_kind": "topic_not_found"}
        optional "agent_id" (or header X-Agent-Id) is who the usage log credits
 Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
 Static files are only dashboard/, samples/, tracks/ and status/. `/` redirects to `/dashboard/`.
@@ -159,6 +161,8 @@ def _result(r):
            "analysis": r["analysis"], "timing": r["timing"]}
     if r.get("topic"):
         out["topic"] = r["topic"]
+    if r.get("vocals"):
+        out["vocals"] = r["vocals"]
     return out
 
 
@@ -173,12 +177,25 @@ def note_synthesize(agent, started, result=None, error=""):
                  audio_s=audio, tracks=made, error=error)
 
 
-def _run_job(jid, url, force, agent):
+def _vocal_request(body):
+    """vocals defaults to none. Anything else is ignored so a typo cannot change the instrumental."""
+    mode = str(body.get("vocals") or "none").strip().lower()
+    if mode not in ("summary", "song"):
+        mode = "none"
+    script = body.get("script")
+    if script is None:
+        script = body.get("lyrics")
+    if script is not None:
+        script = str(script)[:4000]
+    return mode, script
+
+
+def _run_job(jid, url, force, agent, vocals="none", script=None):
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
-        r = pipeline.synthesize(url, force=force, progress=prog)
+        r = pipeline.synthesize(url, force=force, progress=prog, vocals=vocals, script=script, agent=agent)
         with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_synthesize(agent, started, r)
     except Exception as e:
@@ -287,16 +304,17 @@ def route_synthesize_post(handler, path):
         handler._json(400, {"error": "missing url"})
         return True
     force = bool(body.get("force"))
+    vocals, script = _vocal_request(body)
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
         with JOBS_LOCK:
             JOBS[jid] = {"id": jid, "url": url, "state": "running", "stage": "queued", "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_job, args=(jid, url, force, who), daemon=True).start()
+        threading.Thread(target=_run_job, args=(jid, url, force, who, vocals, script), daemon=True).start()
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
         return True
     started = time.perf_counter()
     try:
-        r = pipeline.synthesize(url, force=force)
+        r = pipeline.synthesize(url, force=force, vocals=vocals, script=script, agent=who)
     except IngestError as e:
         note_synthesize(who, started, error=str(e))
         handler._json(422, {"error": str(e)})
@@ -325,6 +343,8 @@ def topics_catalog():
         "updated": data.get("updated"),
         "about": data.get("about"),
         "live_search": bool(os.environ.get("X_BEARER_TOKEN")),
+        "default_source": "web",
+        "sources": ["web", "x"],
     }
 
 
@@ -341,16 +361,19 @@ def note_topic(agent, started, result=None, error=""):
                  audio_s=audio, tracks=made, x_reads=reads, error=error)
 
 
-def _run_topic_job(jid, topic, posts, force, agent):
+def _run_topic_job(jid, topic, posts, force, agent, source="web", vocals="none", script=None):
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog)
+        r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog, source=source,
+                                     vocals=vocals, script=script, agent=agent)
         with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_topic(agent, started, r)
     except Exception as e:
-        kind = "topic_not_found" if isinstance(e, pipeline.TopicNotFound) else None
+        kind = getattr(e, "error_kind", None)
+        if kind is None and isinstance(e, pipeline.TopicNotFound):
+            kind = "topic_not_found"
         with JOBS_LOCK: JOBS[jid].update(state="error", stage="error", error=str(e), error_kind=kind)
         note_topic(agent, started, error=str(e))
 
@@ -364,14 +387,26 @@ def route_topics_get(handler, path):
 
 
 def _topic_request(body):
-    topic = str(body.get("topic") or body.get("trend") or "").strip()[:120]
+    """-> (topic, posts, source, err). source is web (default) or x. posts apply only to x."""
+    from engine.topic_web import BadSource, EmptyTopic, normalize_source, normalize_topic
+    try:
+        source = normalize_source(body.get("source", "web"))
+    except BadSource as e:
+        return None, None, "web", str(e)
     posts = body.get("posts")
     if posts is not None and (not isinstance(posts, list) or not all(isinstance(p, str) for p in posts)):
-        return None, None, "posts must be a list of strings"
-    if not topic and not posts:
-        return None, None, "missing topic"
+        return None, None, source, "posts must be a list of strings"
+    topic = str(body.get("topic") or body.get("trend") or "").strip()[:120]
+    if source == "x" and posts and not topic:
+        return "custom posts", [p[:1000] for p in posts[:100]], source, None
+    try:
+        topic = normalize_topic(topic)
+    except EmptyTopic as e:
+        return None, None, source, str(e)
+    if source != "x":
+        posts = None
     cleaned = [p[:1000] for p in (posts or [])[:100]] or None
-    return topic or "custom posts", cleaned, None
+    return topic, cleaned, source, None
 
 
 def route_synthesize_topic_post(handler, path):
@@ -381,23 +416,37 @@ def route_synthesize_topic_post(handler, path):
     body, failed = read_json_object(handler, 400000)
     if failed:
         return True
-    topic, posts, err = _topic_request(body)
+    topic, posts, source, err = _topic_request(body)
     who = usage.caller(body, handler.headers)
     if err:
         usage.record(who, "synthesize_topic", False, 0, error=err)
-        handler._json(400, {"error": err})
+        kind = "empty_topic" if err.startswith("Please enter a topic") else (
+            "bad_source" if err.startswith("Source must") else None)
+        payload = {"error": err}
+        if kind:
+            payload["error_kind"] = kind
+        handler._json(400, payload)
         return True
     force = bool(body.get("force"))
+    vocals, script = _vocal_request(body)
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
         with JOBS_LOCK:
-            JOBS[jid] = {"id": jid, "url": topic, "state": "running", "stage": "queued", "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who), daemon=True).start()
+            JOBS[jid] = {"id": jid, "url": topic, "source": source, "state": "running", "stage": "queued",
+                         "progress": 0, "started": time.time()}
+        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who, source, vocals, script),
+                         daemon=True).start()
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
         return True
     started = time.perf_counter()
+    from engine.topic_web import BadSource, EmptyTopic
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force)
+        r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source,
+                                     vocals=vocals, script=script, agent=who)
+    except (EmptyTopic, BadSource) as e:
+        note_topic(who, started, error=str(e))
+        handler._json(e.http_status, {"error": str(e), "error_kind": e.error_kind})
+        return True
     except pipeline.TopicNotFound as e:
         note_topic(who, started, error=str(e))
         handler._json(404, {"error": str(e), "error_kind": "topic_not_found"})
@@ -459,6 +508,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         if self.path.startswith("/api/") or self.path.endswith(".json"):
             self.send_header("Cache-Control", "no-store")
+        else:
+            self.send_header("Accept-Ranges", "bytes")
         super().end_headers()
 
     def _json(self, code, obj):
@@ -498,7 +549,48 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(404, {"error": "unknown endpoint"})
         if not static_allowed(u.path):
             return self._json(403, {"error": "forbidden"})
+        if self.headers.get("Range"):
+            return self._byte_range()
         return super().do_GET()
+
+    def _byte_range(self):
+        """One byte range for a static file: 206, 416, or the normal handler."""
+        path = self.translate_path(self.path)
+        if not os.path.isfile(path):
+            return super().do_GET()
+        size = os.path.getsize(path)
+        start = end = None
+        spec = (self.headers.get("Range") or "").strip()
+        try:
+            if spec.lower().startswith("bytes=") and "," not in spec:
+                lo, sep, hi = spec[6:].strip().partition("-")
+                if sep and size:
+                    if lo == "":
+                        n = int(hi)
+                        if n > 0:
+                            start, end = max(0, size - n), size - 1
+                    else:
+                        start, end = int(lo), (int(hi) if hi else size - 1)
+                        end = min(end, size - 1)
+                        if start < 0 or start >= size or start > end:
+                            start = end = None
+        except ValueError:
+            start = end = None
+        if start is None:
+            self.send_response(416)
+            self.send_header("Content-Range", "bytes */%d" % size)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        with open(path, "rb") as f:
+            f.seek(start)
+            data = f.read(end - start + 1)
+        self.send_response(206)
+        self.send_header("Content-Type", self.guess_type(path))
+        self.send_header("Content-Range", "bytes %d-%d/%d" % (start, end, size))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_HEAD(self):
         if not self._gate():

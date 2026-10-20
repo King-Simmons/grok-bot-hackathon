@@ -20,7 +20,7 @@
     min-height:100vh; padding:18px; display:flex; flex-direction:column; gap:14px;
   }
   .grid{display:grid; grid-template-columns: 1fr 400px; gap:14px; flex:1; min-height:0}
-  .left,.right{display:flex; flex-direction:column; gap:14px; min-height:0}
+  .left,.right{display:flex; flex-direction:column; gap:14px; min-height:0; min-width:0}
   .card{
     background:var(--card); border:1px solid var(--line); border-radius:16px;
     box-shadow: 0 10px 30px #0006, inset 0 1px 0 #ffffff0d; backdrop-filter: blur(6px);
@@ -69,7 +69,7 @@
   .play{width:52px; height:52px; border-radius:50%; border:none; cursor:pointer; flex:none;
     background: var(--amber); color:#1a1420; font-size:20px; box-shadow:0 0 22px #ffb86b66}
   .play:disabled{background:#4a3a4a; color:#8a7a70; box-shadow:none; cursor:not-allowed}
-  .bar{flex:1; height:6px; background:#3a2c3c; border-radius:6px; overflow:hidden}
+  .bar{flex:1; height:6px; background:#3a2c3c; border-radius:6px; overflow:hidden; cursor:pointer}
   .bar>div{height:100%; width:0; background:linear-gradient(90deg,var(--rose),var(--amber))}
   .times{font:12px var(--mono); color:var(--muted); min-width:84px; text-align:right}
   .eq{display:flex; gap:3px; align-items:flex-end; height:18px}
@@ -242,9 +242,9 @@
   /* URL -> Lofi */
   html{background:#120d16}
   .grid{min-height:auto} .left .scene{flex:1 1 300px; min-height:240px; max-height:360px}
-  .u2l{padding:12px 18px}
-  .u2l .res{display:grid; grid-template-columns:auto 1fr; gap:2px 14px; align-items:start}
-  .u2l .res .chips{grid-row:1 / 4; max-width:220px}
+  .u2l{padding:12px 18px; min-width:0}
+  .u2l .res{display:flex; flex-direction:column; align-items:stretch; gap:3px; min-width:0}
+  .u2l .res > *{min-width:0; max-width:100%}
   .u2l form{display:flex; gap:8px}
   .u2l input{flex:1; min-width:0; background:#1f171d; border:1px solid var(--line); color:var(--ink); border-radius:10px;
     padding:9px 11px; font:13px var(--mono); outline:none}
@@ -260,7 +260,10 @@
   .u2l .chip{font:700 10px var(--mono); letter-spacing:.05em; padding:3px 7px; border-radius:999px; background:#9fd3a81a; color:var(--sage); border:1px solid #9fd3a855}
   .u2l .chip.k{background:#ffb86b1a; color:var(--amber); border-color:#ffb86b55}
   .u2l .sum{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
-  .u2l a{color:var(--amber); text-decoration:none; word-break:break-all}
+  .u2l a{color:var(--amber); text-decoration:none; overflow-wrap:anywhere}
+  .u2l .note{color:#e8b86a}
+  .u2l .src{display:grid; grid-template-columns:auto minmax(0,1fr) auto; column-gap:.4em; align-items:baseline}
+  .u2l .src a{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal}
   /* Learn a topic, via X, to lofi. Scoped under .u2l so these don't restyle the Radio / News Graph tab bar. */
   .u2l .tabs{display:flex; gap:4px; align-items:center; flex-wrap:wrap; padding:0; border:none; border-radius:0;
     background:none; box-shadow:none; align-self:auto}
@@ -270,7 +273,7 @@
   .u2l .tabs button.tab:hover{color:var(--ink)}
   .u2l .head{display:flex; align-items:center; justify-content:space-between; gap:10px}
   .u2l .asof{font:10px var(--mono); color:#8f7d6e; margin-left:auto; white-space:nowrap}
-  .u2l .sugg{display:flex; gap:6px; overflow:auto; padding:8px 0 2px}
+  .u2l .sugg{display:flex; gap:6px; overflow:auto; padding:8px 0 2px; min-width:0}
   .u2l .sugg .sg{flex:none; cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--ink); font:600 11px var(--mono);
     padding:4px 8px; border-radius:999px}
   .u2l .sugg .sg:hover{border-color:var(--amber); color:var(--amber)}
@@ -278,10 +281,20 @@
   .u2l .sugg .sg.tr{border-style:dashed; color:var(--muted)} .u2l .sugg .sg.tr::before{content:"↗ "; color:var(--rose)}
   .u2l .sugg .sg[aria-pressed="true"]{background:var(--amber); color:#1a1420; border-color:var(--amber)}
   .u2l .sugg .sg[aria-pressed="true"] small{color:#1a1420aa}
+  .u2l .sugg .sg:disabled{opacity:.45; cursor:default}
   .u2l .say{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
   .u2l .say b{color:var(--amber); font-weight:700}
   .u2l .xnote{color:var(--sage)}
   .err.soft{color:var(--amber)}
+  .u2l .srcpick{display:flex; gap:6px; align-items:center; margin:0 0 8px}
+  .u2l button.srcbtn{background:#1f171d; color:var(--ink); border:1px solid var(--line); border-radius:999px;
+    padding:4px 10px; font:700 11px var(--mono); letter-spacing:.04em; cursor:pointer}
+  .u2l button.srcbtn[aria-pressed="true"]{background:var(--amber); color:#1a1420; border-color:var(--amber)}
+  .u2l button.srcbtn small{font-weight:600; margin-left:4px; opacity:.75}
+  .u2l button.srcbtn[aria-pressed="true"] small{color:#1a1420}
+  .u2l .pages{margin:6px 0 0; padding:0; list-style:none}
+  .u2l .pages li{margin:3px 0; font:11px var(--mono)}
+  .u2l .pages small{color:#8f7d6e; margin-left:6px}
 
   /* Tabs: Radio | News Graph */
   [hidden]{display:none!important}
@@ -497,13 +510,17 @@
     <section class="card u2l" id="u2l">
       <div class="head" style="margin-bottom:8px">
         <div class="tabs" role="tablist">
-          <button class="tab" role="tab" id="tabX" aria-selected="true" aria-controls="paneX">Learn a topic, via X, to lofi</button>
+          <button class="tab" role="tab" id="tabX" aria-selected="true" aria-controls="paneX">Learn a topic → lofi</button>
           <button class="tab" role="tab" id="tabU" aria-selected="false" aria-controls="paneU">Paste a link</button>
         </div>
-        <span class="asof" id="xAsOf"></span><span class="tag live" id="engTag">X posts</span>
+        <span class="asof" id="xAsOf"></span><span class="tag live" id="engTag">Web</span>
       </div>
       <div class="pane" id="paneX" role="tabpanel">
-        <form id="xForm"><input id="xTopic" type="text" maxlength="120" placeholder="What do you want to learn about?" required aria-label="What do you want to learn about?">
+        <div class="srcpick" role="radiogroup" aria-label="Topic source">
+          <button type="button" class="srcbtn" id="srcWeb" role="radio" aria-pressed="true" aria-checked="true">Web</button>
+          <button type="button" class="srcbtn" id="srcX" role="radio" aria-pressed="false" aria-checked="false">X <small>optional</small></button>
+        </div>
+        <form id="xForm"><input id="xTopic" type="text" maxlength="120" placeholder="What do you want to learn about?" aria-label="What do you want to learn about?">
           <button id="xBtn" type="submit">LEARN IT LOFI</button></form>
         <div class="sugg" id="xSugg" aria-label="Suggested topics"></div>
       </div>
@@ -512,7 +529,7 @@
           <button id="u2lBtn" type="submit">MAKE IT LOFI</button></form>
       </div>
       <div class="pbar"><div id="u2lBar"></div></div>
-      <div class="stage" id="u2lStage">Type a topic: finds recent public X posts, reads their mood, renders an original ~44 s track.</div>
+      <div class="stage" id="u2lStage">Web search (default): Wikipedia, public news, and Hacker News. Reads the mood, renders an original ~44 s track.</div>
       <div class="res" id="u2lRes" hidden></div>
     </section>
 
@@ -520,7 +537,7 @@
       <div class="head">
         <h2>Mixer</h2>
         <span class="mixnote" id="mixNote">Click or drag · double-click to reset · saved on this device</span>
-        <button class="toggle" id="ambBtn" aria-pressed="false"><i></i>Ambience off</button>
+        <button class="toggle" id="ambBtn" aria-pressed="true"><i></i>Ambience on</button>
       </div>
       <div class="sliders" id="sliders"></div>
     </section>
@@ -663,7 +680,7 @@ async function getJSON(f){ const r=await fetch(f,{cache:'no-store'}); if(!r.ok) 
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- Live agents + usage (GET /api/agents every 3s, fallback status/index.json) ---------- */
-const STALE_S_DEFAULT=120;
+const STALE_S_DEFAULT=1800;
 const seenBots=new Set();
 let botsPrimed=false;
 function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const s=Math.round((Date.now()-d)/1000);
@@ -672,6 +689,12 @@ function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const s=Mat
   const m=Math.round(s/60);
   return m<60?`${m}m ago`: m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; }
 function safeHref(u){ u=String(u||''); return /^(https?:\/\/|[^:]+$)/i.test(u) ? u : '#'; }
+function artifactHref(path){
+  const a=String(path||'').trim();
+  if(!a) return '#';
+  if(/^[a-z][a-z0-9+.-]*:/i.test(a) || a.startsWith('/')) return safeHref(a);
+  return safeHref('/'+a);
+}
 function presenceOf(b, staleS){
   if(b.presence==='online'||b.presence==='offline'||b.presence==='settled') return b.presence;
   const st=['running','idle','done','error'].includes(b.state)?b.state:'idle';
@@ -700,7 +723,7 @@ function renderBots(data){
     const label=offline?`offline · ${st}`:st;
     const prog = Number.isFinite(+b.progress) && b.progress!==null && b.progress!==undefined
       ? `<div class="pb" title="${+b.progress}%"><div style="width:${Math.max(0,Math.min(100,+b.progress))}%"></div></div>` : '';
-    const art = b.artifact ? ` · <a href="${esc(safeHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
+    const art = b.artifact ? ` · <a href="${esc(artifactHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
     const pct = prog ? ` · ${+b.progress}%` : '';
     const abs = isNaN(new Date(b.last_update)) ? '' : new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(b.last_update))+' CT · ';
     return `<div class="bot${arrived?' arrive':''}"><span class="dot ${cls}"></span><span class="n">${esc(b.name||b.id)}<span class="who">${esc(b.owner||'?')}${b.role?' · '+esc(b.role):''}</span></span><span class="s ${cls}">${label}</span>
@@ -824,30 +847,67 @@ async function refreshHN(){
 
 /* ---------- Episode + track picker (episode.json + tracks.json) ---------- */
 let curFile=null;
+/* API urls are /tracks/x.mp3; tracks.json lists ../tracks/x.mp3. Compare pathnames. */
+function trackKey(f){
+  const s=String(f||'').trim(); if(!s) return '';
+  try{
+    if(!/^[a-z][a-z0-9+.-]*:/i.test(s) && !s.startsWith('/') && !s.startsWith('.')) return '/'+s.replace(/^\.?\//,'');
+    return new URL(s, location.href).pathname;
+  }catch(e){ return s; }
+}
+function sameTrack(a,b){ return !!a && !!b && trackKey(a)===trackKey(b); }
 function wirePlayer(){
   const a=$('audio'), btn=$('playBtn');
   a.addEventListener('loadedmetadata',()=>{ $('times').textContent=`0:00 / ${fmtDur(a.duration)}`; $('epMeta').dataset.dur=fmtDur(a.duration); renderMeta(); });
   a.addEventListener('timeupdate',()=>{ $('barFill').style.width=(a.currentTime/a.duration*100||0)+'%'; $('times').textContent=`${fmtDur(a.currentTime)} / ${fmtDur(a.duration)}`; });
   a.addEventListener('ended',()=>{ btn.textContent='▶'; $('np').classList.remove('playing'); });
   a.addEventListener('error',()=>{ if(a.getAttribute('src')){ $('epMeta').textContent=`Couldn't play ${curFile}.`; btn.disabled=true; } });
-  btn.onclick=()=>{ if(a.paused){ a.play(); btn.textContent='❚❚'; btn.setAttribute('aria-label','Pause'); $('np').classList.add('playing'); }
+  btn.onclick=()=>{ if(a.paused){ const p=a.play(); if(p&&p.catch) p.catch(()=>{ btn.textContent='▶'; btn.setAttribute('aria-label','Play'); $('np').classList.remove('playing'); });
+                      btn.textContent='❚❚'; btn.setAttribute('aria-label','Pause'); $('np').classList.add('playing'); }
                     else { a.pause(); btn.textContent='▶'; btn.setAttribute('aria-label','Play'); $('np').classList.remove('playing'); } };
+  const bar=document.querySelector('.player .bar');
+  if(bar){
+    const seek=ev=>{
+      if(!isFinite(a.duration)||a.duration<=0||!a.getAttribute('src')) return;
+      const s=a.seekable, max=s.length?s.end(s.length-1):0;
+      if(max<=0.5) return; // non-seekable stream: assigning currentTime restarts at 0
+      const r=bar.getBoundingClientRect(), frac=Math.min(1, Math.max(0, (ev.clientX-r.left)/Math.max(1,r.width)));
+      const t=Math.min(frac*a.duration, max);
+      try{ a.currentTime=t; }catch(e){ return; }
+      $('barFill').style.width=(t/a.duration*100)+'%';
+      $('times').textContent=`${fmtDur(t)} / ${fmtDur(a.duration)}`;
+    };
+    let scrub=false;
+    bar.addEventListener('pointerdown', ev=>{ scrub=true; try{ bar.setPointerCapture(ev.pointerId); }catch(e){} seek(ev); ev.preventDefault(); });
+    bar.addEventListener('pointermove', ev=>{ if(scrub) seek(ev); });
+    bar.addEventListener('pointerup', ()=>{ scrub=false; });
+    bar.addEventListener('pointercancel', ()=>{ scrub=false; });
+  }
 }
 let curMeta={};
+function fileLabel(f){ const base=String(f||'').split('/').filter(Boolean).pop()||''; return base.replace(/\.mp3$/i,''); }
 function renderMeta(){ const m=curMeta, bits=[];
   if($('epMeta').dataset.dur) bits.push($('epMeta').dataset.dur);
-  if(m.bpm) bits.push(`${m.bpm} BPM`); if(m.key) bits.push(m.key); bits.push(curFile);
+  if(m.bpm) bits.push(`${m.bpm} BPM`); if(m.key) bits.push(m.key);
+  const name=fileLabel(curFile); if(name) bits.push(name);
   $('epMeta').textContent=bits.join(' · '); }
 function selectTrack(file, meta, isExample){
-  const a=$('audio'), btn=$('playBtn'), wasPlaying=!a.paused;
-  curFile=file; curMeta=meta||{}; delete $('epMeta').dataset.dur;
+  const a=$('audio'), btn=$('playBtn');
+  const same=sameTrack(curFile, file) && !!a.getAttribute('src');
+  const wasPlaying=!a.paused && !!a.getAttribute('src');
+  curFile=file; curMeta=meta||{};
   $('epTitle').textContent=(meta&&meta.title)||file;
   $('npTag').hidden=!isExample;
-  a.src=file; btn.disabled=false; $('barFill').style.width='0%';
-  if(wasPlaying){ a.play(); } else { btn.textContent='▶'; $('np').classList.remove('playing'); }
-  renderMeta();
-  document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', b.dataset.file===file));
+  document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', sameTrack(b.dataset.file, file)));
   try{ localStorage.setItem('lofiDash.track', file); }catch(e){}
+  if(same){ renderMeta(); applyTempo(); return; }
+  delete $('epMeta').dataset.dur;
+  a.src=file; btn.disabled=false; $('barFill').style.width='0%';
+  syncTempoKnob(curMeta.bpm);
+  if(wasPlaying){ const p=a.play(); if(p&&p.catch) p.catch(()=>{ btn.textContent='▶'; btn.setAttribute('aria-label','Play'); $('np').classList.remove('playing'); });
+                  btn.textContent='❚❚'; btn.setAttribute('aria-label','Pause'); $('np').classList.add('playing'); }
+  else { btn.textContent='▶'; $('np').classList.remove('playing'); }
+  renderMeta();
 }
 async function headOk(f){ try{ const r=await fetch(f,{method:'HEAD',cache:'no-store'}); return r.ok; }catch(e){ return false; } }
 let TRACKS=[];
@@ -856,12 +916,14 @@ async function loadEpisode(){
   try{ TRACKS=(await getJSON('tracks.json')).tracks||[]; }catch(e){ TRACKS=[]; }
   const list=[];
   if(ep && ep.example===false && ep.file) list.push({file:ep.file, title:`Episode: ${ep.title||ep.file}`, bpm:ep.bpm, key:ep.key, episode:true});
-  TRACKS.forEach(t=>{ if(!list.some(x=>x.file===t.file)) list.push(t); });
-  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.label||t.file.replace(/\.mp3$/,''))}</button>`).join('');
-  document.querySelectorAll('.trk').forEach(b=>b.onclick=()=>{ const t=list.find(x=>x.file===b.dataset.file); selectTrack(t.file,t,false); });
-  if(curFile && list.some(t=>t.file===curFile)){ document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', b.dataset.file===curFile)); return; }
+  TRACKS.forEach(t=>{ if(!list.some(x=>sameTrack(x.file, t.file))) list.push(t); });
+  $('tracks').innerHTML = list.map(t=>`<button class="trk" data-file="${esc(t.file)}" aria-pressed="false" title="${esc(t.title||t.file)}">${t.episode?'★ episode':esc(t.label||fileLabel(t.file))}</button>`).join('');
+  document.querySelectorAll('.trk').forEach(b=>b.onclick=()=>{ const t=list.find(x=>sameTrack(x.file, b.dataset.file)); if(t) selectTrack(t.file,t,false); });
+  // A refresh picks up new chips. It must not replace whatever is already loaded
+  // (that was restarting /tracks/x.mp3 as the episode when the path strings differed).
+  if(curFile){ document.querySelectorAll('.trk').forEach(b=>b.setAttribute('aria-pressed', sameTrack(b.dataset.file, curFile))); return; }
   let saved=null; try{ saved=localStorage.getItem('lofiDash.track'); }catch(e){}
-  const pick = list.find(t=>t.file===saved) || list[0];
+  const pick = list.find(t=>sameTrack(t.file, saved)) || list[0];
   if(pick && await headOk(pick.file)){ selectTrack(pick.file,pick,false); return; }
   $('epTitle').textContent="Today's episode"; $('npTag').hidden=false;
   $('epMeta').textContent='No track yet. The bots haven\'t made one.'; $('times').textContent='—';
@@ -870,14 +932,24 @@ wirePlayer();
 
 /* ---------- URL -> Lofi (engine/server.py API) ---------- */
 const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
+// A restart drops in-memory jobs. Polling a missing id used to spin forever.
+async function nextJob(id){
+  const r=await fetch('/api/jobs/'+id,{cache:'no-store'});
+  let s=null;
+  try{ s=await r.json(); }catch(e){ s=null; }
+  if(!r.ok || !s || (s.state!=='running' && s.state!=='done' && s.state!=='error'))
+    return {state:'error', error:(s&&s.error)||'lost the job'};
+  return s;
+}
 function showU2L(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{};
+  const when = t.total_s==null ? '' : (t.track_cached ? `already made, loaded in ${t.total_s}s` : `made in ${t.total_s}s`);
   $('u2lRes').hidden=false;
-  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${a.mood_tags.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
-    ${r.page&&r.page.note?`<div class="note" style="color:#e8b86a">ⓘ ${esc(r.page.note)}</div>`:''}
+  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+    ${r.page&&r.page.note?`<div class="note">ⓘ ${esc(r.page.note)}</div>`:''}
     <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
-    <div>${esc(m.sentiment)} · ${esc(a.primary_instruments.join(', '))}</div>
-    <div>source: <a href="${esc(safeHref(m.url))}" target="_blank" rel="noopener">${esc(m.url)}</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
+    <div>${esc(m.sentiment)} · ${esc((a.primary_instruments||[]).join(', '))}</div>
+    <div class="src"><span>source:</span><a href="${esc(safeHref(m.url))}" title="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.url)}</a>${when?`<span>· ${esc(when)}</span>`:''}</div>`;
 }
 $('u2lForm').addEventListener('submit', async e=>{
   e.preventDefault();
@@ -891,16 +963,16 @@ $('u2lForm').addEventListener('submit', async e=>{
     loadBots();
     while(true){
       await new Promise(ok=>setTimeout(ok,400));
-      const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
+      const s=await nextJob(j.job_id);
       $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
       if(s.state==='error') return fail(s.error||'failed');
       if(s.state==='done'){
         const res=s.result; showU2L(res);
-        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
-        const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
-        selectTrack(play,t,false);
+        const t=TRACKS.find(x=>sameTrack(x.file,play)||sameTrack(x.file,res.track.file))||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
+        selectTrack(t.file,t,false);
         try{ await $('audio').play(); $('playBtn').textContent='❚❚'; $('np').classList.add('playing'); }catch(err){ $('u2lStage').textContent+=' (press ▶ to play)'; }
         break;
       }
@@ -911,55 +983,122 @@ $('u2lForm').addEventListener('submit', async e=>{
 });
 /* ---------- Learn a topic, via X, to lofi (POST /api/synthesize_topic, GET /api/topics) ---------- */
 const fmtCT = iso => { const d=new Date(iso); return isNaN(d)?'':d.toLocaleTimeString('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'})+' CT'; };
+let TOPIC_SOURCE='web';
+let TOPIC_BUSY=false;
+const WEB_CHIPS=['lofi','space telescopes','Python','Saturn','hackathons'];
+const EMPTY_TOPIC='Please enter a topic to learn. Try a short phrase like "lofi" or "space telescopes".';
+function topicStage(){
+  return TOPIC_SOURCE==='web'
+    ? 'Web search (default): Wikipedia, public news, and Hacker News. Reads the mood, renders an original ~44 s track.'
+    : 'X (optional): recent public posts, live if a token is set, otherwise the cached snapshot.';
+}
+function setTopicSource(src){
+  TOPIC_SOURCE = src==='x' ? 'x' : 'web';
+  const web=TOPIC_SOURCE==='web';
+  $('srcWeb').setAttribute('aria-pressed', web?'true':'false'); $('srcWeb').setAttribute('aria-checked', web?'true':'false');
+  $('srcX').setAttribute('aria-pressed', web?'false':'true'); $('srcX').setAttribute('aria-checked', web?'false':'true');
+  if($('tabX').getAttribute('aria-selected')==='true'){
+    $('engTag').textContent = web?'Web':'X posts';
+    if($('u2lRes').hidden) $('u2lStage').textContent = topicStage();
+  }
+  try{ localStorage.setItem('lofiDash.topicSource', TOPIC_SOURCE); }catch(e){}
+  renderTopicChips();
+}
+$('srcWeb').onclick=()=>setTopicSource('web');
+$('srcX').onclick=()=>setTopicSource('x');
 function setTab(x){
   $('tabX').setAttribute('aria-selected', x ? 'true' : 'false');
   $('tabU').setAttribute('aria-selected', x ? 'false' : 'true');
-  $('paneX').hidden=!x; $('paneU').hidden=x; $('engTag').textContent = x?'X posts':'URL engine';
-  if($('u2lRes').hidden) $('u2lStage').textContent = x ? 'Type a topic: finds recent public X posts, reads their mood, renders an original ~44 s track.'
+  $('paneX').hidden=!x; $('paneU').hidden=x;
+  $('engTag').textContent = x ? (TOPIC_SOURCE==='web'?'Web':'X posts') : 'URL engine';
+  if($('u2lRes').hidden) $('u2lStage').textContent = x ? topicStage()
                                                        : 'Reads the page, picks a mood, renders an original ~44 s track.';
 }
 $('tabX').onclick=()=>setTab(true); $('tabU').onclick=()=>setTab(false);
 let XT={topics:[],trends:{}};
+function renderTopicChips(){
+  let chips;
+  if(TOPIC_SOURCE!=='x'){
+    chips=WEB_CHIPS.map(t=>`<button class="sg" type="button" data-topic="${esc(t)}" data-source="web">${esc(t)}</button>`);
+    $('xAsOf').textContent='web · Wikipedia, news, Hacker News';
+  }else{
+    const tr=(XT.trends&&XT.trends.items)||[], cachedKeys=new Set((XT.topics||[]).map(t=>String(t.topic||'').toLowerCase()));
+    const trends = XT.live_search ? tr.filter(t=>t&&t.name&&!cachedKeys.has(String(t.name).toLowerCase())).slice(0,4) : [];
+    chips=(XT.topics||[]).map(t=>`<button class="sg" type="button" data-topic="${esc(t.topic)}" data-source="x" title="${esc(t.post_count)} cached posts · fetched ${esc(fmtCT(t.fetched_at))}">${esc(t.topic)}<small>${esc(t.post_count)}</small></button>`)
+      .concat(trends.map(t=>`<button class="sg tr" type="button" data-topic="${esc(t.name)}" data-source="x" title="Trending on X">${esc(t.name)}</button>`));
+    const asof = XT.trends&&XT.trends.as_of ? `trends as of ${fmtCT(XT.trends.as_of)}` : '';
+    $('xAsOf').textContent = asof + (XT.live_search?' · live search on':'');
+  }
+  $('xSugg').innerHTML=chips.join('');
+  $('xSugg').querySelectorAll('.sg').forEach(b=>{
+    b.disabled=TOPIC_BUSY;
+    b.onclick=()=>{
+      if(TOPIC_BUSY) return;
+      if(b.dataset.source) setTopicSource(b.dataset.source);
+      $('xTopic').value=b.dataset.topic; setTab(true); $('xForm').requestSubmit();
+    };
+  });
+}
+function setTopicBusy(on){
+  TOPIC_BUSY=!!on;
+  $('xBtn').disabled=TOPIC_BUSY;
+  if(!TOPIC_BUSY) $('xBtn').textContent='LEARN IT LOFI';
+  $('xSugg').querySelectorAll('.sg').forEach(b=>{ b.disabled=TOPIC_BUSY; });
+}
 async function loadTopics(){
   let data=null;
   try{ const r=await fetch('/api/topics',{cache:'no-store'}); if(r.ok) data=await r.json(); }catch(e){}
   if(!data){ try{ data=await getJSON('/x_topics.json'); }catch(e2){ data={topics:[],trends:{}}; } }
   XT=data;
-  const tr=(XT.trends&&XT.trends.items)||[], cachedKeys=new Set((XT.topics||[]).map(t=>String(t.topic||'').toLowerCase()));
-  const chips=(XT.topics||[]).map(t=>`<button class="sg" type="button" data-topic="${esc(t.topic)}" title="${esc(t.post_count)} cached posts · fetched ${esc(fmtCT(t.fetched_at))}">${esc(t.topic)}<small>${esc(t.post_count)}</small></button>`)
-    .concat(tr.filter(t=>t&&t.name&&!cachedKeys.has(String(t.name).toLowerCase())).slice(0,4).map(t=>`<button class="sg tr" type="button" data-topic="${esc(t.name)}" title="Trending on X">${esc(t.name)}</button>`));
-  $('xSugg').innerHTML=chips.join('');
-  $('xSugg').querySelectorAll('.sg').forEach(b=>b.onclick=()=>{ $('xTopic').value=b.dataset.topic; setTab(true); $('xForm').requestSubmit(); });
-  const asof = XT.trends&&XT.trends.as_of ? `trends as of ${fmtCT(XT.trends.as_of)}` : '';
-  $('xAsOf').textContent = asof + (XT.live_search?' · live search on':'');
+  renderTopicChips();
 }
 function showTopic(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{}, tp=r.topic||{};
+  const web = tp.source==='web' || tp.requested_source==='web';
   $('u2lRes').hidden=false;
-  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
-    <div class="say" title="${esc(m.page_summary)}"><b>What people are saying:</b> ${esc(m.page_summary)}</div>
-    <div class="xnote">mood from ${esc(tp.post_count)} top posts on X about ${esc(tp.topic)}${tp.fetched_at?` · fetched ${esc(fmtCT(tp.fetched_at))}`:''}${tp.source==='x-api-live'?' · live':''}</div>
-    <div>${esc(m.sentiment)} · <a href="${esc(safeHref(tp.x_search_url))}" target="_blank" rel="noopener">see the posts on x.com ↗</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
+  const chips=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`;
+  const made=t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):'';
+  if(web){
+    const pages=(tp.pages||[]).map(p=>`<li><a href="${esc(safeHref(p.url))}" target="_blank" rel="noopener">${esc(p.title||p.url)}</a><small>${esc(p.via||'')}${p.method==='url-words'?' · link words':''}</small></li>`).join('');
+    $('u2lRes').innerHTML=`${chips}
+      <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
+      <div class="xnote">${esc(tp.note||'')}</div>
+      <div>${esc(m.sentiment)} · ${esc((a.primary_instruments||[]).join(', '))}${made}</div>
+      <ul class="pages" id="tpPages">${pages}</ul>`;
+  }else{
+    $('u2lRes').innerHTML=`${chips}
+      <div class="say" title="${esc(m.page_summary)}"><b>What people are saying:</b> ${esc(m.page_summary)}</div>
+      <div class="xnote">mood from ${esc(tp.post_count)} top posts on X about ${esc(tp.topic)}${tp.fetched_at?` · fetched ${esc(fmtCT(tp.fetched_at))}`:''}${tp.source==='x-api-live'?' · live':''}</div>
+      <div>${esc(m.sentiment)} · <a href="${esc(safeHref(tp.x_search_url))}" target="_blank" rel="noopener">see the posts on x.com ↗</a>${made}</div>`;
+  }
   $('xSugg').querySelectorAll('.sg').forEach(b=>b.setAttribute('aria-pressed', b.dataset.topic.toLowerCase()===String(tp.topic||'').toLowerCase()?'true':'false'));
 }
 $('xForm').addEventListener('submit', async e=>{
   e.preventDefault();
-  const topic=$('xTopic').value.trim(); if(!topic) return;
-  const btn=$('xBtn'); btn.disabled=true; btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
-  $('u2lStage').textContent=`Finding posts on X about ${topic}…`; ensureAudio();
-  const fail=(msg,soft)=>{ $('u2lStage').innerHTML=`<span class="err${soft?' soft':''}">${soft?'ⓘ':'⚠'} ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='LEARN IT LOFI'; loadBots(); };
+  if(TOPIC_BUSY) return;
+  const topic=$('xTopic').value.trim();
+  const btn=$('xBtn');
+  const searching = TOPIC_SOURCE==='web' ? `Searching the web for ${topic||'a topic'}…` : `Finding posts on X about ${topic||'a topic'}…`;
+  const softKind=k=>k==='topic_not_found'||k==='empty_topic'||k==='bad_source';
+  const fail=(msg,soft)=>{ $('u2lStage').innerHTML=`<span class="err${soft?' soft':''}">${soft?'ⓘ':'⚠'} ${esc(msg)}</span>`; $('u2lBar').style.width='0'; setTopicBusy(false); loadBots(); };
+  if(!topic) return fail(EMPTY_TOPIC, true);
+  setTopicBusy(true); btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
+  $('u2lStage').textContent=searching; ensureAudio();
   try{
-    const r=await fetch('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,async:true,agent_id:'dashboard'})});
-    const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, j.error_kind==='topic_not_found');
+    const r=await fetch('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,source:TOPIC_SOURCE,async:true,agent_id:'dashboard'})});
+    const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, softKind(j.error_kind));
     loadBots();
     while(true){
       await new Promise(ok=>setTimeout(ok,400));
-      const s=await (await fetch('/api/jobs/'+j.job_id,{cache:'no-store'})).json();
-      $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
-      if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', s.error_kind==='topic_not_found'); }
+      const s=await nextJob(j.job_id);
+      $('u2lBar').style.width=(s.progress||4)+'%';
+      let stageText=STAGES[s.stage]||s.stage||'';
+      if(s.stage==='searching') stageText = TOPIC_SOURCE==='web' ? 'Searching public pages…' : 'Finding posts on X…';
+      $('u2lStage').textContent=stageText;
+      if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', softKind(s.error_kind)); }
       if(s.state==='done'){
         const res=s.result; showTopic(res);
-        $('u2lStage').textContent=`Done · now playing ${res.track.file}`;
+        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
@@ -970,13 +1109,17 @@ $('xForm').addEventListener('submit', async e=>{
     }
     loadBots();
   }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
-  btn.disabled=false; btn.textContent='LEARN IT LOFI';
+  setTopicBusy(false);
 });
-// ?topic= pre-fills the topic box. ?link= switches to Paste a link and runs that.
+// ?topic= runs Learn a topic. ?source=web|x wins over the saved selector. ?link= switches to Paste a link.
 { const q=new URLSearchParams(location.search);
-  const topic=q.get('topic'), link=q.get('link');
-  if(link){ setTab(false); $('u2lUrl').value=link; setTimeout(()=>$('u2lForm').requestSubmit(),300); }
-  else if(topic){ $('xTopic').value=topic; setTimeout(()=>$('xForm').requestSubmit(),300); }
+  const topic=q.get('topic'), link=q.get('link'), src=q.get('source');
+  let saved='web';
+  try{ saved=localStorage.getItem('lofiDash.topicSource')||'web'; }catch(e){}
+  setTopicSource(src==='web'||src==='x' ? src : (saved==='x'?'x':'web'));
+  if(link){ let u=link.trim(); if(u && !/^[a-z][a-z0-9+.-]*:/i.test(u)) u='https://'+u.replace(/^\/+/,'');
+    setTab(false); $('u2lUrl').value=u; setTimeout(()=>$('u2lForm').requestSubmit(),300); }
+  else if(topic){ setTab(true); $('xTopic').value=topic; setTimeout(()=>$('xForm').requestSubmit(),300); }
 }
 
 loadTopics();
@@ -1008,9 +1151,13 @@ const MIX={signal:1, duck:1, burst:0};
 function ensureAudio(){
   if(AE.ctx) { if(AE.ctx.state==='suspended') AE.ctx.resume(); return AE; }
   const ctx=new (window.AudioContext||window.webkitAudioContext)(); AE.ctx=ctx;
-  AE.master=ctx.createGain();
-  AE.warmth=ctx.createBiquadFilter(); AE.warmth.type='lowpass'; AE.warmth.Q.value=0.7;
-  AE.warmth.connect(AE.master); AE.master.connect(ctx.destination);
+  AE.master=ctx.createGain(); AE.master.gain.value=0.82; // offset Chrome's compressor makeup (~+1.7 dB)
+  AE.warmth=ctx.createBiquadFilter(); AE.warmth.type='lowpass'; AE.warmth.Q.value=0;
+  AE.warmth.connect(AE.master);
+  AE.limit=ctx.createDynamicsCompressor();
+  AE.limit.threshold.value=-3; AE.limit.knee.value=0; AE.limit.ratio.value=20;
+  AE.limit.attack.value=0.003; AE.limit.release.value=0.25;
+  AE.master.connect(AE.limit); AE.limit.connect(ctx.destination);
   // episode (music) path
   AE.music=ctx.createGain(); AE.music.connect(AE.warmth);
   try{ ctx.createMediaElementSource(audioEl).connect(AE.music); }catch(e){}
@@ -1051,23 +1198,40 @@ const KNOBS=[
   {id:'music',  label:'Music',   sub:'volume',      min:0,  max:100, def:80, fmt:v=>`${Math.round(v)}%`},
   {id:'voice',  label:'Voice',   sub:'volume · stem', min:0,  max:100, def:85, fmt:v=>`${Math.round(v)}%`},
   {id:'rain',   label:'Rain',    sub:'ambience',    min:0,  max:100, def:45, fmt:v=>`${Math.round(v)}%`},
-  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:30, fmt:v=>`${Math.round(v)}%`},
+  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:60, fmt:v=>`${Math.round(v)}%`},
   {id:'warmth', label:'Warmth',  sub:'low-pass',    min:0,  max:100, def:35, fmt:v=>`${Math.round(cutoff(v)/100)/10}k`},
-  {id:'tempo',  label:'Tempo',   sub:'display only',min:60, max:90,  def:72, step:1, fmt:v=>`${Math.round(v)} BPM`},
+  {id:'tempo',  label:'Tempo',   sub:'playback',    min:60, max:90,  def:72, step:1, fmt:v=>`${Math.round(v)} BPM`},
 ];
 const LS='lofiDashMixer.v1';
 const state=Object.assign(Object.fromEntries(KNOBS.map(k=>[k.id,k.def])), JSON.parse(localStorage.getItem(LS)||'{}'));
-function cutoff(v){ return 18000*Math.pow(600/18000, v/100); } // 0% = open (18 kHz) -> 100% = very warm (600 Hz)
+function cutoff(v){ return 8000*Math.pow(400/8000, v/100); } // 0% = 8 kHz -> 100% = 400 Hz
 const save=()=>localStorage.setItem(LS,JSON.stringify(state));
+function applyTempo(){
+  const base=(curMeta && isFinite(+curMeta.bpm) && +curMeta.bpm>0) ? +curMeta.bpm : 72;
+  const rate=Math.min(1.25, Math.max(0.8, (state.tempo||base)/base));
+  const a=$('audio'); if(!a) return;
+  try{ a.preservesPitch=false; }catch(e){}
+  a.playbackRate=rate;
+}
+function syncTempoKnob(bpm){
+  const k=KNOBS.find(x=>x.id==='tempo'), b=+bpm;
+  // No BPM on the track: don't keep the previous knob (that played at tempo/72).
+  const v=(!k || !isFinite(b) || b<=0) ? 72 : Math.min(k.max, Math.max(k.min, Math.round(b)));
+  const el=document.getElementById('sl-tempo');
+  if(!el){ state.tempo=v; applyTempo(); return; }
+  if(Math.round(+state.tempo)===v){ applyTempo(); return; }
+  el.value=String(v); el.dispatchEvent(new Event('input',{bubbles:true}));
+}
 function applyAll(){
+  applyTempo();
   if(!AE.ctx) return; const t=AE.ctx.currentTime, g=v=>Math.pow(v/100,2);
   AE.music.gain.setTargetAtTime(g(state.music)*MIX.signal*MIX.duck,t,MIX.duck<1?0.18:0.08);
   if(AE.static) AE.static.gain.setTargetAtTime(staticLevel(),t,0.04);
   AE.voice.gain.setTargetAtTime(g(state.voice),t,0.05);
-  AE.rain.gain.setTargetAtTime(g(state.rain)*0.9,t,0.08);
-  AE.crackle.gain.setTargetAtTime(g(state.crackle)*1.2,t,0.08);
+  AE.rain.gain.setTargetAtTime(g(state.rain)*0.5,t,0.08);
+  AE.crackle.gain.setTargetAtTime(g(state.crackle)*5,t,0.08);
   AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
-  AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
+  AE.amb.gain.setTargetAtTime(ambOn && powered() ? 1 : 0, t, 0.3);
 }
 const sliderBox=$('sliders');
 KNOBS.forEach(k=>{
@@ -1080,14 +1244,20 @@ KNOBS.forEach(k=>{
   const inp=w.querySelector('input'), val=w.querySelector('.val');
   const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min); inp.value=state[k.id];
     inp.style.setProperty('--f',(f*100).toFixed(2)+'%'); val.textContent=k.fmt(state[k.id]); inp.setAttribute('aria-valuetext',k.fmt(state[k.id])); };
-  const set=v=>{ v=Math.min(k.max,Math.max(k.min,+v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v; render(); save(); applyAll(); };
+  const set=v=>{ v=Math.min(k.max,Math.max(k.min,+v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v;
+    if((k.id==='rain'||k.id==='crackle') && v>0 && !ambOn){ ambOn=true; state.amb=true; ensureAudio(); showAmb(); }
+    render(); save(); applyAll(); };
   inp.addEventListener('input',()=>set(inp.value));
   inp.addEventListener('dblclick',()=>set(k.def));
   render();
 });
-let ambOn=false;
-$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; ensureAudio(); applyAll();
-  $('ambBtn').setAttribute('aria-pressed',ambOn); $('ambBtn').lastChild.textContent= ambOn?'Ambience on':'Ambience off'; });
+let ambOn=state.amb!==false; // fresh load is on; a saved false stays off
+function showAmb(){
+  $('ambBtn').setAttribute('aria-pressed', ambOn?'true':'false');
+  $('ambBtn').lastChild.textContent=ambOn?'Ambience on':'Ambience off';
+}
+showAmb();
+$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; state.amb=ambOn; save(); ensureAudio(); applyAll(); showAmb(); });
 
 /* ---------- Radio tuner: 88.1 LOFI / 101.5 NEWS TALK ----------
    Same player, same beat. The tuner decides what rides on top of it:
@@ -1261,7 +1431,7 @@ const FileVoice={
     el.addEventListener('playing',()=>duck(true));
     el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let i=-1;
       for(const c of cues) if(c.t<=el.currentTime) i=c.headline??-1;
-      highlight(i); setNow(i>=0&&HEADLINES[i]?HEADLINES[i].title:'Pre-rendered briefing', i>=0?'NOW READING':'HOST'); });
+      highlight(i); setNow(i>=0&&HEADLINES[i]?HEADLINES[i].title:'News Talk', i>=0?'NOW READING':'HOST'); });
     el.addEventListener('ended',()=>{ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…');
       Host.later(()=>{ el.currentTime=0; el.play().catch(()=>{}); },20000); });
     el.addEventListener('error',()=>{ if(!Host.running) return; radioNote("Couldn't play podcast_audio, so the browser voice is hosting.");
@@ -1314,6 +1484,7 @@ setInterval(()=>{
 /* Wire the beat to the radio */
 audioEl.addEventListener('play',()=>{ mixNow(); if(radio.station==='talk') Host.start(); });
 audioEl.addEventListener('pause',()=>{ if(radio.station==='talk') Host.pause(); mixNow(); });
+audioEl.addEventListener('ended',()=>{ mixNow(); });
 
 /* Build the dial */
 function initRadio(){
@@ -1350,13 +1521,13 @@ function initRadio(){
   if(!SpeechVoice.ok){ db.disabled=true; db.title='Needs browser speech (speechSynthesis)'; }
 
   // restore last station (snap a saved off-station frequency to the nearest station)
-  const {st,d}=nearest(radio.freq); setFreq(d<=LOCK?radio.freq:st.freq);
+  const {st,d}=nearest(radio.freq); setFreq(d<0.8?st.freq:radio.freq);
   radio.ready=true;
 }
 initRadio();
 EP_JSON.then(e=>{ EP=e||{}; if(EP.podcast_audio){
   // Keep a blob copy so seeking (cues, "Hear it on 101.5") works even when the server ignores Range requests (python http.server).
-  fetch(EP.podcast_audio).then(r=>r.ok?r.blob():null).then(b=>{ if(b && !FileVoice.el) EP.podcast_blob=URL.createObjectURL(b); }).catch(()=>{}); const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='Pre-rendered briefing: '+EP.podcast_audio; } }).catch(()=>{});
+  fetch(EP.podcast_audio).then(r=>r.ok?r.blob():null).then(b=>{ if(b && !FileVoice.el) EP.podcast_blob=URL.createObjectURL(b); }).catch(()=>{}); const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='News Talk briefing'; } }).catch(()=>{});
 
 /* ---------- News Graph tab ----------
    Nodes = headlines.json items. Edges = client-side relatedness:
@@ -1510,7 +1681,7 @@ const NG=(()=>{
     for(let i=0;i<N;i++){ const A=ns[i];
       for(let j=i+1;j<N;j++){ const B=ns[j]; let dx=A.x-B.x, dy=A.y-B.y, d2=dx*dx+dy*dy;
         if(d2<1){ dx=rg()-.5; dy=rg()-.5; d2=1; } const d=Math.sqrt(d2), f=Math.min(k*k/d, 300)*0.035*a;
-        const mn=A.r+B.r+26; const push = d<mn ? (mn-d)*0.25 : 0;
+        const mn=A.r+B.r+26; const push = (d<mn ? (mn-d)*0.25 : 0)*a;
         const fx=dx/d*(f+push), fy=dy/d*(f+push); A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; } }
     S.edges.forEach(e=>{ const A=ns[e.a], B=ns[e.b], dx=B.x-A.x, dy=B.y-A.y, d=Math.sqrt(dx*dx+dy*dy)||1;
       const L=k*(1.25-0.6*e.score), f=(d-L)*0.04*(0.4+e.score)*a, fx=dx/d*f, fy=dy/d*f; A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; });
@@ -1522,9 +1693,15 @@ const NG=(()=>{
   function frame(){
     S.raf=0; if(!S.visible) return;
     for(let t=0;t<2;t++) stepSim(); paint();
-    S.alpha*=0.985; if(S.drag) S.alpha=Math.max(S.alpha,0.25);
+    S.alpha*=(S.coolT && performance.now()-S.coolT>900) ? 0.93 : 0.985; if(S.drag) S.alpha=Math.max(S.alpha,0.25);
     S.nodes.forEach(n=>S.pos.set(n.key,{x:n.x,y:n.y}));
-    if(S.alpha>0.01 || S.drag) S.raf=requestAnimationFrame(frame);
+    let speed=0; S.nodes.forEach(n=>{ const s=Math.hypot(n.vx,n.vy); if(s>speed) speed=s; });
+    // Alpha cools per frame, so a slow screen keeps the picture creeping. Rest once
+    // the nodes are barely moving, and never let a settle run past a couple of seconds.
+    if(S.alpha>0.9 || S.drag) S.coolT=0;
+    else if(!S.coolT) S.coolT=performance.now();
+    const age=S.coolT?performance.now()-S.coolT:0;
+    if(S.drag || (S.alpha>0.01 && age<1800 && speed>0.12)) S.raf=requestAnimationFrame(frame);
   }
   function kick(){ if(S.visible && !S.raf) S.raf=requestAnimationFrame(frame); }
   function measure(){ const r=wrap.getBoundingClientRect(); if(r.width>10&&r.height>10){ const ow=S.w, oh=S.h; S.w=r.width; S.h=r.height;

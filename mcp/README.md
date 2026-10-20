@@ -2,8 +2,8 @@
 
 Tools:
 - `get_mood_analysis(url, agent_id="")` → PRD mood JSON: `{url, page_summary, sentiment, lofi_prompt, musical_attributes{bpm, key, primary_instruments[], mood_tags[]}, cover_art_prompt}`
-- `synthesize_url(url, force=false, agent_id="")` → the same JSON, plus `track_path` (absolute path on the box), `track_file` (relative), `track_url` (served by the dashboard) and `timing`.
-- `synthesize_topic(topic, posts=None, force=false, agent_id="")` → a track whose mood comes from recent public X posts. Example: `synthesize_topic(topic="SpaceX")`. Pass `posts` to skip search. Unknown topics raise a message you can show the user. Live X searches (`X_BEARER_TOKEN`) add X reads to the usage meter.
+- `synthesize_url(url, force=false, vocals="none", script="", agent_id="")` → the same JSON, plus `track_path` (absolute path on the box), `track_file` (relative), `track_url` (served by the dashboard) and `timing`. `vocals` stays `none` unless the caller asks for `summary` or `song` ([docs/VOCALS.md](../docs/VOCALS.md)).
+- `synthesize_topic(topic, posts=None, force=false, source="web", vocals="none", script="", agent_id="")` → a track from a topic. `source` is `"web"` (default) or `"x"`. Web returns `pages` (title, url, via, method, words) plus the PRD mood JSON. X returns `what_people_are_saying`, `post_count`, `post_source`, and `x_search_url`; pass `posts` to skip search. An empty topic, a bad source, or an unknown topic raises a message you can show the user. Live X searches (`X_BEARER_TOKEN`) add X reads to the usage meter. Example: `synthesize_topic(topic="lofi")` or `synthesize_topic(topic="SpaceX", source="x")`. `vocals` defaults to `none`.
 - `report_status(id, state, task, name="", owner="", role="", progress=-1, artifact="", error="", agent_id="")` → create or update one agent. Example: `report_status(id="alex-news", owner="Alex", state="running", task="Pulling headlines")`
 - `list_agents()` → the same list as `GET /api/agents`, including `presence` and `stale_after_s`.
 - `get_usage()` → local usage totals (today, all-time, per agent, last 24 hours, X reads against the free-tier budget). No network.
