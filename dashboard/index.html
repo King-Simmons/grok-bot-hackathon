@@ -1407,7 +1407,7 @@ const FileVoice={
     el.addEventListener('playing',()=>duck(true));
     el.addEventListener('timeupdate',()=>{ const cues=EP.podcast_cues||[]; let i=-1;
       for(const c of cues) if(c.t<=el.currentTime) i=c.headline??-1;
-      highlight(i); setNow(i>=0&&HEADLINES[i]?HEADLINES[i].title:'Pre-rendered briefing', i>=0?'NOW READING':'HOST'); });
+      highlight(i); setNow(i>=0&&HEADLINES[i]?HEADLINES[i].title:'News Talk', i>=0?'NOW READING':'HOST'); });
     el.addEventListener('ended',()=>{ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…');
       Host.later(()=>{ el.currentTime=0; el.play().catch(()=>{}); },20000); });
     el.addEventListener('error',()=>{ if(!Host.running) return; radioNote("Couldn't play podcast_audio, so the browser voice is hosting.");
@@ -1497,13 +1497,13 @@ function initRadio(){
   if(!SpeechVoice.ok){ db.disabled=true; db.title='Needs browser speech (speechSynthesis)'; }
 
   // restore last station (snap a saved off-station frequency to the nearest station)
-  const {st,d}=nearest(radio.freq); setFreq(d<=LOCK?radio.freq:st.freq);
+  const {st,d}=nearest(radio.freq); setFreq(d<0.8?st.freq:radio.freq);
   radio.ready=true;
 }
 initRadio();
 EP_JSON.then(e=>{ EP=e||{}; if(EP.podcast_audio){
   // Keep a blob copy so seeking (cues, "Hear it on 101.5") works even when the server ignores Range requests (python http.server).
-  fetch(EP.podcast_audio).then(r=>r.ok?r.blob():null).then(b=>{ if(b && !FileVoice.el) EP.podcast_blob=URL.createObjectURL(b); }).catch(()=>{}); const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='Pre-rendered briefing: '+EP.podcast_audio; } }).catch(()=>{});
+  fetch(EP.podcast_audio).then(r=>r.ok?r.blob():null).then(b=>{ if(b && !FileVoice.el) EP.podcast_blob=URL.createObjectURL(b); }).catch(()=>{}); const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='News Talk briefing'; } }).catch(()=>{});
 
 /* ---------- News Graph tab ----------
    Nodes = headlines.json items. Edges = client-side relatedness:
