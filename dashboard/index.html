@@ -536,7 +536,7 @@
       <div class="head">
         <h2>Mixer</h2>
         <span class="mixnote" id="mixNote">Click or drag · double-click to reset · saved on this device</span>
-        <button class="toggle" id="ambBtn" aria-pressed="false"><i></i>Ambience off</button>
+        <button class="toggle" id="ambBtn" aria-pressed="true"><i></i>Ambience on</button>
       </div>
       <div class="sliders" id="sliders"></div>
     </section>
@@ -1125,7 +1125,7 @@ const MIX={signal:1, duck:1, burst:0};
 function ensureAudio(){
   if(AE.ctx) { if(AE.ctx.state==='suspended') AE.ctx.resume(); return AE; }
   const ctx=new (window.AudioContext||window.webkitAudioContext)(); AE.ctx=ctx;
-  AE.master=ctx.createGain();
+  AE.master=ctx.createGain(); AE.master.gain.value=0.82; // offset Chrome's compressor makeup (~+1.7 dB)
   AE.warmth=ctx.createBiquadFilter(); AE.warmth.type='lowpass'; AE.warmth.Q.value=0;
   AE.warmth.connect(AE.master);
   AE.limit=ctx.createDynamicsCompressor();
@@ -1219,16 +1219,19 @@ KNOBS.forEach(k=>{
   const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min); inp.value=state[k.id];
     inp.style.setProperty('--f',(f*100).toFixed(2)+'%'); val.textContent=k.fmt(state[k.id]); inp.setAttribute('aria-valuetext',k.fmt(state[k.id])); };
   const set=v=>{ v=Math.min(k.max,Math.max(k.min,+v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v;
-    if((k.id==='rain'||k.id==='crackle') && v>0 && !ambOn){ ambOn=true; ensureAudio();
-      $('ambBtn').setAttribute('aria-pressed','true'); $('ambBtn').lastChild.textContent='Ambience on'; }
+    if((k.id==='rain'||k.id==='crackle') && v>0 && !ambOn){ ambOn=true; state.amb=true; ensureAudio(); showAmb(); }
     render(); save(); applyAll(); };
   inp.addEventListener('input',()=>set(inp.value));
   inp.addEventListener('dblclick',()=>set(k.def));
   render();
 });
-let ambOn=false;
-$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; ensureAudio(); applyAll();
-  $('ambBtn').setAttribute('aria-pressed',ambOn); $('ambBtn').lastChild.textContent= ambOn?'Ambience on':'Ambience off'; });
+let ambOn=state.amb!==false; // fresh load is on; a saved false stays off
+function showAmb(){
+  $('ambBtn').setAttribute('aria-pressed', ambOn?'true':'false');
+  $('ambBtn').lastChild.textContent=ambOn?'Ambience on':'Ambience off';
+}
+showAmb();
+$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; state.amb=ambOn; save(); ensureAudio(); applyAll(); showAmb(); });
 
 /* ---------- Radio tuner: 88.1 LOFI / 101.5 NEWS TALK ----------
    Same player, same beat. The tuner decides what rides on top of it:
