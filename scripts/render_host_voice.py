@@ -37,15 +37,17 @@ def sentence(t):
 
 def take_for(h, i):
     if h.get("take"): return sentence(h["take"])
-    if h.get("summary"): return sentence(h["summary"])
-    if isinstance(h.get("score"), (int, float)) and not isinstance(h.get("score"), bool):  # Hacker News items
+    is_hn = isinstance(h.get("score"), (int, float)) and not isinstance(h.get("score"), bool)
+    if h.get("summary") and not is_hn: return sentence(h["summary"])
+    if is_hn:  # Hacker News items: API facts, then the optional summary
         d = h.get("domain")
         site = "a Hacker News text post" if (not d or d == "news.ycombinator.com") else d.replace(".", " dot ")
         sc = h["score"]; pts = f"{sc} point{'' if sc == 1 else 's'}"
         cmn = h.get("comments"); cm = f"{cmn} comment{'' if cmn == 1 else 's'}" if isinstance(cmn, (int, float)) and not isinstance(cmn, bool) else ""
         return [f"That's from {site}, at {pts}{f' and {cm}' if cm else ''}.",
                 f"{pts[0].upper()+pts[1:]} so far{f', with {cm} in the thread' if cm else ''}.",
-                f"The link goes to {site}.{f' {cm[0].upper()+cm[1:]} and counting.' if cm else ''}"][i % 3]
+                f"The link goes to {site}.{f' {cm[0].upper()+cm[1:]} and counting.' if cm else ''}"][i % 3] \
+            + (" " + sentence(h["summary"]) if h.get("summary") else "")
     t = clean_title(h.get("title")); c = t.find(", ")
     if c > 0 and c < len(t) - 6:
         r = t[c + 2:].strip()
@@ -87,7 +89,7 @@ def fingerprint(data):
 
 # ---- TTS-only text tweaks (spoken form; captions/cues unaffected) -------------
 SAY = {  # spoken-form fixes for words the default voice stumbles on (extend with --say file.json)
-    "ipinfo": "I P info", "MiniMax": "Mini Max", "amdgpu": "A M D G P U", "OpenBSD": "Open B S D", "bsd": "B S D",
+    "ipinfo": "I P info", "IPinfo": "I P info", "MiniMax": "Mini Max", "amdgpu": "A M D G P U", "OpenBSD": "Open B S D", "bsd": "B S D",
 }
 
 def speakable(text, say=SAY):
@@ -106,6 +108,15 @@ def speakable(text, say=SAY):
     t = re.sub(r"(?<=\w)/(?=\w)", " slash ", t)
     t = t.replace("&", " and ").replace("—", ", ").replace("–", ", ")
     return re.sub(r"\s+", " ", t).strip()
+
+def chunks(text, limit=220):
+    """Split into sentence groups of <= ~limit chars; Chatterbox gets unreliable on very long inputs."""
+    out, cur = [], ""
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        if cur and len(cur) + 1 + len(sent) > limit: out.append(cur); cur = sent
+        else: cur = f"{cur} {sent}".strip()
+    if cur: out.append(cur)
+    return out
 
 # ---- audio helpers ------------------------------------------------------------
 def trim_silence(w, sr, thresh_db=-45.0, pad_s=0.06):
@@ -170,10 +181,13 @@ def main():
     gap = np.zeros(int(a.pause * sr), dtype=np.float32)
     t_render = time.time()
     for k, s in enumerate(segs):
-        torch.manual_seed(a.seed + k)
-        w = model.generate(speakable(s["text"], say), exaggeration=a.exaggeration, cfg_weight=a.cfg_weight,
-                           temperature=a.temperature)
-        w = trim_silence(w.squeeze(0).cpu().numpy().astype(np.float32), sr)
+        parts = []
+        for j, chunk in enumerate(chunks(speakable(s["text"], say))):  # long segments (summaries) render per sentence group
+            torch.manual_seed(a.seed + k + 100 * j)
+            w = model.generate(chunk, exaggeration=a.exaggeration, cfg_weight=a.cfg_weight, temperature=a.temperature)
+            if parts: parts.append(np.zeros(int(0.28 * sr), dtype=np.float32))
+            parts.append(trim_silence(w.squeeze(0).cpu().numpy().astype(np.float32), sr))
+        w = np.concatenate(parts)
         cues.append({"t": round(cursor, 2), "headline": s["hl"]})
         segs_meta.append({"start": round(cursor, 3), "end": round(cursor + len(w) / sr, 3), "headline": s["hl"], "text": s["text"]})
         print(f"  seg {k} hl={s['hl']:>2} {len(w)/sr:5.2f}s", file=sys.stderr)
