@@ -1191,13 +1191,13 @@ const sentence = t => { t=String(t||'').trim(); if(!t) return ''; t=t[0].toUpper
 const TAKES=['Worth keeping an eye on.','We\'ll keep you posted on that one.','File that one under good to know.','More on that as it develops.'];
 function takeFor(h,i){
   if(h.take) return sentence(h.take);            // optional fields a news bot can add later
-  if(h.summary) return sentence(h.summary);
-  if(Number.isFinite(h.score)){                   // Hacker News items: say only what the API gave us
+  if(h.summary && !Number.isFinite(h.score)) return sentence(h.summary);
+  if(Number.isFinite(h.score)){                   // Hacker News items: say only what the API gave us, then the optional summary
     const site = !h.domain||h.domain==='news.ycombinator.com' ? 'a Hacker News text post' : h.domain.replace(/\./g,' dot ');
     const pts=`${h.score} point${h.score===1?'':'s'}`, cm=Number.isFinite(h.comments)?`${h.comments} comment${h.comments===1?'':'s'}`:'';
     return [`That's from ${site}, at ${pts}${cm?` and ${cm}`:''}.`,
             `${pts[0].toUpperCase()+pts.slice(1)} so far${cm?`, with ${cm} in the thread`:''}.`,
-            `The link goes to ${site}.${cm?` ${cm[0].toUpperCase()+cm.slice(1)} and counting.`:''}`][i%3];
+            `The link goes to ${site}.${cm?` ${cm[0].toUpperCase()+cm.slice(1)} and counting.`:''}`][i%3] + (h.summary?' '+sentence(h.summary):'');
   }
   const t=cleanTitle(h.title), c=t.indexOf(', ');
   if(c>0 && c<t.length-6) { const r=t.slice(c+2).trim(); return `In short, ${/[.!?]$/.test(r)?r:r+'.'}`; } // echo the headline's own second clause

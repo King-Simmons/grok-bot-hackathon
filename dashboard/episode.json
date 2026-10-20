@@ -11,15 +11,15 @@
   "podcast_cues": [
     {"t": 0.3, "headline": -1},
     {"t": 9.72, "headline": 0},
-    {"t": 18.53, "headline": 1},
-    {"t": 26.92, "headline": 2},
-    {"t": 33.86, "headline": 3},
-    {"t": 47.88, "headline": 4},
-    {"t": 55.54, "headline": 5},
-    {"t": 62.51, "headline": 6},
-    {"t": 70.5, "headline": 7},
-    {"t": 76.91, "headline": -1}
+    {"t": 39.82, "headline": 1},
+    {"t": 63.2, "headline": 2},
+    {"t": 80.41, "headline": 3},
+    {"t": 94.43, "headline": 4},
+    {"t": 102.09, "headline": 5},
+    {"t": 109.06, "headline": 6},
+    {"t": 117.05, "headline": 7},
+    {"t": 123.46, "headline": -1}
   ],
   "podcast_headlines": [50159616, 50154540, 50150089, 50158138, 50152307, 50157865, 50136126, 50159464],
-  "podcast_voice": {"engine": "chatterbox-tts (default voice)", "duration_s": 82.58, "exaggeration": 0.4, "cfg_weight": 0.35, "temperature": 0.7, "seed": 7, "rendered": "2026-10-19T20:02:22-05:00"}
+  "podcast_voice": {"engine": "chatterbox-tts (default voice)", "duration_s": 129.13, "exaggeration": 0.4, "cfg_weight": 0.35, "temperature": 0.7, "seed": 7, "rendered": "2026-10-19T20:18:08-05:00"}
 }

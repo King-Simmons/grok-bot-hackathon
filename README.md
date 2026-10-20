@@ -140,7 +140,7 @@ Stdlib only. The write is atomic, and if the API can't be reached the old file i
 
 The page also refreshes live in the browser: when `headlines.json` has `"source": "Hacker News"`, it fetches the same API (it allows CORS) after load and every 10 minutes. If that fails, for example offline, the page keeps what `headlines.json` gave it. The ticker label says `Hacker News · live` or `Hacker News · snapshot`. Add `?hn=0` to the URL to turn live refresh off, or `?hn=1` to force it on when the file comes from another source, such as the News Gatherer bot. A refresh that arrives in the middle of a News Talk briefing waits until the briefing ends, so the host never reads a list that changed under it.
 
-On 101.5 NEWS TALK the host says the source once in the intro ("straight from the top of Hacker News"), then reads each title with what the API reports: the site, points, and comment count. It reads nothing beyond that.
+On 101.5 NEWS TALK the host says the source once in the intro ("straight from the top of Hacker News"), then reads each title with what the API reports: the site, points, and comment count. If an item has an optional `summary` (with `summary_source`, the article it came from), the host reads it right after that line, in both the browser voice and the Chatterbox recording. The demo snapshot has hand-written summaries for the top 3 stories. Beyond that, it reads nothing the data doesn't contain.
 
 ## News Graph tab
 
@@ -165,13 +165,13 @@ The layout is a small force simulation in vanilla JS on SVG. It uses no librarie
 
 101.5 NEWS TALK can play a pre-rendered host instead of the browser voice. `dashboard/host_briefing.mp3` is the briefing read by [Chatterbox](https://github.com/resemble-ai/chatterbox), Resemble AI's open-source TTS, using its built-in default voice (no voice cloning). It sounds the same on every machine, which is what you want for a demo.
 
-**Frozen snapshot.** The recording reads specific headlines, including their points and comment counts, so `dashboard/headlines.json` is committed as the exact snapshot it was made from. `dashboard/episode.json` carries `podcast_audio`, `podcast_cues` (when each headline starts, for the highlight and for **Hear it on 101.5** in the News Graph, which seeks to that headline), and `podcast_headlines`, a fingerprint of the top 8 headlines it reads (`hn_id`s, in order).
+**Frozen snapshot.** The recording reads specific headlines, including their points, comment counts, and the `summary` fields on the top 3, so `dashboard/headlines.json` is committed as the exact snapshot it was made from. `dashboard/episode.json` carries `podcast_audio`, `podcast_cues` (when each headline starts, for the highlight and for **Hear it on 101.5** in the News Graph, which seeks to that headline), and `podcast_headlines`, a fingerprint of the top 8 headlines it reads (`hn_id`s, in order).
 
 - While the fingerprint matches `headlines.json`, the page stays on the snapshot: live Hacker News refresh is off and the ticker says `Hacker News · demo snapshot`.
 - `?hn=1` still forces live refresh. Once the live list differs from the fingerprint, the browser voice takes over (mid-briefing too), so the host never reads stale audio over new headlines. If the refresh fails, the recording keeps playing.
 - Headlines that aren't in the recording (9 and beyond, picked from the graph) are read by the browser voice, then the next briefing goes back to the recording.
 
-**Refresh it** (about 2.5 minutes on an 8-core CPU, roughly 1.6 s of compute per second of audio, plus a one-time ~3.5 GB model download):
+**Refresh it** (about 5 minutes on an 8-core CPU for the current 129 s briefing, roughly 2 s of compute per second of audio, plus a one-time ~3.5 GB model download):
 
 ```bash
 python3 scripts/fetch_hn.py                       # new snapshot

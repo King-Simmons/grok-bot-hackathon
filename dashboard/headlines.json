@@ -13,7 +13,9 @@
       "time": "2026-10-20T00:00:49Z",
       "comments": 10,
       "hn_id": 50159616,
-      "discussion": "https://news.ycombinator.com/item?id=50159616"
+      "discussion": "https://news.ycombinator.com/item?id=50159616",
+      "summary": "On the night of October eleventh, attackers pushed refrigeration systems in more than four hundred French supermarkets into defrost mode, and stores threw out their food. IPinfo's scans found France had about thirteen hundred of these fridge dashboards open to the internet just before the attack, more than the rest of the world combined, and most were running software with known flaws. Nobody knows yet who did it.",
+      "summary_source": "https://ipinfo.io/blog/france-fridges-hack"
     },
     {
       "title": "MiniMax M3.1 Flash",
@@ -25,7 +27,9 @@
       "time": "2026-10-19T16:39:09Z",
       "comments": 156,
       "hn_id": 50154540,
-      "discussion": "https://news.ycombinator.com/item?id=50154540"
+      "discussion": "https://news.ycombinator.com/item?id=50154540",
+      "summary": "Chinese AI lab MiniMax released a fast, low-cost model built for agents, coding and computer use. The company says it's nearly three times faster and seventy percent cheaper than its last version, at fifteen cents per million input tokens. It's on their API now, with the weights coming later.",
+      "summary_source": "https://www.minimax.io/blog/minimax-m31f"
     },
     {
       "title": "I built a drone with only one motor [video]",
@@ -37,7 +41,9 @@
       "time": "2026-10-19T09:05:07Z",
       "comments": 77,
       "hn_id": 50150089,
-      "discussion": "https://news.ycombinator.com/item?id=50150089"
+      "discussion": "https://news.ycombinator.com/item?id=50150089",
+      "summary": "It's a video from maker Joshua Bird about a drone that flies on a single motor. Over on the Hacker News thread, people are calling it well worth the watch, and comparing it to single-motor combat robots.",
+      "summary_source": "https://www.youtube.com/watch?v=Ndftcft6XhU"
     },
     {
       "title": "OpenBSD 8.0 release will have inteldrm/radeondrm/amdgpu drivers from Linux 6.18",
