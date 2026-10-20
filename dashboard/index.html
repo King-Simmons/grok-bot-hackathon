@@ -536,7 +536,7 @@
       <div class="head">
         <h2>Mixer</h2>
         <span class="mixnote" id="mixNote">Click or drag · double-click to reset · saved on this device</span>
-        <button class="toggle" id="ambBtn" aria-pressed="false"><i></i>Ambience off</button>
+        <button class="toggle" id="ambBtn" aria-pressed="true"><i></i>Ambience on</button>
       </div>
       <div class="sliders" id="sliders"></div>
     </section>
@@ -868,10 +868,12 @@ function wirePlayer(){
   if(bar){
     const seek=ev=>{
       if(!isFinite(a.duration)||a.duration<=0||!a.getAttribute('src')) return;
+      const s=a.seekable, max=s.length?s.end(s.length-1):0;
+      if(max<=0.5) return; // non-seekable stream: assigning currentTime restarts at 0
       const r=bar.getBoundingClientRect(), frac=Math.min(1, Math.max(0, (ev.clientX-r.left)/Math.max(1,r.width)));
-      const t=frac*a.duration;
-      try{ a.currentTime=t; }catch(e){}
-      $('barFill').style.width=(frac*100)+'%';
+      const t=Math.min(frac*a.duration, max);
+      try{ a.currentTime=t; }catch(e){ return; }
+      $('barFill').style.width=(t/a.duration*100)+'%';
       $('times').textContent=`${fmtDur(t)} / ${fmtDur(a.duration)}`;
     };
     let scrub=false;
@@ -1123,9 +1125,13 @@ const MIX={signal:1, duck:1, burst:0};
 function ensureAudio(){
   if(AE.ctx) { if(AE.ctx.state==='suspended') AE.ctx.resume(); return AE; }
   const ctx=new (window.AudioContext||window.webkitAudioContext)(); AE.ctx=ctx;
-  AE.master=ctx.createGain();
+  AE.master=ctx.createGain(); AE.master.gain.value=0.82; // offset Chrome's compressor makeup (~+1.7 dB)
   AE.warmth=ctx.createBiquadFilter(); AE.warmth.type='lowpass'; AE.warmth.Q.value=0;
-  AE.warmth.connect(AE.master); AE.master.connect(ctx.destination);
+  AE.warmth.connect(AE.master);
+  AE.limit=ctx.createDynamicsCompressor();
+  AE.limit.threshold.value=-3; AE.limit.knee.value=0; AE.limit.ratio.value=20;
+  AE.limit.attack.value=0.003; AE.limit.release.value=0.25;
+  AE.master.connect(AE.limit); AE.limit.connect(ctx.destination);
   // episode (music) path
   AE.music=ctx.createGain(); AE.music.connect(AE.warmth);
   try{ ctx.createMediaElementSource(audioEl).connect(AE.music); }catch(e){}
@@ -1166,7 +1172,7 @@ const KNOBS=[
   {id:'music',  label:'Music',   sub:'volume',      min:0,  max:100, def:80, fmt:v=>`${Math.round(v)}%`},
   {id:'voice',  label:'Voice',   sub:'volume · stem', min:0,  max:100, def:85, fmt:v=>`${Math.round(v)}%`},
   {id:'rain',   label:'Rain',    sub:'ambience',    min:0,  max:100, def:45, fmt:v=>`${Math.round(v)}%`},
-  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:30, fmt:v=>`${Math.round(v)}%`},
+  {id:'crackle',label:'Vinyl',   sub:'crackle',     min:0,  max:100, def:60, fmt:v=>`${Math.round(v)}%`},
   {id:'warmth', label:'Warmth',  sub:'low-pass',    min:0,  max:100, def:35, fmt:v=>`${Math.round(cutoff(v)/100)/10}k`},
   {id:'tempo',  label:'Tempo',   sub:'playback',    min:60, max:90,  def:72, step:1, fmt:v=>`${Math.round(v)} BPM`},
 ];
@@ -1183,8 +1189,8 @@ function applyTempo(){
 }
 function syncTempoKnob(bpm){
   const k=KNOBS.find(x=>x.id==='tempo'), b=+bpm;
-  if(!k || !isFinite(b) || b<=0){ applyTempo(); return; }
-  const v=Math.min(k.max, Math.max(k.min, Math.round(b)));
+  // No BPM on the track: don't keep the previous knob (that played at tempo/72).
+  const v=(!k || !isFinite(b) || b<=0) ? 72 : Math.min(k.max, Math.max(k.min, Math.round(b)));
   const el=document.getElementById('sl-tempo');
   if(!el){ state.tempo=v; applyTempo(); return; }
   if(Math.round(+state.tempo)===v){ applyTempo(); return; }
@@ -1197,9 +1203,9 @@ function applyAll(){
   if(AE.static) AE.static.gain.setTargetAtTime(staticLevel(),t,0.04);
   AE.voice.gain.setTargetAtTime(g(state.voice),t,0.05);
   AE.rain.gain.setTargetAtTime(g(state.rain)*0.5,t,0.08);
-  AE.crackle.gain.setTargetAtTime(g(state.crackle)*3,t,0.08);
+  AE.crackle.gain.setTargetAtTime(g(state.crackle)*5,t,0.08);
   AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
-  AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
+  AE.amb.gain.setTargetAtTime(ambOn && powered() ? 1 : 0, t, 0.3);
 }
 const sliderBox=$('sliders');
 KNOBS.forEach(k=>{
@@ -1213,16 +1219,19 @@ KNOBS.forEach(k=>{
   const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min); inp.value=state[k.id];
     inp.style.setProperty('--f',(f*100).toFixed(2)+'%'); val.textContent=k.fmt(state[k.id]); inp.setAttribute('aria-valuetext',k.fmt(state[k.id])); };
   const set=v=>{ v=Math.min(k.max,Math.max(k.min,+v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v;
-    if((k.id==='rain'||k.id==='crackle') && v>0 && !ambOn){ ambOn=true; ensureAudio();
-      $('ambBtn').setAttribute('aria-pressed','true'); $('ambBtn').lastChild.textContent='Ambience on'; }
+    if((k.id==='rain'||k.id==='crackle') && v>0 && !ambOn){ ambOn=true; state.amb=true; ensureAudio(); showAmb(); }
     render(); save(); applyAll(); };
   inp.addEventListener('input',()=>set(inp.value));
   inp.addEventListener('dblclick',()=>set(k.def));
   render();
 });
-let ambOn=false;
-$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; ensureAudio(); applyAll();
-  $('ambBtn').setAttribute('aria-pressed',ambOn); $('ambBtn').lastChild.textContent= ambOn?'Ambience on':'Ambience off'; });
+let ambOn=state.amb!==false; // fresh load is on; a saved false stays off
+function showAmb(){
+  $('ambBtn').setAttribute('aria-pressed', ambOn?'true':'false');
+  $('ambBtn').lastChild.textContent=ambOn?'Ambience on':'Ambience off';
+}
+showAmb();
+$('ambBtn').addEventListener('click',()=>{ ambOn=!ambOn; state.amb=ambOn; save(); ensureAudio(); applyAll(); showAmb(); });
 
 /* ---------- Radio tuner: 88.1 LOFI / 101.5 NEWS TALK ----------
    Same player, same beat. The tuner decides what rides on top of it:
@@ -1449,6 +1458,7 @@ setInterval(()=>{
 /* Wire the beat to the radio */
 audioEl.addEventListener('play',()=>{ mixNow(); if(radio.station==='talk') Host.start(); });
 audioEl.addEventListener('pause',()=>{ if(radio.station==='talk') Host.pause(); mixNow(); });
+audioEl.addEventListener('ended',()=>{ mixNow(); });
 
 /* Build the dial */
 function initRadio(){
