@@ -1,0 +1,19 @@
+# Imports from engine/ and audio/. Python 3.9+.
+# ffmpeg (system binary, not pip) encodes MP3s and runs audio/lofi_vocals.py.
+
+numpy
+scipy
+pyloudnorm
+matplotlib
+
+# Optional. engine/ingest.py uses this when installed, else a stdlib HTML parser.
+trafilatura
+
+# Optional. engine/mood.py uses this when installed, else a keyword lexicon.
+vaderSentiment
+
+# Optional. engine/synth.py uses this when installed, else ffmpeg.
+lameenc
+
+# Optional. Only audio/lofi_vocals.py --separate (vocal source separation).
+demucs

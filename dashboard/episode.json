@@ -1,0 +1,10 @@
+{
+  "example": false,
+  "title": "Zlatan Beat 001 (original, instrumental)",
+  "file": "../samples/beat-001.mp3",
+  "bpm": 72,
+  "key": "Ab major / F minor",
+  "chords": ["Fm9", "Bbm9", "Eb9", "Abmaj9"],
+  "duration_s": 45.6,
+  "created": "2026-10-19"
+}
