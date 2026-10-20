@@ -868,10 +868,12 @@ function wirePlayer(){
   if(bar){
     const seek=ev=>{
       if(!isFinite(a.duration)||a.duration<=0||!a.getAttribute('src')) return;
+      const s=a.seekable, max=s.length?s.end(s.length-1):0;
+      if(max<=0.5) return; // non-seekable stream: assigning currentTime restarts at 0
       const r=bar.getBoundingClientRect(), frac=Math.min(1, Math.max(0, (ev.clientX-r.left)/Math.max(1,r.width)));
-      const t=frac*a.duration;
-      try{ a.currentTime=t; }catch(e){}
-      $('barFill').style.width=(frac*100)+'%';
+      const t=Math.min(frac*a.duration, max);
+      try{ a.currentTime=t; }catch(e){ return; }
+      $('barFill').style.width=(t/a.duration*100)+'%';
       $('times').textContent=`${fmtDur(t)} / ${fmtDur(a.duration)}`;
     };
     let scrub=false;
@@ -1183,8 +1185,8 @@ function applyTempo(){
 }
 function syncTempoKnob(bpm){
   const k=KNOBS.find(x=>x.id==='tempo'), b=+bpm;
-  if(!k || !isFinite(b) || b<=0){ applyTempo(); return; }
-  const v=Math.min(k.max, Math.max(k.min, Math.round(b)));
+  // No BPM on the track: don't keep the previous knob (that played at tempo/72).
+  const v=(!k || !isFinite(b) || b<=0) ? 72 : Math.min(k.max, Math.max(k.min, Math.round(b)));
   const el=document.getElementById('sl-tempo');
   if(!el){ state.tempo=v; applyTempo(); return; }
   if(Math.round(+state.tempo)===v){ applyTempo(); return; }
@@ -1197,7 +1199,7 @@ function applyAll(){
   if(AE.static) AE.static.gain.setTargetAtTime(staticLevel(),t,0.04);
   AE.voice.gain.setTargetAtTime(g(state.voice),t,0.05);
   AE.rain.gain.setTargetAtTime(g(state.rain)*0.5,t,0.08);
-  AE.crackle.gain.setTargetAtTime(g(state.crackle)*3,t,0.08);
+  AE.crackle.gain.setTargetAtTime(g(state.crackle)*5,t,0.08);
   AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
   AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
 }
