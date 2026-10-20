@@ -20,7 +20,7 @@
     min-height:100vh; padding:18px; display:flex; flex-direction:column; gap:14px;
   }
   .grid{display:grid; grid-template-columns: 1fr 400px; gap:14px; flex:1; min-height:0}
-  .left,.right{display:flex; flex-direction:column; gap:14px; min-height:0}
+  .left,.right{display:flex; flex-direction:column; gap:14px; min-height:0; min-width:0}
   .card{
     background:var(--card); border:1px solid var(--line); border-radius:16px;
     box-shadow: 0 10px 30px #0006, inset 0 1px 0 #ffffff0d; backdrop-filter: blur(6px);
@@ -242,9 +242,9 @@
   /* URL -> Lofi */
   html{background:#120d16}
   .grid{min-height:auto} .left .scene{flex:1 1 300px; min-height:240px; max-height:360px}
-  .u2l{padding:12px 18px}
-  .u2l .res{display:grid; grid-template-columns:auto 1fr; gap:2px 14px; align-items:start}
-  .u2l .res .chips{grid-row:1 / 4; max-width:220px}
+  .u2l{padding:12px 18px; min-width:0}
+  .u2l .res{display:flex; flex-direction:column; align-items:stretch; gap:3px; min-width:0}
+  .u2l .res > *{min-width:0; max-width:100%}
   .u2l form{display:flex; gap:8px}
   .u2l input{flex:1; min-width:0; background:#1f171d; border:1px solid var(--line); color:var(--ink); border-radius:10px;
     padding:9px 11px; font:13px var(--mono); outline:none}
@@ -260,7 +260,10 @@
   .u2l .chip{font:700 10px var(--mono); letter-spacing:.05em; padding:3px 7px; border-radius:999px; background:#9fd3a81a; color:var(--sage); border:1px solid #9fd3a855}
   .u2l .chip.k{background:#ffb86b1a; color:var(--amber); border-color:#ffb86b55}
   .u2l .sum{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
-  .u2l a{color:var(--amber); text-decoration:none; word-break:break-all}
+  .u2l a{color:var(--amber); text-decoration:none; overflow-wrap:anywhere}
+  .u2l .note{color:#e8b86a}
+  .u2l .src{display:grid; grid-template-columns:auto minmax(0,1fr) auto; column-gap:.4em; align-items:baseline}
+  .u2l .src a{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; overflow-wrap:normal}
   /* Learn a topic, via X, to lofi. Scoped under .u2l so these don't restyle the Radio / News Graph tab bar. */
   .u2l .tabs{display:flex; gap:4px; align-items:center; flex-wrap:wrap; padding:0; border:none; border-radius:0;
     background:none; box-shadow:none; align-self:auto}
@@ -270,7 +273,7 @@
   .u2l .tabs button.tab:hover{color:var(--ink)}
   .u2l .head{display:flex; align-items:center; justify-content:space-between; gap:10px}
   .u2l .asof{font:10px var(--mono); color:#8f7d6e; margin-left:auto; white-space:nowrap}
-  .u2l .sugg{display:flex; gap:6px; overflow:auto; padding:8px 0 2px}
+  .u2l .sugg{display:flex; gap:6px; overflow:auto; padding:8px 0 2px; min-width:0}
   .u2l .sugg .sg{flex:none; cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--ink); font:600 11px var(--mono);
     padding:4px 8px; border-radius:999px}
   .u2l .sugg .sg:hover{border-color:var(--amber); color:var(--amber)}
@@ -872,12 +875,13 @@ wirePlayer();
 const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
 function showU2L(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{};
+  const when = t.total_s==null ? '' : (t.track_cached ? `already made, loaded in ${t.total_s}s` : `made in ${t.total_s}s`);
   $('u2lRes').hidden=false;
-  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${a.mood_tags.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
-    ${r.page&&r.page.note?`<div class="note" style="color:#e8b86a">ⓘ ${esc(r.page.note)}</div>`:''}
+  $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+    ${r.page&&r.page.note?`<div class="note">ⓘ ${esc(r.page.note)}</div>`:''}
     <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
-    <div>${esc(m.sentiment)} · ${esc(a.primary_instruments.join(', '))}</div>
-    <div>source: <a href="${esc(safeHref(m.url))}" target="_blank" rel="noopener">${esc(m.url)}</a>${t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):''}</div>`;
+    <div>${esc(m.sentiment)} · ${esc((a.primary_instruments||[]).join(', '))}</div>
+    <div class="src"><span>source:</span><a href="${esc(safeHref(m.url))}" title="${esc(m.url)}" target="_blank" rel="noopener">${esc(m.url)}</a>${when?`<span>· ${esc(when)}</span>`:''}</div>`;
 }
 $('u2lForm').addEventListener('submit', async e=>{
   e.preventDefault();
