@@ -688,6 +688,12 @@ function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const s=Mat
   const m=Math.round(s/60);
   return m<60?`${m}m ago`: m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; }
 function safeHref(u){ u=String(u||''); return /^(https?:\/\/|[^:]+$)/i.test(u) ? u : '#'; }
+function artifactHref(path){
+  const a=String(path||'').trim();
+  if(!a) return '#';
+  if(/^[a-z][a-z0-9+.-]*:/i.test(a) || a.startsWith('/')) return safeHref(a);
+  return safeHref('/'+a);
+}
 function presenceOf(b, staleS){
   if(b.presence==='online'||b.presence==='offline'||b.presence==='settled') return b.presence;
   const st=['running','idle','done','error'].includes(b.state)?b.state:'idle';
@@ -716,7 +722,7 @@ function renderBots(data){
     const label=offline?`offline · ${st}`:st;
     const prog = Number.isFinite(+b.progress) && b.progress!==null && b.progress!==undefined
       ? `<div class="pb" title="${+b.progress}%"><div style="width:${Math.max(0,Math.min(100,+b.progress))}%"></div></div>` : '';
-    const art = b.artifact ? ` · <a href="${esc(safeHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
+    const art = b.artifact ? ` · <a href="${esc(artifactHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
     const pct = prog ? ` · ${+b.progress}%` : '';
     const abs = isNaN(new Date(b.last_update)) ? '' : new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(b.last_update))+' CT · ';
     return `<div class="bot${arrived?' arrive':''}"><span class="dot ${cls}"></span><span class="n">${esc(b.name||b.id)}<span class="who">${esc(b.owner||'?')}${b.role?' · '+esc(b.role):''}</span></span><span class="s ${cls}">${label}</span>
