@@ -50,7 +50,7 @@ The first run creates `./.venv`, installs [requirements.txt](requirements.txt), 
 - API: <http://127.0.0.1:53343/api/health>
 - With `--mcp`: streamable HTTP on <http://127.0.0.1:53350/mcp>
 
-`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>. `?topic=` runs Learn a topic, for example <http://127.0.0.1:53343/dashboard/?topic=SpaceX>.
+`?link=` pre-fills the paste box, for example <http://127.0.0.1:53343/dashboard/?link=https://example.com>. `?topic=` runs Learn a topic, for example <http://127.0.0.1:53343/dashboard/?topic=lofi>. Add `?source=web` (the default) or `?source=x`. The topic card has a Web / X selector; Web is selected unless you pick X or pass `?source=x`.
 
 You can also serve the static page alone:
 
@@ -83,11 +83,14 @@ POST /api/agents {"id":"alex-news","owner":"Alex","state":"running","task":"Pull
 POST /api/synthesize {"url": "https://example.com"}
 POST /api/synthesize {"url": "https://example.com", "async": true, "agent_id": "dashboard"}
 GET  /api/topics
-POST /api/synthesize_topic {"topic": "AI agents", "agent_id": "dashboard"}
-POST /api/synthesize_topic {"topic": "our demo", "posts": ["Bots shipped the dashboard.", "Late night lofi and cold pizza."]}
+POST /api/synthesize_topic {"topic": "lofi", "agent_id": "dashboard"}
+POST /api/synthesize_topic {"topic": "AI agents", "source": "x", "agent_id": "dashboard"}
+POST /api/synthesize_topic {"topic": "our demo", "source": "x", "posts": ["Bots shipped the dashboard.", "Late night lofi and cold pizza."]}
 ```
 
-An unknown topic returns `404` with `"error_kind": "topic_not_found"`. With `X_BEARER_TOKEN` set, the engine searches the X API first and counts those reads on the usage meter. Otherwise it uses `x_topics.json`. `synthesize_topic` is the usage tool name.
+`source` is `"web"` (default) or `"x"`. Web search reads a few public pages (Wikipedia, a public news RSS feed, Hacker News) through the same ingest path as paste-a-link, then lists those pages. A refused fetch falls back to the words in the URL. X is optional: with `X_BEARER_TOKEN` set, the engine searches the X API first and counts those reads on the usage meter; otherwise it uses `x_topics.json`. `posts` is only used when `source` is `"x"`.
+
+An empty topic returns `400` with `"error_kind": "empty_topic"`. A source other than web or x returns `400` with `"error_kind": "bad_source"`. An unknown topic returns `404` with `"error_kind": "topic_not_found"`. `synthesize_topic` is the usage tool name. Details: [docs/TOPIC_LOFI.md](docs/TOPIC_LOFI.md).
 
 ![Learn a topic, SpaceX](docs/learn-topic.png)
 
