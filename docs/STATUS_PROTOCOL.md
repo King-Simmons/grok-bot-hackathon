@@ -41,7 +41,7 @@ Example `status/beat-maker.json`:
 
 ## Rules for bots
 1. Check in when you start (`running`), on meaningful progress, and when you finish (`done`) or fail (`error` + `--error`).
-2. While `running` or `idle`, check in at least every 60 seconds. No update for **120 seconds** and the dashboard shows that agent as **offline** (the file is kept; a later check-in brings it back). `done` and `error` never go offline.
+2. While `running` or `idle`, no update for **30 minutes** (1800 seconds) and the dashboard shows that agent as **offline** (the file is kept; a later check-in brings it back). `LOFI_AGENT_STALE_S` overrides that window. `done` and `error` never go offline.
 3. Write atomically (temp file + rename). `botstatus.py` does this for you.
 4. Only write your own `<id>.json`. Remove it with `clear` when the bot or job is retired.
 
@@ -70,7 +70,7 @@ The engine server (`./run.sh`, port 53343, localhost only) accepts the same fiel
 curl -s -X POST http://127.0.0.1:53343/api/agents -H 'Content-Type: application/json' -d '{"id":"alex-news","name":"News Gatherer","owner":"Alex","state":"running","task":"Pulling headlines"}'
 ```
 
-`GET /api/agents` returns the same records plus `presence` (`online`, `offline`, or `settled`) and `stale_after_s` (120). Bodies must be JSON, at most 8 KB. Ids use the same pattern as the files. More than 48 agents is rejected (updates of an existing id still work). There is no auth token in the repo; the server binds to 127.0.0.1 unless you pass `--host`.
+`GET /api/agents` returns the same records plus `presence` (`online`, `offline`, or `settled`) and `stale_after_s` (1800 by default; `LOFI_AGENT_STALE_S` overrides it). Bodies must be JSON, at most 8 KB. Ids use the same pattern as the files. More than 48 agents is rejected (updates of an existing id still work). There is no auth token in the repo; the server binds to 127.0.0.1 unless you pass `--host`.
 
 The old placeholder `status/example-zlatan.json` is not part of the live list. `docs/examples/bots.json` is a retired sample roster and is not shown.
 

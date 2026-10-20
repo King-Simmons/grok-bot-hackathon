@@ -679,7 +679,7 @@ async function getJSON(f){ const r=await fetch(f,{cache:'no-store'}); if(!r.ok) 
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- Live agents + usage (GET /api/agents every 3s, fallback status/index.json) ---------- */
-const STALE_S_DEFAULT=120;
+const STALE_S_DEFAULT=1800;
 const seenBots=new Set();
 let botsPrimed=false;
 function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const s=Math.round((Date.now()-d)/1000);

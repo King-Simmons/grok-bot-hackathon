@@ -26,7 +26,19 @@ STATES = ("running", "idle", "done", "error")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 PROTOCOL_VERSION = 1
 # running/idle with no update for this long are offline. done/error stay as they are.
-STALE_AFTER_S = 120
+# LOFI_AGENT_STALE_S overrides the default (30 minutes) so a demo can wait longer.
+def _stale_after_s():
+    raw = os.environ.get("LOFI_AGENT_STALE_S", "").strip()
+    if not raw:
+        return 1800
+    try:
+        n = int(raw)
+    except ValueError:
+        return 1800
+    return n if n > 0 else 1800
+
+
+STALE_AFTER_S = _stale_after_s()
 
 
 def now_iso():

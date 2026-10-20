@@ -6,7 +6,7 @@ repo's real status files are left alone. Stdlib plus the engine modules.
 
     python3 scripts/simulate_live_agents.py
 """
-import datetime, importlib.util, json, os, sys, tempfile, threading, urllib.error, urllib.request
+import datetime, importlib.util, json, os, subprocess, sys, tempfile, threading, urllib.error, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +18,7 @@ os.environ["LOFI_STATUS_DIR"] = str(Path(_TMP.name) / "status")
 os.environ["LOFI_DATA_DIR"] = str(Path(_TMP.name) / "data")
 os.environ["LOFI_USAGE_MAX_BYTES"] = "1200"
 os.environ["LOFI_USAGE_MAX_EVENTS"] = "40"
+os.environ.pop("LOFI_AGENT_STALE_S", None)
 Path(os.environ["LOFI_STATUS_DIR"]).mkdir()
 Path(os.environ["LOFI_DATA_DIR"]).mkdir()
 
@@ -77,7 +78,7 @@ def main():
     ids = [b["id"] for b in listing.get("bots", [])]
     if code != 200 or ids.count("alpha-news") != 1 or "example-zlatan" in ids or len(ids) != 3:
         fail(f"list after appear {code} {ids}")
-    if listing.get("stale_after_s") != 120:
+    if listing.get("stale_after_s") != 1800:
         fail(f"timeout {listing.get('stale_after_s')}")
 
     code, rec = call("POST", "/api/agents", {"id": "alpha-news", "task": "Headlines filed", "state": "done", "progress": 100})
@@ -107,7 +108,7 @@ def main():
     # Beta stops sending updates. Rewrite last_update; the file stays, presence flips.
     beta_path = Path(os.environ["LOFI_STATUS_DIR"]) / "beta-beats.json"
     beta = json.loads(beta_path.read_text())
-    old = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10)
+    old = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=agents.botstatus.STALE_AFTER_S + 5)
     beta["last_update"] = old.astimezone().isoformat(timespec="seconds")
     beta_path.write_text(json.dumps(beta))
     code, listing = call("GET", "/api/agents")
@@ -179,8 +180,24 @@ def main():
     if meter["tools"].get("report_status", {}).get("calls", 0) < 1:
         fail("mcp get_usage missed report_status")
 
+    # A fresh interpreter picks up LOFI_AGENT_STALE_S. Bad values stay on the default.
+    probe = (
+        "import importlib.util, os\n"
+        "spec = importlib.util.spec_from_file_location('botstatus', os.environ['BOTSTATUS'])\n"
+        "m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)\n"
+        "print(m.STALE_AFTER_S)\n"
+    )
+    botstatus_py = str(ROOT / "dashboard" / "botstatus.py")
+    for raw, expect in (("45", "45"), ("0", "1800"), ("nope", "1800")):
+        env = os.environ.copy()
+        env["LOFI_AGENT_STALE_S"] = raw
+        env["BOTSTATUS"] = botstatus_py
+        got = subprocess.run([sys.executable, "-c", probe], env=env, capture_output=True, text=True)
+        if got.returncode != 0 or got.stdout.strip() != expect:
+            fail(f"LOFI_AGENT_STALE_S={raw!r} -> {got.stdout!r} {got.stderr!r}, expected {expect}")
+
     httpd.shutdown()
-    print(f"simulate_live_agents: ok (port {port}, stale_after_s=120)")
+    print(f"simulate_live_agents: ok (port {port}, stale_after_s={agents.botstatus.STALE_AFTER_S})")
 
 
 if __name__ == "__main__":
