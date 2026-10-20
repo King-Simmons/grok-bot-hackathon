@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lofi News Radio · Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%98%95%3C/text%3E%3C/svg%3E">
 <style>
   :root{
     --bg:#1a1420; --bg2:#231a29; --card:#2a2030cc; --line:#4a3a4a;
@@ -245,10 +246,80 @@
   .u2l .chip.k{background:#ffb86b1a; color:var(--amber); border-color:#ffb86b55}
   .u2l .sum{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; color:var(--ink)}
   .u2l a{color:var(--amber); text-decoration:none; word-break:break-all}
+
+  /* Tabs: Radio | News Graph */
+  [hidden]{display:none!important}
+  .tabs{display:flex; align-items:center; gap:4px; padding:5px; border-radius:999px; align-self:flex-start;
+    background:#1f171dcc; border:1px solid var(--line); box-shadow:0 6px 18px #0005}
+  .tab{cursor:pointer; border:none; background:none; color:var(--muted); font:700 11px var(--mono); letter-spacing:.12em;
+    text-transform:uppercase; padding:7px 15px; border-radius:999px}
+  .tab:hover{color:var(--ink)}
+  .tab[aria-selected="true"]{background:var(--amber); color:#1a1420; box-shadow:0 0 16px #ffb86b55}
+  .tab:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+  .tabnow{font:11px var(--mono); color:#8f7d6e; padding:0 12px 0 8px; white-space:nowrap}
+  .tabnow.on{color:var(--sage)} .tabnow.talk{color:var(--rose)}
+  .hlsrc{font:11px var(--mono); color:#8f7d6e; white-space:nowrap}
+  .hlsrc.live{color:var(--sage)}
+
+  /* News Graph */
+  .gview{flex:1; min-height:540px; display:flex; flex-direction:column; padding:14px 18px; gap:10px}
+  .ghead{display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap}
+  .gsub{font-size:12px; color:var(--muted); margin-top:5px}
+  .gctl{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .gthr{display:flex; align-items:center; gap:8px; font:700 10px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+  .gthr input{accent-color:var(--amber); width:120px}
+  .gthr output{color:var(--amber); min-width:30px}
+  .gwrap{position:relative; flex:1; min-height:400px; border-radius:12px; overflow:hidden; border:1px solid #ffffff10;
+    background: radial-gradient(900px 520px at 50% 40%, #2e2236cc, #120d16 85%)}
+  .gwrap svg{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; user-select:none}
+  .gedge{stroke:#ffcf8a; stroke-linecap:round; transition:stroke-opacity .2s}
+  .gedge.topic{stroke:#b9a58f; stroke-dasharray:3 6}
+  .ghit{stroke:transparent; stroke-width:12; cursor:help}
+  .gnode{cursor:grab} .gnode:active{cursor:grabbing}
+  .gnode .core{stroke:#1a1420; stroke-width:2}
+  .gnode .halo{opacity:.18}
+  .gnode text{font:600 11px ui-rounded,"Nunito","Segoe UI",system-ui,sans-serif; fill:var(--ink); paint-order:stroke;
+    stroke:#120d16; stroke-width:4px; stroke-linejoin:round; pointer-events:none}
+  .gnode .ring{fill:none; stroke:var(--red); stroke-width:2.5; opacity:0}
+  .gnode.live .ring{opacity:1; animation:pulse 1.6s infinite}
+  .gnode.live text{fill:var(--amber)}
+  .gnode.sel .core{stroke:var(--ink); stroke-width:3}
+  .gdim .gnode:not(.nb){opacity:.2} .gdim .gedge:not(.nb){stroke-opacity:.04!important} .gdim .gnode.nb text{fill:var(--amber)}
+  .gtip{position:absolute; max-width:340px; pointer-events:none; background:#1a1420f2; border:1px solid var(--line); border-radius:10px;
+    padding:9px 11px; font-size:12px; line-height:1.4; box-shadow:0 8px 20px #0008; z-index:3; color:var(--muted)}
+  .gtip b{display:block; font-size:13px; color:var(--ink); margin-bottom:3px}
+  .gtip .m{font:11px var(--mono); color:#8f7d6e}
+  .gtip .kw{color:var(--amber)} .gtip ul{margin:5px 0 0; padding-left:16px}
+  .gempty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center;
+    color:var(--muted); font-size:14px; line-height:1.5; padding:24px; pointer-events:none}
+  .gfoot{display:grid; grid-template-columns:1fr 1.5fr; gap:16px; align-items:start}
+  .glegend{display:flex; flex-wrap:wrap; gap:6px 12px; font:11px var(--mono); color:var(--muted)}
+  .glegend i{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:-1px}
+  .glegend .ek{display:inline-block; width:18px; height:0; border-top:2px solid #ffcf8a; margin-right:5px; vertical-align:3px}
+  .glegend .ek.t{border-top:2px dashed #b9a58f}
+  .gsel{font-size:13px; color:var(--muted); line-height:1.45; min-height:64px}
+  .gsel .t{color:var(--ink); font-weight:800; font-size:14px}
+  .gsel .m{font:11px var(--mono); color:#8f7d6e; margin-top:3px}
+  .gsel a{color:var(--amber); text-decoration:none; border-bottom:1px dotted var(--amber)}
+  .gsel .nbs{margin-top:7px; display:flex; flex-wrap:wrap; gap:5px}
+  .gsel .nbs button{cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--muted); font:600 11px var(--mono);
+    padding:4px 8px; border-radius:999px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .gsel .nbs button:hover{color:var(--ink); border-color:var(--amber)}
+  .gsel .nbs button em{color:var(--amber); font-style:normal}
+  .hear{cursor:pointer; border:1px solid var(--rose); background:#1f171d; color:var(--rose); font:700 11px var(--mono);
+    letter-spacing:.08em; padding:6px 12px; border-radius:999px; margin-top:9px}
+  .hear:hover{background:var(--rose); color:#1a1420}
+  .gnote{font-size:11px; color:var(--rose); margin-top:6px} .gnote:empty{display:none}
+  @media (max-width:980px){ .gfoot{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
-<div class="grid">
+<nav class="tabs" role="tablist" aria-label="Dashboard views">
+  <button class="tab" role="tab" id="tabRadio" data-view="radio" aria-controls="viewRadio" aria-selected="true">Radio</button>
+  <button class="tab" role="tab" id="tabGraph" data-view="graph" aria-controls="viewGraph" aria-selected="false" tabindex="-1">News Graph</button>
+  <span class="tabnow" id="tabNow" aria-live="polite"></span>
+</nav>
+<div class="grid" id="viewRadio" role="tabpanel" aria-labelledby="tabRadio">
   <div class="left">
     <section class="card clock">
       <div>
@@ -449,8 +520,29 @@
   </div>
 </div>
 
+<section class="card gview" id="viewGraph" role="tabpanel" aria-labelledby="tabGraph" hidden>
+  <div class="ghead">
+    <div><h2>News Graph</h2><div class="gsub" id="gSub">How today's headlines connect</div></div>
+    <div class="gctl">
+      <label class="gthr" title="Minimum relatedness for a link. Higher = fewer, stronger links">Link strength
+        <input type="range" id="gThr" min="0.05" max="0.6" step="0.01" value="0.12"><output id="gThrV">0.12</output></label>
+      <button class="toggle" id="gShake" title="Re-run the layout"><i></i>Shake</button>
+      <span class="tag sample" id="gTag" hidden>sample data · placeholder</span>
+    </div>
+  </div>
+  <div class="gwrap" id="gWrap">
+    <svg id="gSvg" role="img" aria-label="Graph of related headlines"><g id="gEdges"></g><g id="gNodes"></g></svg>
+    <div class="gtip" id="gTip" hidden></div>
+    <div class="gempty" id="gEmpty" hidden></div>
+  </div>
+  <div class="gfoot">
+    <div><div class="glegend" id="gLegend"></div></div>
+    <div class="gsel" id="gSel">Hover a headline to see what links it. Drag to rearrange. Click to light up its neighbors.</div>
+  </div>
+</section>
+
 <section class="card ticker">
-  <div class="label"><b>Today's headlines</b><span class="tag sample" id="hlTag" hidden title="News Gatherer not wired yet">sample data · placeholder</span></div>
+  <div class="label"><b>Today's headlines</b><span class="tag sample" id="hlTag" hidden title="News Gatherer not wired yet">sample data · placeholder</span><span class="hlsrc" id="hlSrc"></span></div>
   <div class="track"><div class="inner" id="ticker"><span>Loading headlines.json…</span></div></div>
 </section>
 
@@ -552,17 +644,60 @@ async function loadBots(){
   }
 }
 
-/* ---------- Headlines ---------- */
-let HEADLINES=[], HL_EXAMPLE=false; // also read by the News Talk host
+/* ---------- Headlines (headlines.json, optionally refreshed live from Hacker News) ---------- */
+let HEADLINES=[], HL_EXAMPLE=false, HL_META={}, HL_PENDING=null; // also read by the News Talk host and the News Graph
+function renderHlSrc(){
+  const m=HL_META, el=$('hlSrc'); if(!el) return;
+  const when = m.updated && !isNaN(new Date(m.updated)) ? new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(m.updated))+' CT' : '';
+  el.textContent = m.source ? `${m.source} · ${m.live?'live':'snapshot'}${when?' · '+when:''}` : '';
+  el.classList.toggle('live', !!m.live);
+}
+function setHeadlines(list, meta){
+  // Don't swap the list under a briefing that is mid-read: the host indexes into HEADLINES.
+  if(typeof Host!=='undefined' && Host.segs.length){ HL_PENDING={list, meta}; return; }
+  HL_PENDING=null;
+  HEADLINES=(list||[]).filter(h=>h&&h.title);
+  HL_META=meta||{};
+  HL_EXAMPLE=!!(HL_META.example || HEADLINES.some(h=>h.example));
+  $('hlTag').hidden = !HL_EXAMPLE;
+  const items=HEADLINES.map((h,i)=>`<span data-i="${i}" title="${esc(h.title)}">${esc(h.title)}<em>${esc(h.domain||h.source)}</em></span>`).join('');
+  $('ticker').innerHTML = items ? items + items : '<span>No headlines yet.</span>'; // duplicated for seamless loop
+  renderHlSrc();
+  document.dispatchEvent(new CustomEvent('headlines:changed'));
+}
+function applyPendingHeadlines(){ if(HL_PENDING){ const p=HL_PENDING; HL_PENDING=null; setHeadlines(p.list, p.meta); } }
 async function loadHeadlines(){
   try{
     const data=await getJSON('headlines.json');
-    HEADLINES=(data.headlines||[]).filter(h=>h&&h.title);
-    HL_EXAMPLE=!!(data.example || HEADLINES.some(h=>h.example));
-    $('hlTag').hidden = !HL_EXAMPLE;
-    const items=HEADLINES.map((h,i)=>`<span data-i="${i}">${esc(h.title)}<em>${esc(h.source)}</em></span>`).join('');
-    $('ticker').innerHTML = items + items; // duplicated for seamless loop
-  }catch(e){ $('ticker').innerHTML = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`; }
+    setHeadlines(data.headlines, {source:data.source, updated:data.updated, example:data.example, live:false});
+    if(data.source==='Hacker News' || /[?&]hn=1\b/.test(location.search)) refreshHN();
+  }catch(e){
+    $('ticker').innerHTML = `<span class="err">Couldn't load headlines.json (${esc(e.message)})</span>`;
+    document.dispatchEvent(new CustomEvent('headlines:changed'));
+    if(/[?&]hn=1\b/.test(location.search)) refreshHN();
+  }
+}
+/* Live Hacker News (official Firebase API, CORS-enabled). Same schema as scripts/fetch_hn.py.
+   Runs only when headlines.json says source "Hacker News" (or ?hn=1); ?hn=0 turns it off. Any failure keeps headlines.json. */
+const HN_API='https://hacker-news.firebaseio.com/v0', HN_N=15, HN_EVERY=10*60*1000;
+let hnTimer=null;
+async function hnGet(path, signal){ const r=await fetch(`${HN_API}/${path}`,{signal, cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
+const hnDomain = u => { try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return ''; } };
+async function refreshHN(){
+  if(/[?&]hn=0\b/.test(location.search)) return;
+  clearTimeout(hnTimer); hnTimer=setTimeout(refreshHN, HN_EVERY);
+  const ac=new AbortController(), to=setTimeout(()=>ac.abort(), 8000);
+  try{
+    const ids=(await hnGet('topstories.json', ac.signal)).slice(0, HN_N*2);
+    const items=await Promise.all(ids.map(id=>hnGet(`item/${id}.json`, ac.signal).catch(()=>null)));
+    const list=items.filter(it=>it && it.type==='story' && it.title && !it.dead && !it.deleted).slice(0,HN_N).map(it=>{
+      const disc=`https://news.ycombinator.com/item?id=${it.id}`;
+      return {title:it.title, source:'Hacker News', url:it.url||disc, domain:hnDomain(it.url)||'news.ycombinator.com',
+        score:it.score||0, by:it.by||'', time:new Date((it.time||0)*1000).toISOString(), comments:it.descendants||0, hn_id:it.id, discussion:disc};
+    });
+    if(list.length) setHeadlines(list, {source:'Hacker News', updated:new Date().toISOString(), live:true});
+  }catch(e){ /* offline or API down: keep what headlines.json gave us */ }
+  finally{ clearTimeout(to); }
 }
 
 /* ---------- Episode + track picker (episode.json + tracks.json) ---------- */
@@ -803,7 +938,7 @@ let burstT=null;
 function burst(){ ensureStatic(); MIX.burst=0.32; mixNow(); clearTimeout(burstT); burstT=setTimeout(()=>{ MIX.burst=0; mixNow(); },280); }
 
 /* UI helpers */
-function highlight(i){ document.querySelectorAll('#ticker span[data-i]').forEach(s=>s.classList.toggle('live', +s.dataset.i===i)); }
+function highlight(i){ document.querySelectorAll('#ticker span[data-i]').forEach(s=>s.classList.toggle('live', +s.dataset.i===i));  if(window.NG) NG.live(i); }
 function setNow(text, label){ $('rNow').innerHTML = text ? `<b>${esc(label||'HOST')}</b>${esc(text)}` : ''; }
 function radioNote(t){ $('rNote').textContent=t||''; }
 function renderOnAir(){ const o=$('rOnAir'); o.classList.toggle('on', radio.station==='talk'); o.classList.toggle('lit', radio.station==='talk' && Host.running); }
@@ -858,12 +993,19 @@ function onStationChange(prev, next){
 }
 
 /* Briefing script, built only from headlines.json text (no invented facts) */
-const cleanTitle = t => String(t||'').replace(/^\s*placeholder headline:\s*/i,'').trim();
+const cleanTitle = t => String(t||'').replace(/^\s*placeholder headline:\s*/i,'').replace(/\s*\[(video|pdf|audio|\d{4})\]\s*/gi,' ').trim();
 const sentence = t => { t=String(t||'').trim(); if(!t) return ''; t=t[0].toUpperCase()+t.slice(1); return /[.!?]$/.test(t)?t:t+'.'; };
 const TAKES=['Worth keeping an eye on.','We\'ll keep you posted on that one.','File that one under good to know.','More on that as it develops.'];
 function takeFor(h,i){
   if(h.take) return sentence(h.take);            // optional fields a news bot can add later
   if(h.summary) return sentence(h.summary);
+  if(Number.isFinite(h.score)){                   // Hacker News items: say only what the API gave us
+    const site = !h.domain||h.domain==='news.ycombinator.com' ? 'a Hacker News text post' : h.domain.replace(/\./g,' dot ');
+    const pts=`${h.score} point${h.score===1?'':'s'}`, cm=Number.isFinite(h.comments)?`${h.comments} comment${h.comments===1?'':'s'}`:'';
+    return [`That's from ${site}, at ${pts}${cm?` and ${cm}`:''}.`,
+            `${pts[0].toUpperCase()+pts.slice(1)} so far${cm?`, with ${cm} in the thread`:''}.`,
+            `The link goes to ${site}.${cm?` ${cm[0].toUpperCase()+cm.slice(1)} and counting.`:''}`][i%3];
+  }
   const t=cleanTitle(h.title), c=t.indexOf(', ');
   if(c>0 && c<t.length-6) { const r=t.slice(c+2).trim(); return `In short, ${/[.!?]$/.test(r)?r:r+'.'}`; } // echo the headline's own second clause
   return TAKES[i%TAKES.length];
@@ -872,15 +1014,16 @@ function buildBriefing(){
   const hs=HEADLINES.slice(0,8), n=hs.length;
   const hr=+new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',hour12:false}).format(new Date())%24;
   const part = hr<5?'night':hr<12?'morning':hr<17?'afternoon':'evening';
+  const srcs=[...new Set(hs.map(h=>h.source).filter(Boolean))], one = srcs.length===1 ? srcs[0] : null;
   const segs=[{hl:-1, text:`Good ${part}, and welcome to one oh one point five, News Talk, on Lofi News Radio. `+
-    (n?`I've got ${n} headline${n>1?'s':''} for you, so settle in with the beat.`:'')+
+    (n?`I've got ${n} headline${n>1?'s':''} for you${one&&!HL_EXAMPLE?`, straight from the top of ${one}`:''}, so settle in with the beat.`:'')+
     (HL_EXAMPLE?' Quick heads-up: these are placeholder headlines while our news bot gets wired up.':'')}];
   if(!n) segs.push({hl:-1, text:"The news desk is empty right now, so let's just ride the beat for a bit."});
   const leads=['First up','Next','After that','Also on the wire'];
   hs.forEach((h,i)=>{
     const lead = (i===n-1 && n>1) ? 'And finally' : leads[Math.min(i,leads.length-1)];
     const t=cleanTitle(h.title), main=t.indexOf(', ')>0 ? t.slice(0,t.indexOf(', ')) : t;
-    segs.push({hl:i, text:`${lead}${h.source?`, from ${h.source}`:''}. ${sentence(main)} ${takeFor(h,i)}`});
+    segs.push({hl:i, title:h.title, text:`${lead}${h.source&&!one?`, from ${h.source}`:''}. ${sentence(main)} ${takeFor(h,i)}`});
   });
   segs.push({hl:-1, text:"That's the briefing. You've been listening to News Talk on Lofi News Radio. Back to the beat."});
   return segs;
@@ -950,13 +1093,13 @@ const Host={
     renderOnAir(); mixNow();
   },
   pause(){ if(!this.running) return; this.running=false; this.clear(); if(this.engine) this.engine.stop(); duck(false); renderOnAir(); mixNow(); },
-  stop(){ this.pause(); this.idx=0; this.segs=[]; FileVoice.reset(); highlight(-1); setNow(''); },
+  stop(){ this.pause(); this.idx=0; this.segs=[]; FileVoice.reset(); highlight(-1); setNow(''); applyPendingHeadlines(); },
   playSeg(){
     const seg=this.segs[this.idx], g=this.gen;
-    if(!seg){ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…'); this.idx=0; this.segs=[];
+    if(!seg){ duck(false); highlight(-1); setNow('That was the briefing. Next one in 20s…'); this.idx=0; this.segs=[]; applyPendingHeadlines();
       this.later(()=>{ this.segs=buildBriefing(); this.playSeg(); },20000); return; }
     highlight(seg.hl);
-    if(seg.hl>=0) setNow(HEADLINES[seg.hl].title,'NOW READING'); else setNow(seg.text,'HOST');
+    if(seg.hl>=0) setNow(seg.title||(HEADLINES[seg.hl]||{}).title,'NOW READING'); else setNow(seg.text,'HOST');
     SpeechVoice.say(seg.text,{
       onstart:()=>{ if(g===this.gen) duck(true); },
       ondone:()=>{ if(g!==this.gen) return; this.idx++; this.later(()=>this.playSeg(),650); }
@@ -1019,6 +1162,319 @@ function initRadio(){
 }
 initRadio();
 getJSON('episode.json').then(e=>{ EP=e||{}; if(EP.podcast_audio){ const b=document.querySelector('.preset[data-st="talk"]'); b.classList.remove('off'); b.title='Pre-rendered briefing: '+EP.podcast_audio; } }).catch(()=>{});
+
+/* ---------- News Graph tab ----------
+   Nodes = headlines.json items. Edges = client-side relatedness:
+   TF-IDF cosine over title keywords (stopwords out, light stemming, hyphen parts, optional keywords/entities fields,
+   the story's site/domain as a weak extra term) + a small bonus per shared topic from a keyword lexicon.
+   Keep links >= the Link strength threshold, then at most K strongest per node so it never turns into a hairball.
+   Layout: tiny vanilla force simulation on SVG. No libraries, works offline. */
+const NG=(()=>{
+  const STOP=new Set(`a an the and or but nor of to in on at for with from by as is are was were be been being am it its it's this that these those
+    over under into onto about after before than then so not no yes new says say said will would can could may might must shall should just
+    up down out off more most very week weeks today tonight day days ahead through via vs amid against per his her their our your my we you they
+    he she them us me i im ive youre theyre dont doesnt didnt cant wont isnt arent wasnt how why what when where who whom which while still
+    get gets got make makes made use uses using used one two all any some every each only also even ever now here there like vs
+    have has had do does did done first last back way thing things why's let lets placeholder headline hn show ask tell launch video pdf audio`.split(/\s+/).filter(Boolean));
+  const GENERIC_SITES=new Set(['github.com','youtube.com','medium.com','substack.com','twitter.com','x.com','news.ycombinator.com',
+    'reddit.com','wikipedia.org','en.wikipedia.org','google.com','docs.google.com','arxiv.org','nytimes.com','bloomberg.com']);
+  // Topic lexicon: only used to group & color. A headline's own "topic" field always wins.
+  const TOPICS=[
+    {id:'ai',       label:'AI & models',       color:'#c3a6e8', w:'ai llm llms gpt model agent token openai anthropic mistral minimax openrouter claude gemini grok llama deepseek qwen neural inference transformer chatbot foundation benchmark bench prompt copilot'},
+    {id:'systems',  label:'OS & hardware',     color:'#8fb3ff', w:'linux openbsd freebsd netbsd bsd macos windows android ios kernel driver drm wine unix gpu nvidia rtx amd intel cpu chip laptop hardware arm risc-v firmware motor drone robot'},
+    {id:'dev',      label:'Programming',       color:'#7fd6cf', w:'programming programmer code coding developer software rust python javascript typescript golang compiler github open-source library framework database sql api bloom filter hash algorithm git web browser app'},
+    {id:'security', label:'Security & privacy',color:'#ff6b6b', w:'security vulnerable vulnerability exploit breach hack hacker malware privacy cve attack password encryption leak exposed surveillance'},
+    {id:'games',    label:'Games',             color:'#b8d86b', w:'game gaming play starcraft runescape mmo katamari nintendo steam player shooter'},
+    {id:'science',  label:'Science & climate', color:'#9fd3a8', w:'science climate research study scientist space nasa planet physics chemical seafood ocean fire retardant energy biology health medical'},
+    {id:'business', label:'Business & markets',color:'#e6d07a', w:'market stock economy company startup funding ipo earnings price inflation bank deal trade job layoff revenue acquisition usage plateau supermarket'},
+    {id:'politics', label:'Policy & law',      color:'#ff9e7a', w:'election senate congress president vote policy law court government regulation eu ban lawsuit antitrust'},
+    {id:'civic',    label:'Local & civic',     color:'#9fd3c0', w:'city council mayor local neighborhood community park garden rooftop transit zoning school county town'},
+    {id:'food',     label:'Food & drink',      color:'#ffb86b', w:'café cafe coffee brew restaurant food recipe chef bakery tea kitchen'},
+    {id:'weather',  label:'Weather',           color:'#a9c4ff', w:'rain storm snow weather forecast heat wind sunny temperature flood hurricane'},
+    {id:'culture',  label:'Culture & music',   color:'#e88a8a', w:'music lofi radio film movie album art festival book concert podcast enjoy'},
+  ];
+  const OTHER_COLORS=['#b9a58f','#d9c39a','#a58fb9'];
+  const WORD=/[\p{L}\p{N}]+(?:['’.\-][\p{L}\p{N}]+)*/gu;
+  function stem(w){
+    w=w.toLowerCase().replace(/['’]s$/,'').replace(/['’]/g,'').replace(/\.$/,'');
+    if(!w || /^[\d.]+$/.test(w)) return '';
+    if(w.length>4 && w.endsWith('ies')) return w.slice(0,-3)+'y';
+    if(w.length>4 && /(sses|shes|ches|xes)$/.test(w)) return w.slice(0,-2);
+    if(w.length>3 && w.endsWith('s') && !/(ss|us|is|os)$/.test(w)) return w.slice(0,-1);
+    if(w.length>6 && w.endsWith('ing')) return w.slice(0,-3);
+    if(w.length>5 && w.endsWith('ed') && !w.endsWith('eed')) return w.slice(0,-2);
+    return w;
+  }
+  const LEX=new Map(); TOPICS.forEach(t=>t.w.split(/\s+/).forEach(w=>{ const s=stem(w); if(s&&!LEX.has(s)) LEX.set(s,t.id); }));
+  const TOPIC=Object.fromEntries(TOPICS.map(t=>[t.id,t]));
+  const clean = t => String(t||'').replace(/^\s*placeholder headline:\s*/i,'').replace(/\[(video|pdf|audio|\d{4})\]/gi,' ')
+    .replace(/^\s*(show|ask|tell|launch)\s+hn\s*:\s*/i,'').trim();
+  function terms(text, surf){
+    const out=[];
+    for(const m of String(text).matchAll(WORD)){
+      const raw=m[0], parts=raw.includes('-')?[raw,...raw.split('-')]:[raw];
+      for(const p of parts){ const s=stem(p); if(s.length<2 || STOP.has(s) || STOP.has(p.toLowerCase())) continue; out.push(s); if(!surf.has(s)) surf.set(s,p.toLowerCase()); }
+    }
+    return out;
+  }
+  const brief = t => { t=clean(t); if(t.length<=30) return t; const cut=t.slice(0,30); return cut.slice(0, cut.lastIndexOf(' ')>14?cut.lastIndexOf(' '):30).replace(/[,:;\-–—]+$/,'')+'…'; };
+
+  /* ----- model ----- */
+  function model(list){
+    const surf=new Map();
+    const docs=list.map((h,i)=>{
+      const tf=new Map(), add=(s,w)=>tf.set(s,(tf.get(s)||0)+w);
+      terms(clean(h.title), surf).forEach(s=>add(s,1));
+      [...(h.keywords||[]), ...(h.entities||[])].forEach(k=>terms(k,surf).forEach(s=>add(s,1.5)));
+      const dom=String(h.domain||'').toLowerCase();
+      if(dom){ const key='@'+dom; add(key, GENERIC_SITES.has(dom)?0.25:0.7); surf.set(key,'same site: '+dom); }
+      // topics: own field first, else lexicon hits in title + domain name (e.g. mistral.ai -> AI)
+      const hits={};
+      const domHints = dom ? terms(dom.replace(/\./g,' '), new Map()).concat(dom.endsWith('.ai')?['ai']:[]) : [];
+      [...tf.keys(), ...domHints].forEach(s=>{ const t=LEX.get(s); if(t) hits[t]=(hits[t]||0)+1; });
+      let topics=Object.keys(hits).sort((a,b)=>hits[b]-hits[a] || TOPICS.findIndex(t=>t.id===a)-TOPICS.findIndex(t=>t.id===b));
+      if(h.topic){ const own=String(h.topic).toLowerCase(); topics=[own, ...topics.filter(t=>t!==own)]; }
+      return {i, h, tf, topics};
+    });
+    const N=docs.length, df=new Map();
+    docs.forEach(d=>d.tf.forEach((_,s)=>df.set(s,(df.get(s)||0)+1)));
+    docs.forEach(d=>{ d.vec=new Map(); let n2=0;
+      d.tf.forEach((w,s)=>{ const v=w*Math.log(1+N/df.get(s)); d.vec.set(s,v); n2+=v*v; }); d.norm=Math.sqrt(n2)||1; });
+    const pairs=[];
+    for(let a=0;a<N;a++) for(let b=a+1;b<N;b++){
+      const A=docs[a], B=docs[b]; let dot=0; const shared=[];
+      A.vec.forEach((v,s)=>{ const u=B.vec.get(s); if(u){ dot+=v*u; shared.push([s,v*u]); } });
+      const cos=dot/(A.norm*B.norm), st=A.topics.filter(t=>B.topics.includes(t));
+      const score=Math.min(1, cos + 0.12*Math.min(2, st.length));
+      if(score>0) pairs.push({a,b,score,cos,kind:cos>0.02?'kw':'topic',
+        shared:shared.sort((x,y)=>y[1]-x[1]).map(([s])=>surf.get(s)||s), topics:st});
+    }
+    return {docs, pairs};
+  }
+  // At most K links per node; links that are "same topic only" (no shared words) get at most KT per node,
+  // so a big topic becomes a loose chain instead of a clique. Strongest links are placed first.
+  const K=4, KT=2;
+  function edgesFor(pairs, thr, N){
+    const keep=pairs.filter(p=>p.score>=thr).sort((x,y)=>y.score-x.score || (x.kind==='kw'?-1:1)), deg=new Array(N).fill(0), tdeg=new Array(N).fill(0), out=[];
+    for(const p of keep){
+      if(p.kind==='topic' && (tdeg[p.a]>=KT || tdeg[p.b]>=KT)) continue;
+      if(deg[p.a]<K || deg[p.b]<K){ out.push(p); deg[p.a]++; deg[p.b]++; if(p.kind==='topic'){ tdeg[p.a]++; tdeg[p.b]++; } }
+    }
+    return out;
+  }
+
+  /* ----- view ----- */
+  const svg=$('gSvg'), gE=$('gEdges'), gN=$('gNodes'), wrap=$('gWrap'), tip=$('gTip');
+  const S={nodes:[], edges:[], M:null, thr:0.12, visible:false, alpha:0, raf:0, w:800, h:460, sel:-1, live:-1, drag:null, pos:new Map()};
+  try{ const v=+JSON.parse(localStorage.getItem('lofiDash.graph.v1')||'{}').thr; if(v>=0.05&&v<=0.6) S.thr=v; }catch(e){}
+  $('gThr').value=S.thr; $('gThrV').textContent=S.thr.toFixed(2);
+  let seedG=7; const rg=()=> (seedG=(seedG*16807)%2147483647)/2147483647;
+  const colorOf=d=> d.topics.length && TOPIC[d.topics[0]] ? TOPIC[d.topics[0]].color : OTHER_COLORS[0];
+  const SVGNS='http://www.w3.org/2000/svg';
+  const mk=(t,a,p)=>{ const e=document.createElementNS(SVGNS,t); for(const k in a) e.setAttribute(k,a[k]); p&&p.appendChild(e); return e; };
+
+  function build(){
+    S.M=model(HEADLINES); const docs=S.M.docs;
+    const key=h=>h.hn_id?('hn'+h.hn_id):h.title;
+    S.nodes=docs.map(d=>{ const old=S.pos.get(key(d.h)); const ang=rg()*Math.PI*2, r=60+rg()*Math.min(S.w,S.h)*0.3;
+      return {d, key:key(d.h), x:old?old.x:S.w/2+Math.cos(ang)*r, y:old?old.y:S.h/2+Math.sin(ang)*r, vx:0, vy:0, fixed:false}; });
+    if(S.sel>=S.nodes.length) S.sel=-1;
+    relink(); S.alpha=1; kick();
+  }
+  function relink(){
+    const N=S.nodes.length; S.edges=S.M?edgesFor(S.M.pairs, S.thr, N):[];
+    S.nodes.forEach(n=>{ n.deg=0; n.nb=new Set(); });
+    S.edges.forEach(e=>{ S.nodes[e.a].deg++; S.nodes[e.b].deg++; S.nodes[e.a].nb.add(e.b); S.nodes[e.b].nb.add(e.a); });
+    draw(); legend(); summary(); select(S.sel, true);
+  }
+  function draw(){
+    gE.textContent=''; gN.textContent='';
+    S.edges.forEach((e,k)=>{
+      e.el=mk('line',{class:'gedge'+(e.kind==='topic'?' topic':''), 'stroke-width':(1+e.score*7).toFixed(2), 'stroke-opacity':(0.25+e.score*0.65).toFixed(2)},gE);
+      e.hit=mk('line',{class:'ghit','data-e':k},gE);
+    });
+    S.nodes.forEach((n,i)=>{
+      const r=n.r=Math.min(19, 8+n.deg*2.2), c=colorOf(n.d);
+      const g=n.el=mk('g',{class:'gnode','data-i':i, tabindex:0, role:'button', 'aria-label':n.d.h.title},gN);
+      mk('circle',{class:'halo', r:r+7, fill:c},g); mk('circle',{class:'ring', r:r+4},g);
+      mk('circle',{class:'core', r, fill:c},g);
+      const t=mk('text',{'text-anchor':'middle', y:r+15},g); t.textContent=brief(n.d.h.title);
+    });
+    $('gEmpty').hidden = S.nodes.length>0;
+    if(!S.nodes.length) $('gEmpty').textContent = "No headlines to map yet. When headlines.json has stories, they show up here.";
+    live(S.live); paint();
+  }
+  function paint(){
+    S.edges.forEach(e=>{ const A=S.nodes[e.a], B=S.nodes[e.b];
+      for(const l of [e.el,e.hit]){ l.setAttribute('x1',A.x.toFixed(1)); l.setAttribute('y1',A.y.toFixed(1)); l.setAttribute('x2',B.x.toFixed(1)); l.setAttribute('y2',B.y.toFixed(1)); } });
+    S.nodes.forEach(n=>n.el.setAttribute('transform',`translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})`));
+  }
+  function stepSim(){
+    const ns=S.nodes, N=ns.length; if(!N) return;
+    const W=S.w, H=S.h, cx=W/2, cy=H/2, k=Math.max(60, Math.sqrt(W*H/Math.max(N,1))*0.55), a=S.alpha;
+    for(let i=0;i<N;i++){ const A=ns[i];
+      for(let j=i+1;j<N;j++){ const B=ns[j]; let dx=A.x-B.x, dy=A.y-B.y, d2=dx*dx+dy*dy;
+        if(d2<1){ dx=rg()-.5; dy=rg()-.5; d2=1; } const d=Math.sqrt(d2), f=Math.min(k*k/d, 300)*0.035*a;
+        const mn=A.r+B.r+26; const push = d<mn ? (mn-d)*0.25 : 0;
+        const fx=dx/d*(f+push), fy=dy/d*(f+push); A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; } }
+    S.edges.forEach(e=>{ const A=ns[e.a], B=ns[e.b], dx=B.x-A.x, dy=B.y-A.y, d=Math.sqrt(dx*dx+dy*dy)||1;
+      const L=k*(1.25-0.6*e.score), f=(d-L)*0.04*(0.4+e.score)*a, fx=dx/d*f, fy=dy/d*f; A.vx+=fx; A.vy+=fy; B.vx-=fx; B.vy-=fy; });
+    const pad=34, padX=Math.min(95, W*0.12);
+    ns.forEach(n=>{ n.vx+=(cx-n.x)*0.03*a; n.vy+=(cy-n.y)*0.045*a;
+      if(n.fixed){ n.vx=n.vy=0; return; }
+      n.vx*=0.62; n.vy*=0.62; n.x=Math.max(padX,Math.min(W-padX,n.x+n.vx)); n.y=Math.max(pad,Math.min(H-pad-14,n.y+n.vy)); });
+  }
+  function frame(){
+    S.raf=0; if(!S.visible) return;
+    for(let t=0;t<2;t++) stepSim(); paint();
+    S.alpha*=0.985; if(S.drag) S.alpha=Math.max(S.alpha,0.25);
+    S.nodes.forEach(n=>S.pos.set(n.key,{x:n.x,y:n.y}));
+    if(S.alpha>0.01 || S.drag) S.raf=requestAnimationFrame(frame);
+  }
+  function kick(){ if(S.visible && !S.raf) S.raf=requestAnimationFrame(frame); }
+  function measure(){ const r=wrap.getBoundingClientRect(); if(r.width>10&&r.height>10){ const ow=S.w, oh=S.h; S.w=r.width; S.h=r.height;
+      svg.setAttribute('viewBox',`0 0 ${S.w} ${S.h}`); if(Math.abs(ow-S.w)>2||Math.abs(oh-S.h)>2){ S.nodes.forEach(n=>{ n.x*=S.w/ow; n.y*=S.h/oh; }); S.alpha=Math.max(S.alpha,0.3); kick(); } } }
+  if(window.ResizeObserver) new ResizeObserver(measure).observe(wrap);
+
+  /* ----- text bits ----- */
+  const ago2 = iso => { const d=new Date(iso); if(isNaN(d)) return ''; const m=Math.round((Date.now()-d)/60000);
+    return m<60?`${Math.max(1,m)}m ago`: m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; };
+  const topicLabel = t => TOPIC[t] ? TOPIC[t].label : t;
+  function metaLine(h){ const b=[h.source, h.domain && h.domain!=='news.ycombinator.com' ? h.domain : ''];
+    if(Number.isFinite(h.score)) b.push(`${h.score} pts`); if(Number.isFinite(h.comments)) b.push(`${h.comments} comments`);
+    if(h.by) b.push('by '+h.by); if(h.time) b.push(ago2(h.time)); return b.filter(Boolean).join(' · '); }
+  const why = e => e.kind==='kw' ? (e.shared.slice(0,5).join(', ') + (e.topics.length?` · topic: ${e.topics.map(topicLabel).join(', ')}`:''))
+                                 : `topic: ${e.topics.map(topicLabel).join(', ')}`;
+  const edgeOf=(a,b)=>S.edges.find(e=>(e.a===a&&e.b===b)||(e.a===b&&e.b===a));
+  function legend(){
+    const used=[...new Set(S.nodes.map(n=>n.d.topics[0]||'_'))];
+    $('gLegend').innerHTML = used.map(t=> t==='_' ? `<span><i style="background:${OTHER_COLORS[0]}"></i>other</span>`
+        : `<span><i style="background:${esc(TOPIC[t]?TOPIC[t].color:OTHER_COLORS[1])}"></i>${esc(topicLabel(t))}</span>`).join('')
+      + (S.edges.length?`<span><span class="ek"></span>shared words</span><span><span class="ek t"></span>same topic only</span>`:'');
+  }
+  function summary(){
+    const n=S.nodes.length, e=S.edges.length, lone=S.nodes.filter(x=>!x.deg).length;
+    $('gTag').hidden=!HL_EXAMPLE;
+    $('gSub').textContent = !n ? 'Waiting for headlines.json' :
+      `${n} headline${n>1?'s':''}${HL_META.source?' from '+HL_META.source:''} · ${e} link${e===1?'':'s'}${lone?` · ${lone} on ${lone>1?'their':'its'} own`:''}`;
+    if(n>1 && !e) { $('gEmpty').hidden=false; $('gEmpty').textContent='No two headlines share enough to link at this strength. Slide Link strength left to loosen it.'; }
+    else if(n) $('gEmpty').hidden=true;
+  }
+  function showTip(html, x, y){ tip.innerHTML=html; tip.hidden=false; const r=wrap.getBoundingClientRect();
+    let L=x-r.left+14, T=y-r.top+14; const tw=tip.offsetWidth, th=tip.offsetHeight;
+    if(L+tw>r.width-6) L=x-r.left-tw-14; if(T+th>r.height-6) T=y-r.top-th-14; tip.style.left=Math.max(6,L)+'px'; tip.style.top=Math.max(6,T)+'px'; }
+  function nodeTip(i){ const n=S.nodes[i], h=n.d.h;
+    const nb=[...n.nb].map(j=>({j,e:edgeOf(i,j)})).sort((x,y)=>y.e.score-x.e.score).slice(0,4);
+    return `<b>${esc(h.title)}</b><div class="m">${esc(metaLine(h))}${n.d.topics.length?' · '+esc(n.d.topics.map(topicLabel).join(', ')):''}</div>`+
+      (nb.length?`<ul>${nb.map(({j,e})=>`<li>${esc(brief(S.nodes[j].d.h.title))} <span class="kw">· ${esc(why(e))}</span></li>`).join('')}</ul>`:'<div class="m">No links at this strength.</div>');
+  }
+
+  /* ----- selection + live ----- */
+  function select(i, quiet){
+    S.sel = i>=0 && i<S.nodes.length ? i : -1;
+    svg.classList.toggle('gdim', S.sel>=0);
+    S.nodes.forEach((n,j)=>{ n.el.classList.toggle('sel', j===S.sel); n.el.classList.toggle('nb', S.sel>=0 && (j===S.sel || S.nodes[S.sel].nb.has(j))); });
+    S.edges.forEach(e=>e.el.classList.toggle('nb', S.sel>=0 && (e.a===S.sel||e.b===S.sel)));
+    const box=$('gSel');
+    if(S.sel<0){ box.innerHTML='Hover a headline to see what links it. Drag to rearrange. Click to light up its neighbors.<div class="gnote" id="gNote"></div>'; return; }
+    const n=S.nodes[S.sel], h=n.d.h, url=safeHref(h.url), disc=h.discussion?safeHref(h.discussion):'';
+    const nb=[...n.nb].map(j=>({j,e:edgeOf(S.sel,j)})).sort((x,y)=>y.e.score-x.e.score);
+    box.innerHTML = `<div class="t">${h.url?`<a href="${esc(url)}" target="_blank" rel="noopener">${esc(h.title)}</a>`:esc(h.title)}</div>
+      <div class="m">${esc(metaLine(h))}${disc?` · <a href="${esc(disc)}" target="_blank" rel="noopener">discussion</a>`:''}</div>
+      ${nb.length?`<div class="nbs">${nb.map(({j,e})=>`<button data-j="${j}" title="${esc(S.nodes[j].d.h.title)} · ${esc(why(e))}">${esc(brief(S.nodes[j].d.h.title))} <em>${(e.score).toFixed(2)}</em></button>`).join('')}</div>`
+                  :'<div class="m" style="margin-top:6px">Nothing else links to this one at this strength.</div>'}
+      <button class="hear" id="gHear">▶ Hear it on 101.5 News Talk</button><div class="gnote" id="gNote"></div>`;
+    box.querySelectorAll('.nbs button').forEach(b=>b.onclick=()=>select(+b.dataset.j));
+    $('gHear').onclick=()=>hearOnTalk(S.sel);
+  }
+  function live(i){ S.live=i; S.nodes.forEach((n,j)=>n.el&&n.el.classList.toggle('live', j===i)); }
+
+  /* ----- pointer: drag, hover, click ----- */
+  const pt=e=>{ const r=svg.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; };
+  let down=null;
+  svg.addEventListener('pointerdown',e=>{
+    const g=e.target.closest('.gnode'); const p=pt(e); down={x:p.x,y:p.y,moved:false,i:g?+g.dataset.i:-1};
+    if(g){ const n=S.nodes[down.i]; S.drag=n; n.fixed=true; svg.setPointerCapture(e.pointerId); S.alpha=Math.max(S.alpha,0.3); kick(); e.preventDefault(); }
+  });
+  svg.addEventListener('pointermove',e=>{
+    const p=pt(e);
+    if(down && Math.hypot(p.x-down.x,p.y-down.y)>4) down.moved=true;
+    if(S.drag){ S.drag.x=Math.max(20,Math.min(S.w-20,p.x)); S.drag.y=Math.max(10,Math.min(S.h-10,p.y)); paint(); tip.hidden=true; return; }
+    const g=e.target.closest('.gnode'), h=e.target.closest('.ghit');
+    if(g) showTip(nodeTip(+g.dataset.i), e.clientX, e.clientY);
+    else if(h){ const ed=S.edges[+h.dataset.e]; showTip(`<b>${esc(brief(S.nodes[ed.a].d.h.title))} ↔ ${esc(brief(S.nodes[ed.b].d.h.title))}</b><div>strength ${ed.score.toFixed(2)}</div><div class="kw">${esc(why(ed))}</div>`, e.clientX, e.clientY); }
+    else tip.hidden=true;
+  });
+  const up=()=>{ if(S.drag){ S.drag.fixed=false; S.drag=null; } if(down && !down.moved) select(down.i>=0 && down.i!==S.sel ? down.i : -1); down=null; };
+  svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',()=>{ if(S.drag){S.drag.fixed=false;S.drag=null;} down=null; });
+  svg.addEventListener('pointerleave',()=>{ if(!S.drag) tip.hidden=true; });
+  svg.addEventListener('keydown',e=>{ const g=e.target.closest&&e.target.closest('.gnode'); if(!g) return;
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); select(+g.dataset.i); } if(e.key==='Escape') select(-1); });
+  svg.addEventListener('focusin',e=>{ const g=e.target.closest('.gnode'); if(!g) return; const r=g.getBoundingClientRect(); showTip(nodeTip(+g.dataset.i), r.right, r.top); });
+  svg.addEventListener('focusout',()=>{ tip.hidden=true; });
+
+  $('gThr').addEventListener('input',e=>{ S.thr=+e.target.value; $('gThrV').textContent=S.thr.toFixed(2);
+    try{ localStorage.setItem('lofiDash.graph.v1', JSON.stringify({thr:S.thr})); }catch(_){}
+    if(S.M){ relink(); S.alpha=Math.max(S.alpha,0.5); kick(); } });
+  $('gShake').onclick=()=>{ S.nodes.forEach(n=>{ n.x=S.w/2+(rg()-.5)*S.w*0.7; n.y=S.h/2+(rg()-.5)*S.h*0.7; }); S.alpha=1; kick(); };
+  document.addEventListener('headlines:changed', build);
+
+  return {
+    show(){ S.visible=true; measure(); if(!S.M) build(); else { S.alpha=Math.max(S.alpha,0.2); kick(); } },
+    hide(){ S.visible=false; tip.hidden=true; },
+    live, select,
+    note(t){ const n=$('gNote'); if(n) n.textContent=t||''; },
+    stats(){ return {nodes:S.nodes.length, edges:S.edges.length, thr:S.thr, isolated:S.nodes.filter(n=>!n.deg).length,
+      links:S.edges.map(e=>({a:S.nodes[e.a].d.h.title, b:S.nodes[e.b].d.h.title, score:+e.score.toFixed(3), kind:e.kind, why:why(e)})),
+      topics:S.nodes.map(n=>n.d.topics[0]||null)}; },
+  };
+})();
+window.NG=NG;
+
+/* Jump from the graph to a headline on 101.5 NEWS TALK */
+function hearOnTalk(i){
+  const h=HEADLINES[i]; if(!h) return;
+  if(!talkAvailable()){ NG.note('News Talk needs a browser with speech (speechSynthesis).'); return; }
+  if(EP.podcast_audio){
+    const cue=(EP.podcast_cues||[]).find(c=>c.headline===i); FileVoice.ensure(); if(cue) FileVoice.el.currentTime=cue.t;
+  } else {
+    const wasOn = radio.station==='talk' && Host.running;
+    if(wasOn) Host.pause();
+    const segs=buildBriefing(); let k=segs.findIndex(s=>s.hl===i);
+    if(k<0){ // past the top-8 briefing: read this one, then the outro
+      const t=cleanTitle(h.title), main=t.indexOf(', ')>0?t.slice(0,t.indexOf(', ')):t;
+      segs.splice(segs.length-1, 0, {hl:i, title:h.title, text:`Pulled from the news graph${h.source?`, from ${h.source}`:''}. ${sentence(main)} ${takeFor(h,i)}`}); k=segs.length-2;
+    }
+    Host.segs=segs; Host.idx=k;
+  }
+  if(radio.station!=='talk'){ tuneTo('talk'); }
+  else if(!Host.running){ if(audioEl.getAttribute('src') && audioEl.paused) audioEl.play().catch(()=>Host.start()); else Host.start(); }
+  NG.note(`Tuning 101.5 News Talk → “${cleanTitle(h.title)}”`);
+}
+
+/* Tabs: switch views in place. Audio, speech and the tuner keep running. */
+const Tabs={
+  cur:'radio',
+  set(v, focus){
+    if(!['radio','graph'].includes(v)) v='radio'; this.cur=v;
+    document.querySelectorAll('.tab').forEach(b=>{ const on=b.dataset.view===v; b.setAttribute('aria-selected',on); b.tabIndex=on?0:-1; if(on&&focus) b.focus(); });
+    $('viewRadio').hidden = v!=='radio'; $('viewGraph').hidden = v!=='graph';
+    try{ history.replaceState(null,'', v==='graph' ? '#graph' : location.pathname+location.search); }catch(e){}
+    if(v==='graph') NG.show(); else NG.hide();
+  }
+};
+document.querySelectorAll('.tab').forEach(b=>{
+  b.addEventListener('click',()=>Tabs.set(b.dataset.view));
+  b.addEventListener('keydown',e=>{ if(e.key==='ArrowRight'||e.key==='ArrowLeft'){ e.preventDefault(); Tabs.set(Tabs.cur==='radio'?'graph':'radio', true); } });
+});
+window.addEventListener('hashchange',()=>Tabs.set(location.hash==='#graph'?'graph':'radio'));
+function renderTabNow(){
+  const on=!audioEl.paused || Host.running, st=STATIONS.find(s=>s.id===radio.station), el=$('tabNow');
+  el.textContent = on ? `▶ ${st?st.freq+' '+st.name:'static'}${Host.running&&radio.station==='talk'?' · on air':''}` : (st?`${st.freq} ${st.name} · paused`:'');
+  el.className='tabnow'+(on?(radio.station==='talk'?' talk':' on'):'');
+}
+renderTabNow(); setInterval(renderTabNow, 1000);
+Tabs.set(location.hash==='#graph'?'graph':'radio');
 </script>
 </body>
 </html>
