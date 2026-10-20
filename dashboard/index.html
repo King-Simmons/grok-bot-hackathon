@@ -173,6 +173,21 @@
   .botsum{font:11px var(--mono); color:#8f7d6e}
   .empty{color:var(--muted); font-size:13px; line-height:1.5; padding:6px 0}
   .empty code{font:11px var(--mono); color:var(--amber); background:#1f171d; padding:2px 5px; border-radius:4px}
+  /* Live agents + usage */
+  .bot.arrive{animation: arrive 6s ease-out}
+  @keyframes arrive{0%{background:#ffb86b33} 100%{background:transparent}}
+  .usage{padding:12px 16px}
+  .meters{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px; margin-bottom:8px}
+  .meters b{font:700 15px var(--mono); color:var(--amber); display:block}
+  .meters span{color:var(--muted); font-size:10px; letter-spacing:.06em; text-transform:uppercase}
+  .meters small{display:block; color:#8f7d6e; font:11px var(--mono); font-weight:500}
+  .spark{display:flex; align-items:flex-end; gap:2px; height:36px; margin:4px 0 8px}
+  .spark i{flex:1; display:block; min-height:2px; border-radius:2px 2px 0 0; background:linear-gradient(180deg,var(--amber),var(--rose))}
+  .usage table{width:100%; border-collapse:collapse; font-size:12px}
+  .usage th,.usage td{text-align:left; padding:3px 4px; border-bottom:1px solid #ffffff10}
+  .usage th{color:var(--muted); font-size:10px; letter-spacing:.06em; text-transform:uppercase; font-weight:600}
+  .usage .xline{color:var(--muted); font-size:11px; margin-top:6px}
+  .usage .xline b{color:var(--amber); font-weight:700}
   .tracks{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
   .trk{cursor:pointer; border:1px solid var(--line); background:#1f171d; color:var(--muted); font:600 11px var(--mono);
     padding:5px 9px; border-radius:999px}
@@ -513,9 +528,17 @@
       <div class="meta" id="inboxMeta"></div>
     </section>
 
+    <section class="card usage" id="usage" aria-label="Usage">
+      <div class="head"><h2>Usage</h2><span class="tag live">local · no phone-home</span></div>
+      <div class="meters" id="usageMeters"><span>Loading usage…</span></div>
+      <div class="spark" id="usageSpark" title="Calls, last 24 hours"></div>
+      <table id="usageAgents"><tbody></tbody></table>
+      <div class="xline" id="usageX"></div>
+    </section>
+
     <section class="card bots">
-      <div class="head"><h2>Bot control room</h2><span class="botsum" id="botSum"></span><span class="tag live" id="botsTag">live · status/</span></div>
-      <div id="botList"><div class="meta">Loading status/index.json…</div></div>
+      <div class="head"><h2>Bot control room</h2><span class="botsum" id="botSum"></span><span class="tag live" id="botsTag">live · 3s</span></div>
+      <div id="botList"><div class="meta">Looking for agents…</div></div>
     </section>
   </div>
 </div>
@@ -605,42 +628,99 @@ function ago(iso){
 async function getJSON(f){ const r=await fetch(f,{cache:'no-store'}); if(!r.ok) throw new Error(r.status); return r.json(); }
 const esc = s => String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
-/* ---------- Bots (status protocol: status/index.json, built by botstatus.py) ---------- */
-const STALE_MIN=30;
-function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const m=Math.round((Date.now()-d)/60000);
-  return m<1?'just now': m<60?`${m}m ago`: m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; }
+/* ---------- Live agents + usage (GET /api/agents every 3s, fallback status/index.json) ---------- */
+const STALE_S_DEFAULT=120;
+const seenBots=new Set();
+let botsPrimed=false;
+function rel(iso){ const d=new Date(iso); if(isNaN(d)) return '—'; const s=Math.round((Date.now()-d)/1000);
+  if(s<5) return 'just now';
+  if(s<60) return `${s}s ago`;
+  const m=Math.round(s/60);
+  return m<60?`${m}m ago`: m<1440?`${Math.round(m/60)}h ago`:`${Math.round(m/1440)}d ago`; }
 function safeHref(u){ u=String(u||''); return /^(https?:\/\/|[^:]+$)/i.test(u) ? u : '#'; }
+function presenceOf(b, staleS){
+  if(b.presence==='online'||b.presence==='offline'||b.presence==='settled') return b.presence;
+  const st=['running','idle','done','error'].includes(b.state)?b.state:'idle';
+  const age=(Date.now()-new Date(b.last_update))/1000;
+  if(st==='running'||st==='idle') return age<=staleS?'online':'offline';
+  return 'settled';
+}
+function renderBots(data){
+  const staleS=+data.stale_after_s||STALE_S_DEFAULT;
+  const bots=(data.bots||[]).filter(b=>!b.example && !String(b.id||'').startsWith('example-'));
+  if(!bots.length){
+    $('botSum').textContent='';
+    $('botList').innerHTML=`<div class="empty">No agents are checked in.<br>Any bot can join over HTTP:<br><code>curl -s -X POST http://127.0.0.1:53343/api/agents -H 'Content-Type: application/json' -d '{"id":"my-bot","owner":"King","state":"running","task":"hello"}'</code><br>MCP: <code>report_status</code>. A running agent with no update for ${staleS}s shows as offline. See docs/STATUS_PROTOCOL.md.</div>`;
+    botsPrimed=true;
+    return;
+  }
+  const counts={};
+  $('botList').innerHTML = bots.map(b=>{
+    const id=b.id||b.name||'';
+    const arrived=botsPrimed && id && !seenBots.has(id);
+    let st=['running','idle','done','error'].includes(b.state)?b.state:'idle';
+    const pres=presenceOf(b, staleS);
+    const offline=pres==='offline';
+    const cls=offline?'stale':st;
+    counts[offline?'offline':st]=(counts[offline?'offline':st]||0)+1;
+    const label=offline?`offline · ${st}`:st;
+    const prog = Number.isFinite(+b.progress) && b.progress!==null && b.progress!==undefined
+      ? `<div class="pb" title="${+b.progress}%"><div style="width:${Math.max(0,Math.min(100,+b.progress))}%"></div></div>` : '';
+    const art = b.artifact ? ` · <a href="${esc(safeHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
+    const pct = prog ? ` · ${+b.progress}%` : '';
+    const abs = isNaN(new Date(b.last_update)) ? '' : new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(b.last_update))+' CT · ';
+    return `<div class="bot${arrived?' arrive':''}"><span class="dot ${cls}"></span><span class="n">${esc(b.name||b.id)}<span class="who">${esc(b.owner||'?')}${b.role?' · '+esc(b.role):''}</span></span><span class="s ${cls}">${label}</span>
+      <span class="t">${esc(b.task)}</span>${b.error?`<span class="t e">⚠ ${esc(b.error)}</span>`:''}${prog}
+      <span class="r">updated ${abs}${rel(b.last_update)}${pct}${art}</span></div>`;
+  }).join('');
+  bots.forEach(b=>{ if(b.id) seenBots.add(b.id); });
+  botsPrimed=true;
+  $('botSum').textContent = Object.entries(counts).map(([k,v])=>`${v} ${k}`).join(' · ');
+}
 async function loadBots(){
   try{
-    const data=await getJSON('status/index.json');
-    const bots=data.bots||[];
-    if(!bots.length){
+    const r=await fetch('/api/agents',{cache:'no-store'});
+    if(r.ok){ renderBots(await r.json()); return; }
+    throw new Error('api '+r.status);
+  }catch(apiErr){
+    try{
+      renderBots(await getJSON('status/index.json'));
+    }catch(e){
       $('botSum').textContent='';
-      $('botList').innerHTML=`<div class="empty">No bots are reporting yet.<br>Any bot can check in with<br><code>python3 botstatus.py set --id my-bot --owner King --state running --task "…"</code><br>See STATUS_PROTOCOL.md.</div>`;
-      return;
+      $('botList').innerHTML = e.message==='404'
+        ? `<div class="empty">No agents yet. Check in with <code>POST /api/agents</code> or <code>python3 dashboard/botstatus.py set</code>.</div>`
+        : `<div class="err">Couldn't load agents (${esc(apiErr.message)} / ${esc(e.message)}). Open this page through the engine server.</div>`;
     }
-    const counts={};
-    $('botList').innerHTML = bots.map(b=>{
-      let st=['running','idle','done','error'].includes(b.state)?b.state:'idle';
-      const age=(Date.now()-new Date(b.last_update))/60000;
-      const stale = (st==='running'||st==='idle') && !(age<=STALE_MIN);
-      counts[stale?'stale':st]=(counts[stale?'stale':st]||0)+1;
-      const label = stale?`stale · ${st}`:st, cls = stale?'stale':st;
-      const prog = Number.isFinite(+b.progress) && b.progress!==null && b.progress!==undefined
-        ? `<div class="pb" title="${+b.progress}%"><div style="width:${Math.max(0,Math.min(100,+b.progress))}%"></div></div>` : '';
-      const art = b.artifact ? ` · <a href="${esc(safeHref(b.artifact))}" target="_blank" rel="noopener">${esc(b.artifact)}</a>` : '';
-      const pct = prog ? ` · ${+b.progress}%` : '';
-      const abs = isNaN(new Date(b.last_update)) ? '' : new Intl.DateTimeFormat('en-US',{timeZone:TZ,hour:'numeric',minute:'2-digit'}).format(new Date(b.last_update))+' CT · ';
-      return `<div class="bot"><span class="dot ${cls}"></span><span class="n">${esc(b.name||b.id)}<span class="who">${esc(b.owner||'?')}${b.role?' · '+esc(b.role):''}</span></span><span class="s ${cls}">${label}</span>
-        <span class="t">${esc(b.task)}</span>${b.error?`<span class="t e">⚠ ${esc(b.error)}</span>`:''}${prog}
-        <span class="r">updated ${abs}${rel(b.last_update)}${pct}${art}</span></div>`;
-    }).join('');
-    $('botSum').textContent = Object.entries(counts).map(([k,v])=>`${v} ${k}`).join(' · ');
+  }
+}
+function meter(b, label){
+  const rate=b&&b.calls?Math.round(b.error_rate*1000)/10:0;
+  return `<div><b>${b?b.tracks:0}</b><span>tracks ${esc(label)}</span></div>
+    <div><b>${b?b.audio_min:0}</b><span>audio min</span></div>
+    <div><b>${b?b.calls:0}</b><span>calls</span></div>
+    <div><b>${rate}%</b><span>errors</span><small>${b?b.errors:0} failed</small></div>`;
+}
+async function loadUsage(){
+  try{
+    const r=await fetch('/api/usage',{cache:'no-store'});
+    if(!r.ok) throw new Error(r.status);
+    const d=await r.json();
+    $('usageMeters').innerHTML = meter(d.today,'today') + `<div style="grid-column:1/-1"><small>all-time ${d.all_time.tracks} tracks · ${d.all_time.audio_min} min · ${d.all_time.calls} calls · ${Math.round((d.all_time.error_rate||0)*1000)/10}% errors</small></div>`;
+    const hours=d.hours||[];
+    const labels=d.hour_labels||[];
+    const max=Math.max(1,...hours,1);
+    $('usageSpark').innerHTML = hours.map((n,i)=>`<i style="height:${n?Math.max(12,Math.round(n/max*100)):4}%" title="${esc(labels[i]||'')} · ${n} call${n===1?'':'s'}"></i>`).join('');
+    const rows=(d.agents&&d.agents.length?d.agents:[]).slice(0,8);
+    $('usageAgents').innerHTML = rows.length
+      ? `<thead><tr><th>Agent</th><th>Calls</th><th>Err</th><th>Tracks</th><th>Min</th><th>X</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${esc(a.agent)}</td><td>${a.calls}</td><td>${a.errors}</td><td>${a.tracks}</td><td>${a.audio_min}</td><td>${a.x_reads}</td></tr>`).join('')}</tbody>`
+      : '';
+    const cap=d.x_free_tier_monthly_reads||0;
+    const used=d.x_reads_month||0;
+    $('usageX').innerHTML = cap
+      ? `X reads this month <b>${used}</b> / ${cap} free-tier budget <span style="color:#8f7d6e">(${d.x_reads_remaining} left · counted only when a search runs)</span>`
+      : `X reads this month <b>${used}</b>`;
   }catch(e){
-    $('botSum').textContent='';
-    $('botList').innerHTML = e.message==='404'
-      ? `<div class="empty">No status index yet. Run <code>python3 botstatus.py list</code> to build it.</div>`
-      : `<div class="err">Couldn't load status/index.json (${esc(e.message)}). Open this page through a local server, not file://.</div>`;
+    $('usageMeters').innerHTML=`<span class="err">Usage meter needs the engine server (${esc(e.message)}).</span>`;
   }
 }
 
@@ -764,7 +844,7 @@ $('u2lForm').addEventListener('submit', async e=>{
   $('u2lStage').textContent='Starting…'; ensureAudio();
   const fail=msg=>{ $('u2lStage').innerHTML=`<span class="err">⚠ ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='MAKE IT LOFI'; loadBots(); };
   try{
-    const r=await fetch('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url,async:true})});
+    const r=await fetch('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({url,async:true,agent_id:'dashboard'})});
     const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`);
     loadBots();
     while(true){
@@ -790,8 +870,9 @@ $('u2lForm').addEventListener('submit', async e=>{
 // ?link=https://... pre-fills (and runs) the box, handy for demos and for sharing a link to a track
 { const q=new URLSearchParams(location.search).get('link'); if(q){ $('u2lUrl').value=q; setTimeout(()=>$('u2lForm').requestSubmit(),300); } }
 
-loadBots(); loadHeadlines(); loadEpisode();
-setInterval(loadBots, 10000); // status/index.json every 10s
+loadBots(); loadUsage(); loadHeadlines(); loadEpisode();
+setInterval(loadBots, 3000); // GET /api/agents, so a new check-in shows within a few seconds
+setInterval(loadUsage, 5000);
 setInterval(loadEpisode, 60000); // pick up new beats
 
 /* ---------- Inbox zero (from inbox.json) ---------- */

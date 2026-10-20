@@ -1,9 +1,0 @@
-{
-  "id": "zlatan",
-  "name": "Zlatan",
-  "owner": "King",
-  "role": "main assistant",
-  "state": "running",
-  "task": "Coordinating hackathon build",
-  "last_update": "2026-10-19T18:28:42-05:00"
-}

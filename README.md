@@ -21,15 +21,16 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `dashboard/*.json` | Sample inbox and episode data |
 | `scripts/fetch_hn.py` | Stdlib script that refreshes `headlines.json` from the Hacker News API |
 | `engine/` | URL fetch, mood JSON, code-synthesized beat, local HTTP API |
-| `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis` |
+| `mcp/` | MCP server: `synthesize_url`, `get_mood_analysis`, `report_status`, `list_agents`, `get_usage` |
 | `audio/` | Original beat generator, plot, and vocal lofi chain |
 | `samples/beat-001.mp3` | One original code-synthesized demo beat |
 | `docs/` | Status protocol and the dashboard screenshot |
-| `status/` | One JSON file per bot. `example-zlatan.json` is the sample check-in |
+| `status/` | One JSON file per live agent. Written by the CLI or `POST /api/agents` |
+| `data/` | Local usage log (gitignored). Not sent anywhere |
 | `tracks/` | URL-generated mp3s (gitignored) plus a JSON sidecar |
 | `run.sh` | Creates `./.venv` on first run, then serves the repo root |
 
-The page loads `headlines.json`, `inbox.json`, `episode.json`, `tracks.json`, and `status/index.json` relative to `dashboard/index.html`. The engine serves the **repository root**, so the paste-a-link box calls `/api/synthesize` and plays tracks from `/tracks/…`.
+The page loads `headlines.json`, `inbox.json`, `episode.json`, `tracks.json`, and (as a fallback) `status/index.json` relative to `dashboard/index.html`. The engine serves the **repository root**, so the paste-a-link box calls `/api/synthesize` and plays tracks from `/tracks/…`. The bot panel polls `GET /api/agents` every 3 seconds. The usage panel polls `GET /api/usage`.
 
 ## Quick start
 
@@ -73,11 +74,22 @@ See [docs/STATUS_PROTOCOL.md](docs/STATUS_PROTOCOL.md).
 ```
 GET  /api/health
 GET  /api/mood?url=https://example.com
+GET  /api/agents
+GET  /api/usage
+POST /api/agents {"id":"alex-news","owner":"Alex","state":"running","task":"Pulling headlines"}
 POST /api/synthesize {"url": "https://example.com"}
-POST /api/synthesize {"url": "https://example.com", "async": true}
+POST /api/synthesize {"url": "https://example.com", "async": true, "agent_id": "dashboard"}
 ```
 
-`force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`.
+`force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`. `agent_id` (or the `X-Agent-Id` header) is who the usage log credits; the dashboard sends `dashboard`, and a missing id is `anonymous`.
+
+One-line check-in:
+
+```bash
+curl -s -X POST http://127.0.0.1:53343/api/agents -H 'Content-Type: application/json' -d '{"id":"alex-news","owner":"Alex","state":"running","task":"Pulling headlines"}'
+```
+
+`scripts/simulate_live_agents.py` posts a few agents, marks one offline, and checks `GET /api/usage`.
 
 ### MCP
 
@@ -159,7 +171,9 @@ Example: `status/king-zlatan.json`. Prefix the id with the owner. After it lands
 python3 dashboard/botstatus.py refresh
 ```
 
-That rebuilds `status/index.json`, which the control room polls every 10 seconds. Do not hand-edit `status/index.json`.
+That rebuilds `status/index.json`. With `./run.sh` running, the control room reads `GET /api/agents` every 3 seconds instead, and a running or idle agent with no update for 120 seconds shows as offline. Do not hand-edit `status/index.json`.
+
+`docs/examples/bots.json` is an old sample roster. It is not wired to the page.
 
 ## License
 

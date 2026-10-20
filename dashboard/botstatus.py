@@ -17,13 +17,16 @@ from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.abspath(__file__))  # dashboard/ (page-relative outputs)
 REPO = os.path.dirname(ROOT)
-STATUS_DIR = os.path.join(REPO, "status")
+_env_status = os.environ.get("LOFI_STATUS_DIR")
+STATUS_DIR = os.path.abspath(_env_status) if _env_status else os.path.join(REPO, "status")
 INDEX = os.path.join(STATUS_DIR, "index.json")
 TRACKS = os.path.join(ROOT, "tracks.json")
 TZ = ZoneInfo("America/Chicago")
 STATES = ("running", "idle", "done", "error")
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 PROTOCOL_VERSION = 1
+# running/idle with no update for this long are offline. done/error stay as they are.
+STALE_AFTER_S = 120
 
 
 def now_iso():
@@ -50,9 +53,9 @@ def atomic_write_json(path, data):
 
 def status_path(bot_id):
     if not ID_RE.match(bot_id):
-        sys.exit(f"invalid --id {bot_id!r}: use lowercase letters, digits, '.', '_' or '-' (max 64)")
+        raise ValueError(f"invalid id {bot_id!r}: use lowercase letters, digits, '.', '_' or '-' (max 64)")
     if bot_id == "index":
-        sys.exit("'index' is reserved")
+        raise ValueError("'index' is reserved")
     return os.path.join(STATUS_DIR, bot_id + ".json")
 
 
@@ -199,8 +202,9 @@ def cmd_list(a):
     now = datetime.datetime.now(TZ)
     for b in bots:
         try:
-            age = (now - datetime.datetime.fromisoformat(b["last_update"])).total_seconds() / 60
-            ages = f"{age:.0f}m ago" + (" STALE" if age > 30 and b.get("state") in ("running", "idle") else "")
+            age_s = (now - datetime.datetime.fromisoformat(b["last_update"])).total_seconds()
+            offline = age_s > STALE_AFTER_S and b.get("state") in ("running", "idle")
+            ages = f"{age_s:.0f}s ago" + (" OFFLINE" if offline else "")
         except Exception:
             ages = "?"
         prog = f" {b['progress']}%" if "progress" in b else ""
@@ -227,7 +231,10 @@ def main():
     l.add_argument("--json", action="store_true"); l.set_defaults(fn=cmd_list)
     r = sub.add_parser("refresh", help="rebuild status/index.json and tracks.json only")
     r.set_defaults(fn=lambda a: (refresh(), print("ok")))
-    a = ap.parse_args(); a.fn(a)
+    try:
+        a = ap.parse_args(); a.fn(a)
+    except ValueError as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":

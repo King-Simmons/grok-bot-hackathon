@@ -25,6 +25,9 @@ tracks/
 status/index.json
 dashboard/tracks.json
 
+# local usage log (engine/usage.py). Stays on this machine.
+data/
+
 # secrets and server logs
 .env
 .env.*
