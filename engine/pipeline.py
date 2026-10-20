@@ -82,12 +82,21 @@ def synthesize(url, force=False, progress=None, report_status=True, vocals="none
         name = f"url-{slugify(page['url'])}-{h}"
         rel_mp3 = os.path.join("tracks", name + ".mp3")
         mp3 = os.path.join(ROOT, rel_mp3)
-        cached = os.path.exists(mp3) and not force
+        sidecar = mp3[:-4] + ".json"
+        cached = os.path.exists(mp3) and os.path.exists(sidecar) and not force
+        side = render = None
         if cached:
-            with open(mp3[:-4] + ".json") as f:
-                side = json.load(f)
-            render = side.get("render", {})
-        else:
+            try:
+                with open(sidecar, encoding="utf-8") as f:
+                    side = json.load(f)
+                if not isinstance(side, dict) or "title" not in side:
+                    raise ValueError("bad sidecar")
+                render = side.get("render") or {}
+            except Exception:
+                # mp3 with no usable sidecar used to 500 on the next request
+                cached = False
+                side = render = None
+        if not cached:
             step("rendering", 55, f"Rendering {attrs['bpm']} BPM {attrs['key']} lofi for {page['title'][:50] or url[:50]}")
             from engine.synth import render as synth_render
             with RENDER_LOCK:
