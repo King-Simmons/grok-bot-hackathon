@@ -18,7 +18,7 @@ CACHE_S = 600
 
 def _status(**kw):
     """Best-effort botstatus update (never breaks the pipeline)."""
-    args = ["python3", os.path.join(ROOT, "botstatus.py"), "set", "--id", "url-lofi",
+    args = ["python3", os.path.join(ROOT, "dashboard", "botstatus.py"), "set", "--id", "url-lofi",
             "--name", "URL-to-Lofi", "--owner", "King", "--role", "URL-to-Lofi Synthesizer engine"]
     for k, v in kw.items():
         if v is None: continue
@@ -33,6 +33,18 @@ def _status(**kw):
 def slugify(s, n=32):
     s = re.sub(r"^https?://(www\.)?", "", s.lower())
     return (re.sub(r"[^a-z0-9]+", "-", s).strip("-")[:n].strip("-")) or "page"
+
+
+def short_label(url):
+    """Picker chip text, e.g. 'bbc · cjkgeq0k1wevo' or 'github · python-sdk'."""
+    import urllib.parse
+    u = urllib.parse.urlparse(url)
+    host = (u.hostname or "page").removeprefix("www.").split(".")
+    if len(host) >= 3 and host[-2] in ("co", "com"): site = host[-3]
+    elif len(host) >= 2: site = ".".join(host[-2:]) if len(host[-2]) <= 2 else host[-2]
+    else: site = host[0]
+    tail = [x for x in u.path.split("/") if x]
+    return f"{site} · {tail[-1][:16]}" if tail else site
 
 
 def mood_for(url, use_cache=True):
@@ -57,7 +69,7 @@ def synthesize(url, force=False, progress=None, report_status=True):
     """Full pipeline. progress(stage, pct) optional. Returns dict with mood + track info."""
     def step(stage, pct, task):
         if progress: progress(stage, pct)
-        if report_status: _status(state="running", task=task, progress=pct, no_error=True)
+        if report_status: _status(state="running", task=task, progress=pct, no_error=True, no_artifact=True)
 
     t0 = time.time()
     try:
@@ -78,8 +90,8 @@ def synthesize(url, force=False, progress=None, report_status=True):
             step("rendering", 55, f"Rendering {attrs['bpm']} BPM {attrs['key']} lofi for {page['title'][:50] or url[:50]}")
             from engine.synth import render as synth_render
             with RENDER_LOCK:
-                render = synth_render(attrs, seed=int(h, 16) % 100000, out_mp3=mp3, mood_hint=mood["sentiment"].split(",")[0])
-            side = {"title": f"URL Lofi: {page['title'][:80] or page['url']}", "label": "url: " + slugify(page["url"], 22),
+                render = synth_render(attrs, seed=int(h, 16) % 100000, out_mp3=mp3, mood_hint=mood["sentiment"].split(" ")[0])
+            side = {"title": f"URL Lofi: {page['title'][:80] or page['url']}", "label": short_label(page["url"]),
                     "bpm": attrs["bpm"], "key": attrs["key"], "duration_s": render["duration_s"],
                     "notes": "Original lofi generated from a web page's mood (deterministic, no samples).",
                     "source_url": page["url"], "mood_tags": attrs["mood_tags"], "instruments": attrs["primary_instruments"],
@@ -95,7 +107,7 @@ def synthesize(url, force=False, progress=None, report_status=True):
             _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {page['title'][:60] or url[:60]} ({total}s)",
                     progress=100, artifact=rel_mp3)
         else:
-            subprocess.run(["python3", os.path.join(ROOT, "botstatus.py"), "refresh"], cwd=ROOT, capture_output=True, timeout=10)
+            subprocess.run(["python3", os.path.join(ROOT, "dashboard", "botstatus.py"), "refresh"], cwd=ROOT, capture_output=True, timeout=10)
         return {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
                                         "duration_s": render.get("duration_s")},
                 "page": page, "analysis": debug, "timing": timing}
