@@ -5,7 +5,8 @@
   POST /api/synthesize {"url": ...}      -> {"mood": {...PRD...}, "track_url": "/tracks/....mp3", ...}
        add "async": true                 -> {"job_id": ...}; poll GET /api/jobs/<id>
        add "force": true                 -> re-render even if this exact track exists
-Run: /workspace/.venv-engine/bin/python engine/server.py [--port 53343]
+Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
+The process serves the repo root. Open /dashboard/ for the control room. API routes are /api/*.
 """
 import argparse, json, os, sys, threading, time, uuid, urllib.parse
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
@@ -102,7 +103,7 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--port", type=int, default=53343); ap.add_argument("--host", default="127.0.0.1")
     a = ap.parse_args()
     srv = ThreadingHTTPServer((a.host, a.port), Handler); srv.daemon_threads = True
-    print(f"Lofi control room + URL-to-Lofi API on http://{a.host}:{a.port}/", flush=True)
+    print(f"Lofi control room on http://{a.host}:{a.port}/dashboard/  (API /api/*)", flush=True)
     srv.serve_forever()
 
 

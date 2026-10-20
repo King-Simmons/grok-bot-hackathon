@@ -21,7 +21,7 @@ The dashboard fetches `status/index.json` relative to `dashboard/index.html`. `d
 | `task` | yes | one line: what it is doing now / did last |
 | `last_update` | yes | ISO 8601 with offset, America/Chicago, e.g. `2026-10-19T18:28:42-05:00` |
 | `progress` | no | integer 0-100 |
-| `artifact` | no | relative path in this folder (e.g. `beat-002.mp3`) or an http(s) URL |
+| `artifact` | no | relative path in the repo (e.g. `samples/beat-001.mp3`) or an http(s) URL |
 | `error` | no | error message (auto-removed when state leaves `error`, unless `--keep-error`) |
 
 Example `status/beat-maker.json`:
@@ -32,10 +32,10 @@ Example `status/beat-maker.json`:
   "owner": "King",
   "role": "beat + vocal render",
   "state": "running",
-  "task": "Rendering beat-002 (original instrumental, morning news)",
+  "task": "Rendering an original instrumental for the morning news",
   "last_update": "2026-10-19T18:28:42-05:00",
   "progress": 40,
-  "artifact": "beat-002.mp3"
+  "artifact": "samples/beat-001.mp3"
 }
 ```
 
@@ -50,9 +50,9 @@ Example `status/beat-maker.json`:
 From the repository root (`dashboard/botstatus.py`). The same commands work as `python3 botstatus.py ...` if your shell is already in `dashboard/`.
 
 ```
-python3 dashboard/botstatus.py set --id beat-maker --name 'Beat Maker' --owner King --state running --task 'Rendering beat-002' [--role '...'] [--progress 40] [--artifact beat-002.mp3]
+python3 dashboard/botstatus.py set --id beat-maker --name 'Beat Maker' --owner King --state running --task 'Rendering an original instrumental' [--role '...'] [--progress 40] [--artifact samples/beat-001.mp3]
 python3 dashboard/botstatus.py set --id beat-maker --progress 80                     # partial update; other fields kept
-python3 dashboard/botstatus.py set --id beat-maker --state done --task 'beat-002 rendered' --progress 100 --artifact beat-002.mp3
+python3 dashboard/botstatus.py set --id beat-maker --state done --task 'instrumental rendered' --progress 100 --artifact samples/beat-001.mp3
 python3 dashboard/botstatus.py set --id beat-maker --state error --error 'ffmpeg missing'
 python3 dashboard/botstatus.py set --id beat-maker --no-progress --no-artifact      # drop optional fields
 python3 dashboard/botstatus.py clear --id beat-maker      # or: clear --all

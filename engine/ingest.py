@@ -4,7 +4,6 @@ Uses trafilatura when installed, else a stdlib HTMLParser fallback.
 Safety: http(s) only, refuses private/loopback hosts, timeouts, size cap.
 """
 import html as htmlmod, ipaddress, re, socket, ssl, urllib.error, urllib.parse, urllib.request
-import certifi
 from html.parser import HTMLParser
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) LofiNewsRadio-URL2Lofi/1.0 (+hackathon prototype)"
@@ -15,6 +14,19 @@ _FAKE_IP_NET = ipaddress.ip_network("198.18.0.0/15")
 
 class IngestError(Exception):
     pass
+
+
+def _ssl_context():
+    """Use certifi's CA bundle when available. python.org macOS builds ship without system CAs,
+    which otherwise fails every https fetch with CERTIFICATE_VERIFY_FAILED."""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        return ssl.create_default_context()
+
+
+_SSL_CTX = _ssl_context()
 
 
 def _check_host(url):
@@ -39,20 +51,11 @@ class _NoPrivateRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def _ssl_context():
-    """CA bundle from certifi. python.org macOS Python does not use the system store,
-    so the default context raises CERTIFICATE_VERIFY_FAILED on every HTTPS fetch."""
-    return ssl.create_default_context(cafile=certifi.where())
-
-
 def fetch(url):
     if not re.match(r"^https?://", url, re.I):
         url = "https://" + url
     _check_host(url)
-    opener = urllib.request.build_opener(
-        _NoPrivateRedirect,
-        urllib.request.HTTPSHandler(context=_ssl_context()),
-    )
+    opener = urllib.request.build_opener(_NoPrivateRedirect, urllib.request.HTTPSHandler(context=_SSL_CTX))
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
                                                "Accept-Language": "en-US,en;q=0.8"})
     try:
@@ -67,10 +70,10 @@ def fetch(url):
         raise
     except urllib.error.HTTPError as e:
         if e.code in (401, 403, 429):
-            raise IngestError(f"the site refused automated readers (HTTP {e.code})") from e
-        raise IngestError(f"fetch failed: {e}") from e
+            raise IngestError(f"fetch failed: the site refused the request (HTTP {e.code}); it may block automated readers - try an article, blog, docs or GitHub page")
+        raise IngestError(f"fetch failed: HTTP {e.code} {e.reason}")
     except Exception as e:
-        raise IngestError(f"fetch failed: {e}") from e
+        raise IngestError(f"fetch failed: {e}")
     truncated = len(raw) > MAX_BYTES
     return final, raw[:MAX_BYTES].decode(charset, errors="replace"), truncated
 
