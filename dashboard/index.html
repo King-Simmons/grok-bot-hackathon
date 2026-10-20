@@ -126,24 +126,23 @@
   .mixer{padding:12px 18px 14px; background:linear-gradient(180deg,#3a2a2acc,#2a1f24cc); position:relative}
   .mixer::before{content:""; position:absolute; inset:6px; border-radius:12px; border:1px solid #ffffff08; pointer-events:none}
   .mixer .head{margin-bottom:8px}
-  .knobs{display:grid; grid-template-columns:repeat(6,1fr); gap:6px}
-  .knob{display:flex; flex-direction:column; align-items:center; gap:4px; user-select:none; touch-action:none}
-  .knob .dial{position:relative; width:74px; height:74px; cursor:ns-resize; outline:none; border-radius:50%}
-  .knob .dial:focus-visible{box-shadow:0 0 0 2px var(--amber)}
-  .knob svg{position:absolute; inset:0; overflow:visible}
-  .knob .track{fill:none; stroke:#1a1216; stroke-width:6; stroke-linecap:round}
-  .knob .lvl{fill:none; stroke:var(--amber); stroke-width:6; stroke-linecap:round; filter:drop-shadow(0 0 5px #ffb86bcc)}
-  .knob .cap{position:absolute; inset:13px; border-radius:50%;
-    background: radial-gradient(circle at 35% 30%, #8a6a52 0%, #5a4033 45%, #2e211c 100%);
-    box-shadow: 0 6px 10px #0009, inset 0 2px 2px #ffffff30, inset 0 -3px 5px #0007;}
-  .knob .cap::after{content:""; position:absolute; inset:7px; border-radius:50%;
-    background: repeating-conic-gradient(#ffffff0a 0 4deg, #0000 4deg 12deg), radial-gradient(circle at 40% 35%, #6e523f, #3b2a22)}
-  .knob .ptr{position:absolute; left:50%; top:4px; width:4px; height:14px; margin-left:-2px; border-radius:2px;
-    background:var(--ink); box-shadow:0 0 6px #ffe6b0; z-index:2}
-  .knob .rot{position:absolute; inset:0; z-index:2}
-  .knob .val{font:700 12px var(--mono); color:var(--amber); min-height:14px}
-  .knob .lbl{font-size:11px; color:var(--muted); text-align:center; line-height:1.15}
-  .knob .lbl small{display:block; font-size:9px; color:#8f7d6e; letter-spacing:.05em; text-transform:uppercase}
+  .sliders{display:grid; grid-template-columns:1fr 1fr; gap:10px 22px}
+  .sl{display:grid; grid-template-columns:96px 1fr 62px; align-items:center; gap:10px}
+  .sl .lbl{font-size:12px; color:var(--ink); line-height:1.1}
+  .sl .lbl small{display:block; font-size:9px; color:#8f7d6e; letter-spacing:.05em; text-transform:uppercase}
+  .sl .val{font:700 12px var(--mono); color:var(--amber); text-align:right; white-space:nowrap}
+  .sl input[type=range]{--f:50%; -webkit-appearance:none; appearance:none; width:100%; height:24px; margin:0; background:transparent; cursor:pointer}
+  .sl input[type=range]:focus{outline:none}
+  .sl input[type=range]::-webkit-slider-runnable-track{height:8px; border-radius:6px; border:1px solid #ffffff10;
+    background:linear-gradient(90deg,var(--amber) 0 var(--f),#1a1216 var(--f) 100%); box-shadow:inset 0 1px 2px #0008}
+  .sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:18px; height:18px; margin-top:-6px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#ffe6b0,var(--amber) 55%,#b9782f); border:2px solid #2a1f24; box-shadow:0 0 8px #ffb86b99, 0 2px 4px #0009; transition:transform .1s}
+  .sl input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.12)}
+  .sl input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px #ffb86b66, 0 0 8px #ffb86b99}
+  .sl input[type=range]::-moz-range-track{height:8px; border-radius:6px; background:#1a1216; border:1px solid #ffffff10}
+  .sl input[type=range]::-moz-range-progress{height:8px; border-radius:6px; background:var(--amber)}
+  .sl input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#ffe6b0,var(--amber) 55%,#b9782f);
+    border:2px solid #2a1f24; box-shadow:0 0 8px #ffb86b99}
   .toggle{display:inline-flex; align-items:center; gap:8px; cursor:pointer; border:1px solid var(--line); background:#1f171d;
     color:var(--muted); font:700 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; padding:6px 12px; border-radius:999px}
   .toggle i{width:9px; height:9px; border-radius:50%; background:#4a3a4a}
@@ -158,7 +157,7 @@
   .inbox .pbar{height:8px; border-radius:6px; background:#3a2c3c; overflow:hidden; margin-top:8px}
   .inbox .pbar>div{height:100%; background:linear-gradient(90deg,var(--sage),var(--amber)); width:0; transition:width .6s}
   .inbox .meta{color:var(--muted); font-size:11px; margin-top:6px}
-  @media (max-width: 980px){ .knobs{grid-template-columns:repeat(3,1fr)} }
+  @media (max-width: 640px){ .sliders{grid-template-columns:1fr} }
 
   /* Control room (status protocol) */
   .tag.live{background:#9fd3a822; color:var(--sage); border:1px solid var(--sage)}
@@ -355,10 +354,10 @@
     <section class="card mixer" aria-label="Mixer">
       <div class="head">
         <h2>Mixer</h2>
-        <span class="mixnote" id="mixNote">Drag up/down or scroll · double-click to reset · saved on this device</span>
+        <span class="mixnote" id="mixNote">Click or drag · double-click to reset · saved on this device</span>
         <button class="toggle" id="ambBtn" aria-pressed="false"><i></i>Ambience off</button>
       </div>
-      <div class="knobs" id="knobs"></div>
+      <div class="sliders" id="sliders"></div>
     </section>
   </div>
 
@@ -656,7 +655,7 @@ audioEl.addEventListener('play',()=>{ ensureAudio(); if(hasVoice){ voiceEl.curre
 audioEl.addEventListener('pause',()=>{ if(hasVoice) voiceEl.pause(); });
 audioEl.addEventListener('seeked',()=>{ if(hasVoice) voiceEl.currentTime=audioEl.currentTime; });
 
-/* ---------- Knobs ---------- */
+/* ---------- Mixer sliders ---------- */
 const KNOBS=[
   {id:'music',  label:'Music',   sub:'volume',      min:0,  max:100, def:80, fmt:v=>`${Math.round(v)}%`},
   {id:'voice',  label:'Voice',   sub:'volume · stem', min:0,  max:100, def:85, fmt:v=>`${Math.round(v)}%`},
@@ -669,9 +668,6 @@ const LS='lofiDashMixer.v1';
 const state=Object.assign(Object.fromEntries(KNOBS.map(k=>[k.id,k.def])), JSON.parse(localStorage.getItem(LS)||'{}'));
 function cutoff(v){ return 18000*Math.pow(600/18000, v/100); } // 0% = open (18 kHz) -> 100% = very warm (600 Hz)
 const save=()=>localStorage.setItem(LS,JSON.stringify(state));
-const SWEEP=270, START=-135, R=31, C=37;
-function arc(a0,a1){ const p=a=>{const r=(a-90)*Math.PI/180; return [C+R*Math.cos(r), C+R*Math.sin(r)];};
-  const [x0,y0]=p(a0),[x1,y1]=p(a1); return `M${x0} ${y0} A${R} ${R} 0 ${a1-a0>180?1:0} 1 ${x1} ${y1}`; }
 function applyAll(){
   if(!AE.ctx) return; const t=AE.ctx.currentTime, g=v=>Math.pow(v/100,2);
   AE.music.gain.setTargetAtTime(g(state.music),t,0.05);
@@ -681,26 +677,20 @@ function applyAll(){
   AE.warmth.frequency.setTargetAtTime(cutoff(state.warmth),t,0.05);
   AE.amb.gain.setTargetAtTime(ambOn?1:0,t,0.3);
 }
-const knobBox=$('knobs');
+const sliderBox=$('sliders');
 KNOBS.forEach(k=>{
-  const w=document.createElement('div'); w.className='knob';
-  w.innerHTML=`<div class="dial" tabindex="0" role="slider" aria-label="${k.label} ${k.sub}" aria-valuemin="${k.min}" aria-valuemax="${k.max}">
-      <svg viewBox="0 0 74 74"><path class="track" d="${arc(START,START+SWEEP)}"/><path class="lvl"/></svg>
-      <div class="cap"></div><div class="rot"><div class="ptr"></div></div></div>
-    <div class="val"></div><div class="lbl">${k.label}<small>${k.sub}</small></div>`;
-  knobBox.appendChild(w);
-  const dial=w.querySelector('.dial'), lvl=w.querySelector('.lvl'), rot=w.querySelector('.rot'), val=w.querySelector('.val');
-  const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min), a=START+f*SWEEP;
-    lvl.setAttribute('d', f>0.002?arc(START,a):''); rot.style.transform=`rotate(${a}deg)`;
-    lvl.style.strokeOpacity = .45+.55*f; val.textContent=k.fmt(state[k.id]); dial.setAttribute('aria-valuenow',Math.round(state[k.id])); };
-  const set=v=>{ v=Math.min(k.max,Math.max(k.min,v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v; render(); save(); applyAll(); };
-  let dragY=null, startV=0;
-  dial.addEventListener('pointerdown',e=>{ dragY=e.clientY; startV=state[k.id]; dial.setPointerCapture(e.pointerId); e.preventDefault(); });
-  dial.addEventListener('pointermove',e=>{ if(dragY===null) return; const range=k.max-k.min; set(startV+(dragY-e.clientY)/(e.shiftKey?600:180)*range); });
-  dial.addEventListener('pointerup',()=>dragY=null); dial.addEventListener('pointercancel',()=>dragY=null);
-  dial.addEventListener('wheel',e=>{ e.preventDefault(); set(state[k.id]+(e.deltaY<0?1:-1)*(k.max-k.min)/50); },{passive:false});
-  dial.addEventListener('keydown',e=>{ const s=(k.max-k.min)/50; if(['ArrowUp','ArrowRight'].includes(e.key)){set(state[k.id]+s);e.preventDefault();} if(['ArrowDown','ArrowLeft'].includes(e.key)){set(state[k.id]-s);e.preventDefault();} });
-  dial.addEventListener('dblclick',()=>set(k.def));
+  const w=document.createElement('div'); w.className='sl';
+  const step=k.step||1;
+  w.innerHTML=`<label class="lbl" for="sl-${k.id}">${k.label}<small>${k.sub}</small></label>
+    <input type="range" id="sl-${k.id}" min="${k.min}" max="${k.max}" step="${step}" aria-label="${k.label} ${k.sub}" title="Double-click to reset to ${k.fmt(k.def)}">
+    <span class="val"></span>`;
+  sliderBox.appendChild(w);
+  const inp=w.querySelector('input'), val=w.querySelector('.val');
+  const render=()=>{ const f=(state[k.id]-k.min)/(k.max-k.min); inp.value=state[k.id];
+    inp.style.setProperty('--f',(f*100).toFixed(2)+'%'); val.textContent=k.fmt(state[k.id]); inp.setAttribute('aria-valuetext',k.fmt(state[k.id])); };
+  const set=v=>{ v=Math.min(k.max,Math.max(k.min,+v)); if(k.step) v=Math.round(v/k.step)*k.step; state[k.id]=v; render(); save(); applyAll(); };
+  inp.addEventListener('input',()=>set(inp.value));
+  inp.addEventListener('dblclick',()=>set(k.def));
   render();
 });
 let ambOn=false;
