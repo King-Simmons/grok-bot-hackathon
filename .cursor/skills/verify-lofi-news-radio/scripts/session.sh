@@ -21,6 +21,14 @@ die() { echo "session.sh: $*" >&2; exit 1; }
 
 chrome_bin() {
   local c
+  # Prefer the real binary. A PATH wrapper that pins a shared user-data-dir
+  # makes headless --dump-dom wait forever.
+  for c in /opt/google/chrome/chrome /usr/bin/google-chrome-stable /usr/bin/chromium /usr/bin/chromium-browser; do
+    if [[ -x "$c" && ! -L "$c" ]]; then
+      echo "$c"
+      return 0
+    fi
+  done
   for c in google-chrome google-chrome-stable chromium chromium-browser; do
     if command -v "$c" >/dev/null 2>&1; then
       command -v "$c"
@@ -79,7 +87,8 @@ cmd_doctor() {
     *) die "pid $PID is not the server we started ($cmd)" ;;
   esac
   local i
-  for i in $(seq 1 90); do
+  # First ./run.sh creates .venv and installs requirements.txt before it listens.
+  for i in $(seq 1 300); do
     if python3 - "$BASE" <<'PY'
 import json, sys, urllib.request
 url = sys.argv[1] + "/api/health"
@@ -177,10 +186,20 @@ PY
 
   local chrome=""
   if chrome="$(chrome_bin)"; then
-    local common=(--headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage --virtual-time-budget=8000)
-    "$chrome" "${common[@]}" --timeout=30000 --dump-dom "$BASE/dashboard/" >"$proof/dashboard.dom.html" 2>"$proof/chrome-dom.stderr"
-    "$chrome" "${common[@]}" --timeout=30000 --window-size=1280,900 --screenshot="$proof/dashboard.png" "$BASE/dashboard/" >"$proof/chrome-shot.stdout" 2>"$proof/chrome-shot.stderr"
-    "$chrome" "${common[@]}" --timeout=30000 --dump-dom "$BASE/dashboard/#graph" >"$proof/graph.dom.html" 2>"$proof/chrome-graph.stderr"
+    local profile="$evidence/chrome-profile"
+    mkdir -p "$profile"
+    # ?hn=0 keeps the page on the committed headlines snapshot.
+    local room="$BASE/dashboard/?hn=0"
+    local graph="$BASE/dashboard/?hn=0#graph"
+    local common=(
+      --headless=new --disable-gpu --no-sandbox --disable-dev-shm-usage
+      --no-first-run --no-default-browser-check
+      --user-data-dir="$profile"
+      --virtual-time-budget=8000
+    )
+    timeout 30 "$chrome" "${common[@]}" --dump-dom "$room" >"$proof/dashboard.dom.html" 2>"$proof/chrome-dom.stderr"
+    timeout 30 "$chrome" "${common[@]}" --window-size=1280,900 --screenshot="$proof/dashboard.png" "$room" >"$proof/chrome-shot.stdout" 2>"$proof/chrome-shot.stderr"
+    timeout 30 "$chrome" "${common[@]}" --dump-dom "$graph" >"$proof/graph.dom.html" 2>"$proof/chrome-graph.stderr"
     python3 - "$proof" <<'PY'
 import sys
 proof = sys.argv[1]

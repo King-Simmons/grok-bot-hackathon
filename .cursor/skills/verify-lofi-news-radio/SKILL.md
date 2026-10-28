@@ -30,6 +30,8 @@ EVIDENCE="$(.cursor/skills/verify-lofi-news-radio/scripts/session.sh launch)"
 
 `session.env` inside the evidence directory records `BASE`, `PORT`, and `PID`. Source it before a curl in a feature file. Default evidence root is `/tmp/lofi-news-radio-verify/<run-id>/`. Two instances can run together when each has its own port, status dir, and data dir. They still share the repo `tracks/` directory, so do not synthesize the same URL from two instances at once. `./run.sh` also rewrites gitignored `dashboard/tracks.json`.
 
+If the pid exits before doctor succeeds, read `$EVIDENCE/server.log`. On Debian or Ubuntu, `python3 -m venv` fails when `python3-venv` is not installed (`ensurepip is not available`). Install that package, delete the broken `./.venv`, and launch again. A half-created `.venv` still has a `python` binary, and `./run.sh` will keep using it.
+
 Do not drive a server you did not start. The default `http://127.0.0.1:53343` may belong to a person.
 
 ## Doctor
@@ -49,7 +51,7 @@ set -a; source "$EVIDENCE/session.env"; set +a
 .cursor/skills/verify-lofi-news-radio/scripts/session.sh capture-control-room "$EVIDENCE"
 ```
 
-`capture-control-room` is the control-room journey. The other feature files name their own curl commands. Save each response under `$EVIDENCE/proof/` with the feature id in the filename.
+`capture-control-room` is the control-room journey. It loads `/dashboard/?hn=0` so the page stays on the committed headline snapshot. The other feature files name their own curl commands. Save each response under `$EVIDENCE/proof/` with the feature id in the filename.
 
 ## Evidence
 
