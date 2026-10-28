@@ -764,7 +764,8 @@ async function loadUsage(){
   try{
     const r=await fetch('/api/usage',{cache:'no-store'});
     if(!r.ok) throw new Error(r.status);
-    const d=await r.json();
+    let d; try{ d=await r.json(); }catch(e){ throw new Error('unreadable response'); }
+    if(!d || !d.today || !d.all_time) throw new Error('empty response');
     $('usageMeters').innerHTML = meter(d.today,'today') + `<div style="grid-column:1/-1"><small>all-time ${d.all_time.tracks} tracks · ${d.all_time.audio_min} min · ${d.all_time.calls} calls · ${Math.round((d.all_time.error_rate||0)*1000)/10}% errors</small></div>`;
     const hours=d.hours||[];
     const labels=d.hour_labels||[];
@@ -971,8 +972,22 @@ wirePlayer();
 /* ---------- URL -> Lofi (engine/server.py API) ---------- */
 const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
 // A restart drops in-memory jobs. Polling a missing id used to spin forever.
+// A poll that never returns used to leave the button on WORKING.
+async function fetchT(url, opts, ms){
+  const ac=new AbortController();
+  const t=setTimeout(()=>ac.abort(), ms);
+  try{ return await fetch(url, Object.assign({cache:'no-store'}, opts||{}, {signal:ac.signal})); }
+  finally{ clearTimeout(t); }
+}
+function engineDown(err){
+  if(err&&err.name==='AbortError') return 'The engine stopped answering.';
+  if(err instanceof SyntaxError) return 'The engine sent a response the page could not read.';
+  return (err&&err.message)||'failed';
+}
 async function nextJob(id){
-  const r=await fetch('/api/jobs/'+id,{cache:'no-store'});
+  let r;
+  try{ r=await fetchT('/api/jobs/'+id, null, 20000); }
+  catch(e){ if(e&&e.name==='AbortError') return {state:'error', error:'The engine stopped answering.'}; throw e; }
   let s=null;
   try{ s=await r.json(); }catch(e){ s=null; }
   if(!r.ok || !s || (s.state!=='running' && s.state!=='done' && s.state!=='error'))
@@ -996,7 +1011,7 @@ $('u2lForm').addEventListener('submit', async e=>{
   $('u2lStage').textContent='Starting…'; ensureAudio();
   const fail=msg=>{ $('u2lStage').innerHTML=`<span class="err">⚠ ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='MAKE IT LOFI'; loadBots(); };
   try{
-    const r=await fetch('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({url,async:true,agent_id:'dashboard'})});
+    const r=await fetchT('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({url,async:true,agent_id:'dashboard'})}, 20000);
     const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`);
     loadBots();
     while(true){
@@ -1018,7 +1033,7 @@ $('u2lForm').addEventListener('submit', async e=>{
       }
     }
     loadBots();
-  }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
+  }catch(err){ return fail(engineDown(err)+' — is engine/server.py running?'); }
   btn.disabled=false; btn.textContent='MAKE IT LOFI';
 });
 /* ---------- Learn a topic, via X, to lofi (POST /api/synthesize_topic, GET /api/topics) ---------- */
@@ -1125,7 +1140,7 @@ $('xForm').addEventListener('submit', async e=>{
   setTopicBusy(true); btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
   $('u2lStage').textContent=searching; ensureAudio();
   try{
-    const r=await fetch('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,source:TOPIC_SOURCE,async:true,agent_id:'dashboard'})});
+    const r=await fetchT('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,source:TOPIC_SOURCE,async:true,agent_id:'dashboard'})}, 20000);
     const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, softKind(j.error_kind));
     loadBots();
     while(true){
@@ -1150,7 +1165,7 @@ $('xForm').addEventListener('submit', async e=>{
       }
     }
     loadBots();
-  }catch(err){ return fail(err.message+' — is engine/server.py running?'); }
+  }catch(err){ return fail(engineDown(err)+' — is engine/server.py running?'); }
   setTopicBusy(false);
 });
 // ?topic= runs Learn a topic. ?source=web|x wins over the saved selector. ?link= switches to Paste a link.
