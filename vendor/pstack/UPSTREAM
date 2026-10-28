@@ -1,0 +1,6 @@
+mirror_repo=https://github.com/backnotprop/pstack
+mirror_commit=37d989cabf310ea2d7631f1d006117ca4cc8a799
+upstream_repo=https://github.com/cursor/plugins
+upstream_path=pstack
+upstream_commit=519d36aa98955bf680db01bcde5fdfba686dc901
+version=0.15.34
