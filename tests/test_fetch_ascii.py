@@ -51,7 +51,7 @@ class FetchAsciiTest(unittest.TestCase):
 
     def test_unicode_host_is_idna_before_dns_and_the_request(self):
         url = self._fetch("https://münchen.de/stadt")
-        host = "münchen".encode("idna").decode("ascii")
+        host = "münchen.de".encode("idna").decode("ascii")
         self.assertIn(host, self.hosts)
         self.assertIn(host, url)
         self.assertNotIn("ü", url)

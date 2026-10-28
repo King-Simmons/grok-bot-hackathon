@@ -49,8 +49,61 @@ def _check_host(url):
             raise IngestError(f"refusing to fetch private/local address {ip}")
 
 
+_HEX = set("0123456789abcdefABCDEF")
+
+
+def _encode_ascii_part(text):
+    """Percent-encode non-ASCII characters. Leave existing %XX escapes as they are."""
+    if not text:
+        return text
+    out = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == "%" and i + 2 < n and text[i + 1] in _HEX and text[i + 2] in _HEX:
+            out.append(text[i:i + 3])
+            i += 3
+            continue
+        ch = text[i]
+        if ord(ch) < 128:
+            out.append(ch)
+        else:
+            out.append(urllib.parse.quote(ch, safe=""))
+        i += 1
+    return "".join(out)
+
+
+def _ascii_url(url):
+    """IDNA-encode the host and percent-encode the path, query, and fragment."""
+    parts = urllib.parse.urlsplit(url)
+    host = parts.hostname
+    if not host:
+        return url
+    try:
+        host_idna = host.encode("idna").decode("ascii")
+    except UnicodeError as e:
+        raise IngestError(f"bad host name: {e}")
+    host_fmt = "[" + host_idna + "]" if ":" in host_idna else host_idna
+    auth = ""
+    if parts.username is not None:
+        auth = urllib.parse.quote(parts.username, safe="")
+        if parts.password is not None:
+            auth += ":" + urllib.parse.quote(parts.password, safe="")
+        auth += "@"
+    port = ":" + str(parts.port) if parts.port is not None else ""
+    netloc = auth + host_fmt + port
+    return urllib.parse.urlunsplit((
+        parts.scheme,
+        netloc,
+        _encode_ascii_part(parts.path),
+        _encode_ascii_part(parts.query),
+        _encode_ascii_part(parts.fragment),
+    ))
+
+
 class _NoPrivateRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
+        newurl = _ascii_url(newurl)
         _check_host(newurl)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
@@ -58,6 +111,7 @@ class _NoPrivateRedirect(urllib.request.HTTPRedirectHandler):
 def fetch(url):
     if not re.match(r"^https?://", url, re.I):
         url = "https://" + url
+    url = _ascii_url(url)
     _check_host(url)
     opener = urllib.request.build_opener(_NoPrivateRedirect, urllib.request.HTTPSHandler(context=_SSL_CTX))
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
