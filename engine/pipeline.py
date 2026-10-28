@@ -13,7 +13,9 @@ from engine.mood import analyze  # noqa: E402
 TRACK_DIR = os.path.join(ROOT, "tracks")
 RENDER_LOCK = threading.Lock()  # one render at a time (CPU-bound)
 _mood_cache = {}  # url -> (ts, mood, debug, page)
+_mood_lock = threading.Lock()
 CACHE_S = 600
+_MOOD_CACHE_MAX = 128
 
 
 def _status(**kw):
@@ -47,18 +49,34 @@ def short_label(url):
     return f"{site} · {tail[-1][:16]}" if tail else site
 
 
+def _remember_mood(url, entry):
+    now = entry[0]
+    with _mood_lock:
+        stale = [key for key, row in _mood_cache.items() if now - row[0] >= CACHE_S]
+        for key in stale:
+            _mood_cache.pop(key, None)
+        while len(_mood_cache) >= _MOOD_CACHE_MAX:
+            oldest = min(_mood_cache, key=lambda key: _mood_cache[key][0])
+            _mood_cache.pop(oldest, None)
+        _mood_cache[url] = entry
+
+
 def mood_for(url, use_cache=True):
     t0 = time.time()
-    c = _mood_cache.get(url)
-    if use_cache and c and time.time() - c[0] < CACHE_S:
-        return c[1], c[2], c[3], {"ingest_s": 0.0, "mood_s": 0.0, "cached": True}
+    with _mood_lock:
+        row = _mood_cache.get(url)
+        fresh = bool(use_cache and row and time.time() - row[0] < CACHE_S)
+        if fresh:
+            cached = row
+    if fresh:
+        return cached[1], cached[2], cached[3], {"ingest_s": 0.0, "mood_s": 0.0, "cached": True}
     page = ingest(url)
     t1 = time.time()
     mood, debug = analyze(page["url"], page["title"], page["text"])
     t2 = time.time()
     meta = {k: page[k] for k in ("title", "url", "requested_url", "words", "method", "truncated")}
     if page.get("note"): meta["note"] = page["note"]
-    _mood_cache[url] = (time.time(), mood, debug, meta)
+    _remember_mood(url, (time.time(), mood, debug, meta))
     return mood, debug, meta, {"ingest_s": round(t1 - t0, 2), "mood_s": round(t2 - t1, 2), "cached": False}
 
 
