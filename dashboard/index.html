@@ -288,6 +288,8 @@
   .u2l .xnote{color:var(--sage)}
   .err.soft{color:var(--amber)}
   .u2l .srcpick{display:flex; gap:6px; align-items:center; margin:0 0 8px}
+  .u2l .voxrow{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 8px}
+  .u2l .voxrow .asof{margin:0}
   .u2l button.srcbtn{background:#1f171d; color:var(--ink); border:1px solid var(--line); border-radius:999px;
     padding:4px 10px; font:700 11px var(--mono); letter-spacing:.04em; cursor:pointer}
   .u2l button.srcbtn[aria-pressed="true"]{background:var(--amber); color:#1a1420; border-color:var(--amber)}
@@ -530,6 +532,14 @@
       <div class="pane" id="paneU" role="tabpanel" hidden>
         <form id="u2lForm"><input id="u2lUrl" type="url" placeholder="https://… any public page" required aria-label="Page URL">
           <button id="u2lBtn" type="submit">MAKE IT LOFI</button></form>
+      </div>
+      <div class="voxrow">
+        <span class="asof">Vocals</span>
+        <div class="srcpick" id="voxPick" role="radiogroup" aria-label="Vocals">
+          <button type="button" class="srcbtn" id="voxNone" role="radio" aria-pressed="true" aria-checked="true">None</button>
+          <button type="button" class="srcbtn" id="voxSummary" role="radio" aria-pressed="false" aria-checked="false">Host summary</button>
+          <button type="button" class="srcbtn" id="voxSong" role="radio" aria-pressed="false" aria-checked="false">Song</button>
+        </div>
       </div>
       <div class="pbar"><div id="u2lBar"></div></div>
       <div class="stage" id="u2lStage">Web search (default): Wikipedia, public news, and Hacker News. Reads the mood, renders an original ~44 s track.</div>
@@ -970,7 +980,37 @@ async function loadEpisode(){
 wirePlayer();
 
 /* ---------- URL -> Lofi (engine/server.py API) ---------- */
-const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',finishing:'Mixing down…',done:'Done'};
+const STAGES={queued:'Queued…',searching:'Finding posts on X…',fetching:'Fetching the page…',analyzing:'Reading the mood…',rendering:'Rendering the beat…',vocals:'Rendering vocals…',finishing:'Mixing down…',done:'Done'};
+let VOCALS='none';
+function setVocals(mode){
+  VOCALS=(mode==='summary'||mode==='song')?mode:'none';
+  [['voxNone','none'],['voxSummary','summary'],['voxSong','song']].forEach(([id,val])=>{
+    const on=VOCALS===val, b=$(id);
+    b.setAttribute('aria-pressed', on?'true':'false');
+    b.setAttribute('aria-checked', on?'true':'false');
+  });
+}
+$('voxNone').onclick=()=>setVocals('none');
+$('voxSummary').onclick=()=>setVocals('summary');
+$('voxSong').onclick=()=>setVocals('song');
+function vocalNote(r){
+  const v=r&&r.vocals;
+  if(!v) return '';
+  if(v.state==='instrumental'){
+    const why=v.reason||'The voice engine is unavailable, so this stayed instrumental.';
+    return `<div class="note" id="voxFallback">Vocals fell back to instrumental. ${esc(why)}</div>`;
+  }
+  if(v.state==='ready'){
+    const label=v.mode==='song'?'song':'host summary';
+    return `<div class="note">Spoken vocals on this track (${esc(label)}).</div>`;
+  }
+  return '';
+}
+function doneStage(res){
+  let text=`Done · now playing ${fileLabel(res.track.file)}`;
+  if(res.vocals&&res.vocals.state==='instrumental') text+=' · vocals fell back to instrumental';
+  return text;
+}
 // A restart drops in-memory jobs. Polling a missing id used to spin forever.
 // A poll that never returns used to leave the button on WORKING.
 async function fetchT(url, opts, ms){
@@ -999,6 +1039,7 @@ function showU2L(r){
   const when = t.total_s==null ? '' : (t.track_cached ? `already made, loaded in ${t.total_s}s` : `made in ${t.total_s}s`);
   $('u2lRes').hidden=false;
   $('u2lRes').innerHTML=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>
+    ${vocalNote(r)}
     ${r.page&&r.page.note?`<div class="note">ⓘ ${esc(r.page.note)}</div>`:''}
     <div class="sum" title="${esc(m.page_summary)}">${esc(m.page_summary)}</div>
     <div>${esc(m.sentiment)} · ${esc((a.primary_instruments||[]).join(', '))}</div>
@@ -1011,7 +1052,7 @@ $('u2lForm').addEventListener('submit', async e=>{
   $('u2lStage').textContent='Starting…'; ensureAudio();
   const fail=msg=>{ $('u2lStage').innerHTML=`<span class="err">⚠ ${esc(msg)}</span>`; $('u2lBar').style.width='0'; btn.disabled=false; btn.textContent='MAKE IT LOFI'; loadBots(); };
   try{
-    const r=await fetchT('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({url,async:true,agent_id:'dashboard'})}, 20000);
+    const r=await fetchT('/api/synthesize',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({url,async:true,agent_id:'dashboard',vocals:VOCALS})}, 20000);
     const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`);
     loadBots();
     while(true){
@@ -1023,7 +1064,7 @@ $('u2lForm').addEventListener('submit', async e=>{
         const res=s.result, attrs=res&&res.mood&&res.mood.musical_attributes;
         if(!res||!res.track||!res.track.file||!attrs){ $('u2lRes').hidden=true; return fail('The job finished without a track.'); }
         showU2L(res);
-        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
+        $('u2lStage').textContent=doneStage(res);
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>sameTrack(x.file,play)||sameTrack(x.file,res.track.file))||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
@@ -1111,7 +1152,7 @@ function showTopic(r){
   const m=r.mood, a=m.musical_attributes, t=r.timing||{}, tp=r.topic||{};
   const web = tp.source==='web' || tp.requested_source==='web';
   $('u2lRes').hidden=false;
-  const chips=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>`;
+  const chips=`<div class="chips"><span class="chip k">${a.bpm} BPM</span><span class="chip k">${esc(a.key)}</span>${(a.mood_tags||[]).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div>${vocalNote(r)}`;
   const made=t.total_s!=null?(t.track_cached?` · already made, loaded in ${t.total_s}s`:` · made in ${t.total_s}s`):'';
   if(web){
     const pages=(tp.pages||[]).map(p=>`<li><a href="${esc(safeHref(p.url))}" target="_blank" rel="noopener">${esc(p.title||p.url)}</a><small>${esc(p.via||'')}${p.method==='url-words'?' · link words':''}</small></li>`).join('');
@@ -1140,7 +1181,7 @@ $('xForm').addEventListener('submit', async e=>{
   setTopicBusy(true); btn.textContent='WORKING…'; $('u2lBar').style.width='4%';
   $('u2lStage').textContent=searching; ensureAudio();
   try{
-    const r=await fetchT('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,source:TOPIC_SOURCE,async:true,agent_id:'dashboard'})}, 20000);
+    const r=await fetchT('/api/synthesize_topic',{method:'POST',headers:{'Content-Type':'application/json','X-Agent-Id':'dashboard'},body:JSON.stringify({topic,source:TOPIC_SOURCE,async:true,agent_id:'dashboard',vocals:VOCALS})}, 20000);
     const j=await r.json(); if(!r.ok||!j.job_id) return fail(j.error||`HTTP ${r.status}`, softKind(j.error_kind));
     loadBots();
     while(true){
@@ -1155,7 +1196,7 @@ $('xForm').addEventListener('submit', async e=>{
         const res=s.result, attrs=res&&res.mood&&res.mood.musical_attributes;
         if(!res||!res.track||!res.track.file||!attrs){ $('u2lRes').hidden=true; return fail('The job finished without a track.'); }
         showTopic(res);
-        $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
+        $('u2lStage').textContent=doneStage(res);
         await loadEpisode();
         const play=res.track.url||res.track.file;
         const t=TRACKS.find(x=>x.file===play||x.file===res.track.file)||{file:play,title:res.track.title,bpm:res.mood.musical_attributes.bpm,key:res.mood.musical_attributes.key};
