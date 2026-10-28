@@ -3,7 +3,7 @@
 The host check used to resolve a name, then the HTTP client resolved it again.
 A second answer of 127.0.0.1 was contacted. Topic discovery did not check at all.
 """
-import socket, threading, unittest
+import http.client, socket, threading, unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from engine import ingest
@@ -110,6 +110,7 @@ class FetchSSRFTest(unittest.TestCase):
                 ingest.fetch("http://public.test/go")
         finally:
             httpd.shutdown()
+            httpd.server_close()
         self.assertNotIn("100.64.0.1", self.tried)
         self.assertNotIn("/meta", httpd.hits)
 
@@ -121,6 +122,7 @@ class FetchSSRFTest(unittest.TestCase):
                 topic_web._open(f"http://127.0.0.1:{port}/secret", "text/html", timeout=2)
         finally:
             httpd.shutdown()
+            httpd.server_close()
         self.assertEqual(httpd.hits, [])
 
     def test_documented_proxy_range_is_still_allowed(self):
@@ -134,3 +136,37 @@ class FetchSSRFTest(unittest.TestCase):
         with self.assertRaises(ingest.IngestError):
             ingest.fetch("http://example.com/")
         self.assertIn("198.18.0.1", self.tried)
+
+    def test_non_ascii_url_is_encoded_before_the_pinned_connect(self):
+        calls = {"n": 0}
+
+        def gai(host, port, *args, **kwargs):
+            if host == "ja.wikipedia.org":
+                calls["n"] += 1
+                ip = "8.8.8.8" if calls["n"] == 1 else "127.0.0.1"
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port))]
+            return self._gai(host, port, *args, **kwargs)
+
+        selectors = []
+        real_put = http.client.HTTPConnection.putrequest
+
+        def putrequest(conn, method, selector, *args, **kwargs):
+            selectors.append(selector)
+            return real_put(conn, method, selector, *args, **kwargs)
+
+        def connect(sock, addr):
+            self.tried.append(addr[0])
+            raise ConnectionRefusedError(addr)
+
+        socket.getaddrinfo = gai
+        socket.socket.connect = connect
+        http.client.HTTPConnection.putrequest = putrequest
+        try:
+            with self.assertRaises(ingest.IngestError) as caught:
+                ingest.fetch("http://ja.wikipedia.org/wiki/東京都")
+        finally:
+            http.client.HTTPConnection.putrequest = real_put
+        self.assertNotIn("ascii", str(caught.exception))
+        self.assertEqual(selectors, ["/wiki/%E6%9D%B1%E4%BA%AC%E9%83%BD"])
+        self.assertEqual(self.tried, ["8.8.8.8"])
+        self.assertNotIn("127.0.0.1", self.tried)
