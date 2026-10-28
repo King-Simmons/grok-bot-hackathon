@@ -1227,7 +1227,7 @@ function ensureAudio(){
 const voiceEl = new Audio(); voiceEl.preload='auto'; let hasVoice=false;
 fetch('voice.mp3',{method:'HEAD',cache:'no-store'}).then(r=>{ if(r.ok){ hasVoice=true; voiceEl.src='voice.mp3'; } }).catch(()=>{});
 // keep optional voice stem in sync with episode
-audioEl.addEventListener('play',()=>{ ensureAudio(); if(hasVoice){ voiceEl.currentTime=audioEl.currentTime; voiceEl.play(); } });
+audioEl.addEventListener('play',()=>{ ensureAudio(); if(hasVoice){ voiceEl.currentTime=audioEl.currentTime; const vp=voiceEl.play(); if(vp&&vp.catch) vp.catch(()=>{}); } });
 audioEl.addEventListener('pause',()=>{ if(hasVoice) voiceEl.pause(); });
 audioEl.addEventListener('seeked',()=>{ if(hasVoice) voiceEl.currentTime=audioEl.currentTime; });
 
