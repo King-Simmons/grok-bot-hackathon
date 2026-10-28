@@ -30,6 +30,46 @@ class UsageTotalsTest(unittest.TestCase):
         self.assertGreaterEqual(body["all_time"]["calls"], 4)
         self.assertGreaterEqual(body["today"]["calls"], 1)
 
+    def _write(self, payload):
+        os.makedirs(usage.DATA_DIR, exist_ok=True)
+        with open(usage.TOTALS_PATH, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+
+    def test_non_numeric_calls_count_as_zero(self):
+        today = datetime.now(ZoneInfo("America/Chicago")).date().isoformat()
+        self._write({
+            "all_time": {"calls": "abc", "errors": 0, "tracks": 0, "audio_s": "nope", "x_reads": 0},
+            "days": {today: {"calls": "abc", "errors": 0, "tracks": 0, "audio_s": 0, "x_reads": 0, "by": {}}},
+            "hours": {},
+            "agents": {"dash": {"calls": "nope", "errors": 0, "tracks": 0, "audio_s": 0, "x_reads": 0}},
+        })
+        body = usage.summary()
+        self.assertEqual(body["all_time"]["calls"], 0)
+        self.assertEqual(body["all_time"]["audio_s"], 0)
+        self.assertEqual(body["today"]["calls"], 0)
+        self.assertEqual(body["agents"][0]["calls"], 0)
+        usage.record("dashboard", "synthesize", True, 0.1, tracks=1)
+        body = usage.summary()
+        self.assertGreaterEqual(body["all_time"]["calls"], 1)
+        self.assertGreaterEqual(body["today"]["calls"], 1)
+
+    def test_non_object_by_is_ignored(self):
+        today = datetime.now(ZoneInfo("America/Chicago")).date().isoformat()
+        self._write({
+            "all_time": {"calls": 2, "errors": 0, "tracks": 0, "audio_s": 0, "x_reads": 0},
+            "days": {today: {"calls": 2, "errors": 0, "tracks": 0, "audio_s": 0, "x_reads": 0, "by": [1, 2]}},
+            "hours": {},
+            "agents": {},
+        })
+        body = usage.summary()
+        self.assertEqual(body["today"]["calls"], 2)
+        self.assertEqual(body["agents_today"], [])
+        self.assertEqual(body["all_time"]["calls"], 2)
+        usage.record("dashboard", "synthesize", True, 0.1, tracks=1)
+        body = usage.summary()
+        self.assertGreaterEqual(body["today"]["calls"], 3)
+        self.assertEqual(body["agents_today"][0]["agent"], "dashboard")
+
 
 if __name__ == "__main__":
     unittest.main()
