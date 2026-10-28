@@ -153,6 +153,58 @@ class JobLimitTest(unittest.TestCase):
         accepted = [item[0][0] for item in sinks if item]
         self.assertEqual(accepted, [200, 200, 200, 200])
 
+    def test_done_means_the_slot_is_free(self):
+        """A poll that sees done can start another track. The slot is already free."""
+        from unittest.mock import patch
+        gate = threading.Event()
+        holding = []
+
+        def fake(url, force=False, progress=None, vocals="none", script=None, agent="anonymous"):
+            return _result(url)
+
+        def slow_note(*_args, **_kwargs):
+            holding.append(1)
+            gate.wait(3)
+
+        ids = []
+        with patch("engine.pipeline.synthesize", fake), patch("engine.server.note_synthesize", slow_note):
+            try:
+                for i in range(4):
+                    status, body = self.post(
+                        "/api/synthesize", {"url": f"https://example.com/order/{i}", "async": True})
+                    self.assertEqual(status, 202, body)
+                    ids.append(body["job_id"])
+                for _ in range(50):
+                    if len(holding) >= 4:
+                        break
+                    time.sleep(0.02)
+                self.assertEqual(len(holding), 4)
+                for jid in ids:
+                    _code, job = self.get("/api/jobs/" + jid)
+                    self.assertEqual(job.get("state"), "running", job)
+                status, body = self.post(
+                    "/api/synthesize", {"url": "https://example.com/order/busy", "async": True})
+                self.assertEqual(status, 429, body)
+            finally:
+                gate.set()
+            for jid in ids:
+                for _ in range(50):
+                    _code, job = self.get("/api/jobs/" + jid)
+                    if job.get("state") == "done":
+                        break
+                    time.sleep(0.01)
+                else:
+                    self.fail(f"job stayed {job.get('state')}")
+            status, body = self.post(
+                "/api/synthesize", {"url": "https://example.com/order/after", "async": True})
+            self.assertEqual(status, 202, body)
+            for _ in range(50):
+                _code, job = self.get("/api/jobs/" + body["job_id"])
+                if job.get("state") == "done":
+                    break
+                time.sleep(0.01)
+            self.assertEqual(job.get("state"), "done", job)
+
     def test_finished_jobs_past_the_cap_are_forgotten(self):
         from unittest.mock import patch
 

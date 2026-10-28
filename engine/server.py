@@ -198,16 +198,17 @@ def _vocal_request(body):
 
 
 def _run_job(jid, url, force, agent, vocals="none", script=None):
+    """Render, then return the terminal job update. The caller publishes it after the slot is free."""
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
         r = pipeline.synthesize(url, force=force, progress=prog, vocals=vocals, script=script, agent=agent)
-        with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_synthesize(agent, started, r)
+        return {"state": "done", "stage": "done", "progress": 100, "result": _result(r)}
     except Exception as e:
-        with JOBS_LOCK: JOBS[jid].update(state="error", stage="error", error=str(e))
         note_synthesize(agent, started, error=str(e))
+        return {"state": "error", "stage": "error", "error": str(e)}
 
 
 def _prune_jobs_locked(now=None):
@@ -242,10 +243,18 @@ def _spawn_job(jid, record, target, args):
             return False
         JOBS[jid] = record
     def run():
+        update = None
         try:
-            target(*args)
+            update = target(*args)
+        except Exception as e:
+            update = {"state": "error", "stage": "error", "error": f"{type(e).__name__}: {e}"}
         finally:
             _SLOTS.release()
+        if update:
+            with JOBS_LOCK:
+                job = JOBS.get(jid)
+                if job is not None:
+                    job.update(update)
     try:
         threading.Thread(target=run, daemon=True).start()
     except Exception:
@@ -375,18 +384,18 @@ def route_synthesize_post(handler, path):
             r = pipeline.synthesize(url, force=force, vocals=vocals, script=script, agent=who)
         except IngestError as e:
             note_synthesize(who, started, error=str(e))
-            handler._json(422, {"error": str(e)})
-            return True
+            response = (422, {"error": str(e)})
         except Exception as e:
             msg = f"{type(e).__name__}: {e}"
             note_synthesize(who, started, error=msg)
-            handler._json(500, {"error": msg})
-            return True
-        note_synthesize(who, started, r)
-        handler._json(200, _result(r))
-        return True
+            response = (500, {"error": msg})
+        else:
+            note_synthesize(who, started, r)
+            response = (200, _result(r))
     finally:
         _SLOTS.release()
+    handler._json(*response)
+    return True
 
 
 def topics_catalog():
@@ -422,20 +431,21 @@ def note_topic(agent, started, result=None, error=""):
 
 
 def _run_topic_job(jid, topic, posts, force, agent, source="web", vocals="none", script=None):
+    """Same contract as _run_job: return the terminal update, do not publish it."""
     started = time.perf_counter()
     def prog(stage, pct):
         with JOBS_LOCK: JOBS[jid].update(stage=stage, progress=pct)
     try:
         r = pipeline.synthesize_topic(topic, posts=posts, force=force, progress=prog, source=source,
                                      vocals=vocals, script=script, agent=agent)
-        with JOBS_LOCK: JOBS[jid].update(state="done", stage="done", progress=100, result=_result(r))
         note_topic(agent, started, r)
+        return {"state": "done", "stage": "done", "progress": 100, "result": _result(r)}
     except Exception as e:
         kind = getattr(e, "error_kind", None)
         if kind is None and isinstance(e, pipeline.TopicNotFound):
             kind = "topic_not_found"
-        with JOBS_LOCK: JOBS[jid].update(state="error", stage="error", error=str(e), error_kind=kind)
         note_topic(agent, started, error=str(e))
+        return {"state": "error", "stage": "error", "error": str(e), "error_kind": kind}
 
 
 def route_topics_get(handler, path):
@@ -509,26 +519,24 @@ def route_synthesize_topic_post(handler, path):
                                          vocals=vocals, script=script, agent=who)
         except (EmptyTopic, BadSource) as e:
             note_topic(who, started, error=str(e))
-            handler._json(e.http_status, {"error": str(e), "error_kind": e.error_kind})
-            return True
+            response = (e.http_status, {"error": str(e), "error_kind": e.error_kind})
         except pipeline.TopicNotFound as e:
             note_topic(who, started, error=str(e))
-            handler._json(404, {"error": str(e), "error_kind": "topic_not_found"})
-            return True
+            response = (404, {"error": str(e), "error_kind": "topic_not_found"})
         except IngestError as e:
             note_topic(who, started, error=str(e))
-            handler._json(422, {"error": str(e)})
-            return True
+            response = (422, {"error": str(e)})
         except Exception as e:
             msg = f"{type(e).__name__}: {e}"
             note_topic(who, started, error=msg)
-            handler._json(500, {"error": msg})
-            return True
-        note_topic(who, started, r)
-        handler._json(200, _result(r))
-        return True
+            response = (500, {"error": msg})
+        else:
+            note_topic(who, started, r)
+            response = (200, _result(r))
     finally:
         _SLOTS.release()
+    handler._json(*response)
+    return True
 
 
 class Handler(SimpleHTTPRequestHandler):
