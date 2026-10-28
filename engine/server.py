@@ -552,11 +552,11 @@ def route_synthesize_topic_post(handler, path):
             return True
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
         return True
+    from engine.topic_web import BadSource, EmptyTopic
     if not _SLOTS.acquire(blocking=False):
         _reject_busy(handler, who, "synthesize_topic")
         return True
     started = time.perf_counter()
-    from engine.topic_web import BadSource, EmptyTopic
     try:
         try:
             r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source,
