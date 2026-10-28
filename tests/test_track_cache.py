@@ -60,6 +60,25 @@ class TrackCacheTest(unittest.TestCase):
             second = pipeline.synthesize(url, report_status=False)
         self.assertFalse(second["timing"]["track_cached"])
 
+    def test_mood_cache_drops_urls_it_cannot_keep(self):
+        calls = []
+
+        def fake(url):
+            calls.append(url)
+            return _fake_page(url)
+
+        pipeline._mood_cache.clear()
+        try:
+            with patch("engine.pipeline.ingest", fake):
+                for i in range(300):
+                    pipeline.mood_for(f"https://cache.example/{i}")
+                pipeline.mood_for("https://cache.example/0")
+                pipeline.mood_for("https://cache.example/299")
+        finally:
+            pipeline._mood_cache.clear()
+        self.assertGreaterEqual(calls.count("https://cache.example/0"), 2)
+        self.assertEqual(calls.count("https://cache.example/299"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
