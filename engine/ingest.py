@@ -116,16 +116,22 @@ def extract(html, url=None):
     title, text, method = "", "", "stdlib"
     try:
         import trafilatura
-        text = trafilatura.extract(html, url=url, include_comments=False, include_tables=False, favor_recall=True) or ""
-        md = trafilatura.extract_metadata(html, default_url=url)
-        title = (md.title if md and md.title else "") or ""
-        method = "trafilatura"
     except ImportError:
-        pass
-    except Exception:
-        # A parser error is the same outcome as "trafilatura is not installed":
-        # keep going with the stdlib extractor instead of failing the page.
-        text, title, method = "", "", "stdlib"
+        trafilatura = None
+    if trafilatura is not None:
+        try:
+            text = trafilatura.extract(html, url=url, include_comments=False, include_tables=False, favor_recall=True) or ""
+        except Exception:
+            # A body-parser error is the same outcome as trafilatura missing.
+            text = ""
+        if text:
+            method = "trafilatura"
+        try:
+            md = trafilatura.extract_metadata(html, default_url=url)
+            title = (md.title if md and md.title else "") or ""
+        except Exception:
+            # Title lookup can fail after a good extract. Keep the body text.
+            pass
     if len(text.split()) < 40:  # trafilatura found little (JS-heavy / docs pages): fall back
         t2, x2 = _fallback_extract(html)
         if len(x2.split()) > len(text.split()):
