@@ -1,5 +1,7 @@
 """A trafilatura failure should fall back to the stdlib extractor."""
-import sys, types, unittest
+import importlib.util, sys, types, unittest
+
+_HAS_TRAFILATURA = importlib.util.find_spec("trafilatura") is not None
 
 from engine.ingest import extract
 
@@ -27,6 +29,7 @@ class ExtractFallbackTest(unittest.TestCase):
         else:
             sys.modules["trafilatura"] = self._real_trafilatura
 
+    @unittest.skipUnless(_HAS_TRAFILATURA, "trafilatura is not installed")
     def test_teardown_restores_the_real_module(self):
         import trafilatura
         real = sys.modules["trafilatura"]
