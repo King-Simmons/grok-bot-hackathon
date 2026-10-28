@@ -23,10 +23,10 @@ Prove a change to the control room or the HTTP API with `.cursor/skills/verify-l
 Run tests with this command and no other:
 
 ```bash
-./scripts/test.sh
+./scripts/test_all.sh
 ```
 
-`scripts/test.sh` is the single test entry point. When the suite or CI runner changes, edit that file's exec line and leave every other instruction calling `./scripts/test.sh`.
+`scripts/test_all.sh` is the offline suite. CI runs it from `.github/workflows/tests.yml`.
 
 ## Pull requests
 

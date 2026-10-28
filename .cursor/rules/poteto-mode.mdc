@@ -5,6 +5,6 @@ alwaysApply: true
 
 For any non-trivial task, read and follow `vendor/pstack/skills/poteto-mode/SKILL.md` before editing. Use the `poteto-agent` subagent (`.cursor/agents/poteto-agent.md`) for delegates. Prove control-room and API changes with `.cursor/skills/verify-lofi-news-radio/SKILL.md`.
 
-Run tests with `./scripts/test.sh` only. That file is the single test command.
+Run tests with `./scripts/test_all.sh` only. That is the offline suite CI runs.
 
 Branch from `main`. Keep pull requests small and based on `main`. Never push to `main`.

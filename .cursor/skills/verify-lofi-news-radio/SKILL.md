@@ -1,6 +1,6 @@
 ---
 name: verify-lofi-news-radio
-description: "Drive Lofi News Radio the way a listener does: start ./run.sh on its own port, check /api/health, open the dashboard, hit the key API routes, and run ./scripts/test.sh. Use after a change to the control room, the engine HTTP API, headlines, or the dashboard."
+description: "Drive Lofi News Radio the way a listener does: start ./run.sh on its own port, check /api/health, open the dashboard, hit the key API routes, and run ./scripts/test_all.sh. Use after a change to the control room, the engine HTTP API, headlines, or the dashboard."
 ---
 
 # Verify Lofi News Radio
@@ -14,10 +14,10 @@ Read `features/README.md` before a pass, then follow one feature file per journe
 From the repository root, run:
 
 ```bash
-./scripts/test.sh
+./scripts/test_all.sh
 ```
 
-That file is the only test command. A separate change is adding a larger suite and CI. When the runner changes, edit the exec line inside `scripts/test.sh`. Leave this section calling `./scripts/test.sh`.
+That file is the offline suite. CI runs it from `.github/workflows/tests.yml`. It does not fetch the network.
 
 ## Launch
 
@@ -57,7 +57,7 @@ set -a; source "$EVIDENCE/session.env"; set +a
 
 Proof lives in `$EVIDENCE/proof/` and `$EVIDENCE/server.log`. A control-room proof contains `health.json`, `dashboard.html`, `agents.json`, `usage.json`, `topics.json`, `headlines.json`, `episode.json`, and `beat-001.size.txt`. When Chrome is installed it also contains `dashboard.dom.html`, `dashboard.png`, and `graph.dom.html`.
 
-A proof shows the request and the resulting state. A 200 with the wrong body is a failure. For a mutation, read the value back with a second GET. Do not treat a dry name as proof. `./scripts/test.sh` does not fetch the network and does not replace a drive of the running server.
+A proof shows the request and the resulting state. A 200 with the wrong body is a failure. For a mutation, read the value back with a second GET. Do not treat a dry name as proof. `./scripts/test_all.sh` does not replace a drive of the running server.
 
 ## Cleanup
 
