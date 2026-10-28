@@ -74,15 +74,38 @@ def _atomic_write(path, data):
         raise
 
 
+def _object_buckets(value):
+    if not isinstance(value, dict):
+        return {}
+    return {key: row for key, row in value.items() if isinstance(row, dict)}
+
+
+def _int_map(value):
+    if not isinstance(value, dict):
+        return {}
+    out = {}
+    for key, row in value.items():
+        if isinstance(row, bool) or not isinstance(row, (int, float)):
+            continue
+        out[key] = int(row)
+    return out
+
+
 def _load_totals():
+    empty = {"all_time": _zeros(), "days": {}, "agents": {}, "hours": {}, "months_x": {}}
     try:
         with open(TOTALS_PATH, encoding="utf-8") as f:
             data = json.load(f)
-        if isinstance(data, dict) and isinstance(data.get("all_time"), dict):
-            return data
+        if not isinstance(data, dict) or not isinstance(data.get("all_time"), dict):
+            return empty
+        data["days"] = _object_buckets(data.get("days"))
+        data["agents"] = _object_buckets(data.get("agents"))
+        data["tools"] = _object_buckets(data.get("tools"))
+        data["hours"] = _int_map(data.get("hours"))
+        data["months_x"] = _int_map(data.get("months_x"))
+        return data
     except Exception:
-        pass
-    return {"all_time": _zeros(), "days": {}, "agents": {}, "hours": {}, "months_x": {}}
+        return empty
 
 
 def _add(bucket, *, ok, tracks, audio_s, x_reads):
