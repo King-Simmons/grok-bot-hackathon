@@ -37,6 +37,13 @@ from engine.ingest import IngestError  # noqa: E402
 
 JOBS = {}
 JOBS_LOCK = threading.Lock()
+# One local machine renders a handful of tracks at once. Callers past the cap
+# get 429 instead of another thread. Finished jobs are dropped so the table
+# cannot grow for the life of the process.
+MAX_RUNNING = 4
+MAX_RETAINED_JOBS = 64
+JOB_RETAIN_S = 30 * 60
+_SLOTS = threading.BoundedSemaphore(MAX_RUNNING)
 STATIC_ROOTS = {"dashboard", "samples", "tracks", "status"}
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
@@ -203,6 +210,52 @@ def _run_job(jid, url, force, agent, vocals="none", script=None):
         note_synthesize(agent, started, error=str(e))
 
 
+def _prune_jobs_locked(now=None):
+    now = time.time() if now is None else now
+    expired = [
+        jid for jid, job in JOBS.items()
+        if job.get("state") != "running" and now - float(job.get("started") or now) > JOB_RETAIN_S
+    ]
+    for jid in expired:
+        JOBS.pop(jid, None)
+    overflow = len(JOBS) - MAX_RETAINED_JOBS
+    if overflow <= 0:
+        return
+    finished = sorted(
+        (float(job.get("started") or 0), jid)
+        for jid, job in JOBS.items() if job.get("state") != "running"
+    )
+    for _started, jid in finished[:overflow]:
+        JOBS.pop(jid, None)
+
+
+def _reject_busy(handler, who, tool):
+    usage.record(who, tool, False, 0, error="busy")
+    handler._json(429, {"error": "too many tracks are rendering"})
+
+
+def _spawn_job(jid, record, target, args):
+    """Start one tracked job. False when every render slot is already taken."""
+    with JOBS_LOCK:
+        _prune_jobs_locked()
+        if not _SLOTS.acquire(blocking=False):
+            return False
+        JOBS[jid] = record
+    def run():
+        try:
+            target(*args)
+        finally:
+            _SLOTS.release()
+    try:
+        threading.Thread(target=run, daemon=True).start()
+    except Exception:
+        _SLOTS.release()
+        with JOBS_LOCK:
+            JOBS.pop(jid, None)
+        raise
+    return True
+
+
 def read_json_object(handler, limit):
     """Read a JSON object body. Returns (body, True) after the error response is sent."""
     try:
@@ -307,26 +360,33 @@ def route_synthesize_post(handler, path):
     vocals, script = _vocal_request(body)
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
-        with JOBS_LOCK:
-            JOBS[jid] = {"id": jid, "url": url, "state": "running", "stage": "queued", "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_job, args=(jid, url, force, who, vocals, script), daemon=True).start()
+        record = {"id": jid, "url": url, "state": "running", "stage": "queued", "progress": 0, "started": time.time()}
+        if not _spawn_job(jid, record, _run_job, (jid, url, force, who, vocals, script)):
+            _reject_busy(handler, who, "synthesize")
+            return True
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
+        return True
+    if not _SLOTS.acquire(blocking=False):
+        _reject_busy(handler, who, "synthesize")
         return True
     started = time.perf_counter()
     try:
-        r = pipeline.synthesize(url, force=force, vocals=vocals, script=script, agent=who)
-    except IngestError as e:
-        note_synthesize(who, started, error=str(e))
-        handler._json(422, {"error": str(e)})
+        try:
+            r = pipeline.synthesize(url, force=force, vocals=vocals, script=script, agent=who)
+        except IngestError as e:
+            note_synthesize(who, started, error=str(e))
+            handler._json(422, {"error": str(e)})
+            return True
+        except Exception as e:
+            msg = f"{type(e).__name__}: {e}"
+            note_synthesize(who, started, error=msg)
+            handler._json(500, {"error": msg})
+            return True
+        note_synthesize(who, started, r)
+        handler._json(200, _result(r))
         return True
-    except Exception as e:
-        msg = f"{type(e).__name__}: {e}"
-        note_synthesize(who, started, error=msg)
-        handler._json(500, {"error": msg})
-        return True
-    note_synthesize(who, started, r)
-    handler._json(200, _result(r))
-    return True
+    finally:
+        _SLOTS.release()
 
 
 def topics_catalog():
@@ -431,38 +491,44 @@ def route_synthesize_topic_post(handler, path):
     vocals, script = _vocal_request(body)
     if body.get("async"):
         jid = uuid.uuid4().hex[:12]
-        with JOBS_LOCK:
-            JOBS[jid] = {"id": jid, "url": topic, "source": source, "state": "running", "stage": "queued",
-                         "progress": 0, "started": time.time()}
-        threading.Thread(target=_run_topic_job, args=(jid, topic, posts, force, who, source, vocals, script),
-                         daemon=True).start()
+        record = {"id": jid, "url": topic, "source": source, "state": "running", "stage": "queued",
+                  "progress": 0, "started": time.time()}
+        if not _spawn_job(jid, record, _run_topic_job, (jid, topic, posts, force, who, source, vocals, script)):
+            _reject_busy(handler, who, "synthesize_topic")
+            return True
         handler._json(202, {"job_id": jid, "poll": f"/api/jobs/{jid}"})
+        return True
+    if not _SLOTS.acquire(blocking=False):
+        _reject_busy(handler, who, "synthesize_topic")
         return True
     started = time.perf_counter()
     from engine.topic_web import BadSource, EmptyTopic
     try:
-        r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source,
-                                     vocals=vocals, script=script, agent=who)
-    except (EmptyTopic, BadSource) as e:
-        note_topic(who, started, error=str(e))
-        handler._json(e.http_status, {"error": str(e), "error_kind": e.error_kind})
+        try:
+            r = pipeline.synthesize_topic(topic, posts=posts, force=force, source=source,
+                                         vocals=vocals, script=script, agent=who)
+        except (EmptyTopic, BadSource) as e:
+            note_topic(who, started, error=str(e))
+            handler._json(e.http_status, {"error": str(e), "error_kind": e.error_kind})
+            return True
+        except pipeline.TopicNotFound as e:
+            note_topic(who, started, error=str(e))
+            handler._json(404, {"error": str(e), "error_kind": "topic_not_found"})
+            return True
+        except IngestError as e:
+            note_topic(who, started, error=str(e))
+            handler._json(422, {"error": str(e)})
+            return True
+        except Exception as e:
+            msg = f"{type(e).__name__}: {e}"
+            note_topic(who, started, error=msg)
+            handler._json(500, {"error": msg})
+            return True
+        note_topic(who, started, r)
+        handler._json(200, _result(r))
         return True
-    except pipeline.TopicNotFound as e:
-        note_topic(who, started, error=str(e))
-        handler._json(404, {"error": str(e), "error_kind": "topic_not_found"})
-        return True
-    except IngestError as e:
-        note_topic(who, started, error=str(e))
-        handler._json(422, {"error": str(e)})
-        return True
-    except Exception as e:
-        msg = f"{type(e).__name__}: {e}"
-        note_topic(who, started, error=msg)
-        handler._json(500, {"error": msg})
-        return True
-    note_topic(who, started, r)
-    handler._json(200, _result(r))
-    return True
+    finally:
+        _SLOTS.release()
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -543,7 +609,10 @@ class Handler(SimpleHTTPRequestHandler):
         if route_mood_get(self, u):
             return
         if u.path.startswith("/api/jobs/"):
-            with JOBS_LOCK: j = dict(JOBS.get(u.path.rsplit("/", 1)[-1]) or {})
+            jid = u.path.rsplit("/", 1)[-1]
+            with JOBS_LOCK:
+                _prune_jobs_locked()
+                j = dict(JOBS.get(jid) or {})
             return self._json(200 if j else 404, j or {"error": "no such job"})
         if u.path.startswith("/api/"):
             return self._json(404, {"error": "unknown endpoint"})
