@@ -458,9 +458,22 @@ def render(attrs, seed=0, out_mp3=None, target_s=38.0, mood_hint=None):
             os.replace(tmp, out_mp3)
         except ImportError:  # fall back to ffmpeg
             import subprocess, tempfile, scipy.io.wavfile as wf
-            with tempfile.NamedTemporaryFile(suffix=".wav") as w:
-                wf.write(w.name, SR, pcm)
-                subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", w.name, "-b:a", "160k", out_mp3], check=True)
+            directory = os.path.dirname(os.path.abspath(out_mp3)) or "."
+            fd, tmp_mp3 = tempfile.mkstemp(prefix=".enc-", suffix=".mp3", dir=directory)
+            os.close(fd)
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".wav") as w:
+                    wf.write(w.name, SR, pcm)
+                    subprocess.run(
+                        ["ffmpeg", "-y", "-loglevel", "error", "-i", w.name, "-b:a", "160k", tmp_mp3],
+                        check=True)
+                os.replace(tmp_mp3, out_mp3)
+            except BaseException:
+                try:
+                    os.unlink(tmp_mp3)
+                except FileNotFoundError:
+                    pass
+                raise
         info["encode_s"] = round(time.time() - t1, 2)
     return info
 
