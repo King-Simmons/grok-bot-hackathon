@@ -108,13 +108,32 @@ def _load_totals():
         return empty
 
 
+def _count(value):
+    """A stored counter, or 0 when the file holds a non-number."""
+    if isinstance(value, bool) or value is None:
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _seconds(value):
+    if isinstance(value, bool) or value is None:
+        return 0.0
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _add(bucket, *, ok, tracks, audio_s, x_reads):
-    bucket["calls"] = int(bucket.get("calls") or 0) + 1
+    bucket["calls"] = _count(bucket.get("calls")) + 1
     if not ok:
-        bucket["errors"] = int(bucket.get("errors") or 0) + 1
-    bucket["tracks"] = int(bucket.get("tracks") or 0) + int(tracks or 0)
-    bucket["audio_s"] = round(float(bucket.get("audio_s") or 0) + float(audio_s or 0), 3)
-    bucket["x_reads"] = int(bucket.get("x_reads") or 0) + int(x_reads or 0)
+        bucket["errors"] = _count(bucket.get("errors")) + 1
+    bucket["tracks"] = _count(bucket.get("tracks")) + int(tracks or 0)
+    bucket["audio_s"] = round(_seconds(bucket.get("audio_s")) + float(audio_s or 0), 3)
+    bucket["x_reads"] = _count(bucket.get("x_reads")) + int(x_reads or 0)
 
 
 def _prune(totals, now):
@@ -132,7 +151,7 @@ def _prune(totals, now):
         months.pop(k, None)
     agents = totals.setdefault("agents", {})
     if len(agents) > _MAX_AGENTS:
-        ranked = sorted(agents, key=lambda a: int((agents[a] or {}).get("calls") or 0))
+        ranked = sorted(agents, key=lambda a: _count((agents[a] or {}).get("calls") if isinstance(agents[a], dict) else 0))
         for a in ranked[:len(agents) - _MAX_AGENTS]:
             agents.pop(a, None)
 
@@ -197,6 +216,8 @@ def record(agent, tool, ok, duration_s, audio_s=0.0, tracks=0, x_reads=0, error=
             day = totals.setdefault("days", {}).setdefault(_day_key(now), _zeros())
             # day buckets also keep a per-agent split under "by"
             _add(day, ok=ok, tracks=tracks, audio_s=audio_s, x_reads=x_reads)
+            if not isinstance(day.get("by"), dict):
+                day["by"] = {}
             by = day.setdefault("by", {})
             _add(by.setdefault(who, _zeros()), ok=ok, tracks=tracks, audio_s=audio_s, x_reads=x_reads)
             _add(totals.setdefault("agents", {}).setdefault(who, _zeros()), ok=ok, tracks=tracks, audio_s=audio_s, x_reads=x_reads)
@@ -213,18 +234,34 @@ def record(agent, tool, ok, duration_s, audio_s=0.0, tracks=0, x_reads=0, error=
 
 
 def _public_bucket(b):
-    calls = int((b or {}).get("calls") or 0)
-    errors = int((b or {}).get("errors") or 0)
-    audio = float((b or {}).get("audio_s") or 0)
+    if not isinstance(b, dict):
+        b = {}
+    calls = _count(b.get("calls"))
+    errors = _count(b.get("errors"))
+    audio = _seconds(b.get("audio_s"))
     return {
         "calls": calls,
         "errors": errors,
         "error_rate": round(errors / calls, 3) if calls else 0.0,
-        "tracks": int((b or {}).get("tracks") or 0),
+        "tracks": _count(b.get("tracks")),
         "audio_s": round(audio, 3),
         "audio_min": round(audio / 60.0, 2),
-        "x_reads": int((b or {}).get("x_reads") or 0),
+        "x_reads": _count(b.get("x_reads")),
     }
+
+
+def _agent_rows(bucket):
+    if not isinstance(bucket, dict):
+        return []
+    rows = []
+    for name, row in bucket.items():
+        if not isinstance(row, dict):
+            continue
+        public = _public_bucket(row)
+        public["agent"] = name
+        rows.append(public)
+    rows.sort(key=lambda r: (-r["calls"], r["agent"]))
+    return rows
 
 
 def note_x_search(agent, reads, ok=True, duration_s=0.0, error=""):
@@ -237,18 +274,10 @@ def summary():
     with _LOCK:
         totals = _load_totals()
     today = (totals.get("days") or {}).get(_day_key(now)) or {}
-    today_agents = []
-    for name, b in (today.get("by") or {}).items():
-        row = _public_bucket(b)
-        row["agent"] = name
-        today_agents.append(row)
-    today_agents.sort(key=lambda r: (-r["calls"], r["agent"]))
-    all_agents = []
-    for name, b in (totals.get("agents") or {}).items():
-        row = _public_bucket(b)
-        row["agent"] = name
-        all_agents.append(row)
-    all_agents.sort(key=lambda r: (-r["calls"], r["agent"]))
+    if not isinstance(today, dict):
+        today = {}
+    today_agents = _agent_rows(today.get("by"))
+    all_agents = _agent_rows(totals.get("agents"))
     slots = []
     for back in range(23, -1, -1):
         dt = now - datetime.timedelta(hours=back)
@@ -257,7 +286,8 @@ def summary():
     month = _month_key(now)
     x_month = int((totals.get("months_x") or {}).get(month) or 0)
     cap = X_FREE_TIER_MONTHLY_READS
-    tools = {name: _public_bucket(b) for name, b in (totals.get("tools") or {}).items()}
+    raw_tools = totals.get("tools") if isinstance(totals.get("tools"), dict) else {}
+    tools = {name: _public_bucket(row) for name, row in raw_tools.items() if isinstance(row, dict)}
     return {
         "generated": now.isoformat(timespec="seconds"),
         "timezone": "America/Chicago",
