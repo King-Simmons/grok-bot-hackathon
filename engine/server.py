@@ -18,7 +18,9 @@ Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
 Static files are only dashboard/, samples/, tracks/ and status/. `/` redirects to `/dashboard/`.
 Dotfiles are not served. API routes are /api/*.
 Binds to 127.0.0.1 by default. Host and Origin are allowed for localhost, 127.0.0.1, ::1,
-the bind address, and LOFI_PUBLIC_BASE. Missing or unparseable values are allowed and logged.
+the bind address, and LOFI_PUBLIC_BASE. A missing Origin is allowed. A null, empty, or
+malformed Origin on POST, PUT, PATCH, or DELETE is refused. Other unparseable values
+are allowed and logged.
 No auth secrets.
 
 Live agents and the usage meter live in the named helpers below (route_agents_*,
@@ -102,10 +104,12 @@ def origin_host(value):
     return "ok", host.lower().rstrip(".")
 
 
-def request_gate(host_header, origin_header, allowed):
+def request_gate(host_header, origin_header, allowed, method="GET"):
     """'allow', 'allow-log', or 'deny', plus a short reason.
 
-    Clear foreign hosts and origins are refused. Anything we cannot parse is
+    Clear foreign hosts and origins are refused. A missing Origin stays
+    allowed. On POST, PUT, PATCH, and DELETE, a literal null Origin and a
+    malformed or empty Origin are refused. Other unparseable values are
     allowed and logged so a proxy or older client keeps working.
     """
     if host_header is None or not str(host_header).strip():
@@ -117,6 +121,9 @@ def request_gate(host_header, origin_header, allowed):
         return "deny", "host"
     kind, ohost = origin_host(origin_header)
     if kind == "ok" and ohost not in allowed:
+        return "deny", "origin"
+    changing = str(method or "GET").upper() in {"POST", "PUT", "PATCH", "DELETE"}
+    if changing and kind in {"null", "bad", "empty"}:
         return "deny", "origin"
     if host_kind == "ok" and kind in ("ok", "missing"):
         return "allow", ""
@@ -602,7 +609,9 @@ class Handler(SimpleHTTPRequestHandler):
 
     def _gate(self):
         """False when a response was already sent."""
-        decision, why = request_gate(self.headers.get("Host"), self.headers.get("Origin"), self._allowed_names())
+        decision, why = request_gate(
+            self.headers.get("Host"), self.headers.get("Origin"), self._allowed_names(), self.command,
+        )
         if decision == "deny":
             self.log_message("rejected %s host=%s origin=%s", why, self.headers.get("Host"), self.headers.get("Origin"))
             self._json(403, {"error": "forbidden"})
