@@ -1006,7 +1006,7 @@ $('u2lForm').addEventListener('submit', async e=>{
       if(s.state==='error') return fail(s.error||'failed');
       if(s.state==='done'){
         const res=s.result, attrs=res&&res.mood&&res.mood.musical_attributes;
-        if(!res||!res.track||!res.track.file||!attrs) return fail('The job finished without a track.');
+        if(!res||!res.track||!res.track.file||!attrs){ $('u2lRes').hidden=true; return fail('The job finished without a track.'); }
         showU2L(res);
         $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
