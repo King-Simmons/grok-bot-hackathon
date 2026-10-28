@@ -4,7 +4,7 @@ Events stay on disk under data/ (gitignored). Nothing here contacts an
 analytics service or the network. All-time totals live in a small JSON file
 so they survive the raw-log rotation. The raw JSONL is a capped debug log.
 """
-import datetime, json, os, re, tempfile, threading
+import datetime, json, math, os, re, tempfile, threading
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -87,7 +87,13 @@ def _int_map(value):
     for key, row in value.items():
         if isinstance(row, bool) or not isinstance(row, (int, float)):
             continue
-        out[key] = int(row)
+        if isinstance(row, float) and not math.isfinite(row):
+            continue
+        try:
+            n = int(row)
+        except (OverflowError, ValueError, TypeError):
+            continue
+        out[key] = 0 if n < 0 else n
     return out
 
 
@@ -112,19 +118,23 @@ def _count(value):
     """A stored counter, or 0 when the file holds a non-number."""
     if isinstance(value, bool) or value is None:
         return 0
-    try:
-        return int(value)
-    except (TypeError, ValueError):
+    if isinstance(value, float) and not math.isfinite(value):
         return 0
+    try:
+        n = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+    return 0 if n < 0 else n
 
 
 def _seconds(value):
     if isinstance(value, bool) or value is None:
         return 0.0
     try:
-        return float(value)
+        n = float(value)
     except (TypeError, ValueError):
         return 0.0
+    return n if math.isfinite(n) else 0.0
 
 
 def _add(bucket, *, ok, tracks, audio_s, x_reads):
