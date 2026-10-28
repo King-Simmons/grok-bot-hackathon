@@ -88,6 +88,8 @@ class _State:
     def __init__(self, mode):
         self.mode = mode
         self.hits = 0
+        self.tool_path = ""
+        self.command = "GET"
         self.release = threading.Event()
         self.seen = threading.Event()
 
@@ -105,7 +107,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
-        self.wfile.write(payload)
+        try:
+            self.wfile.write(payload)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def _json(self, code, obj):
         self._raw(code, json.dumps(obj).encode(), "application/json")
@@ -116,8 +121,7 @@ class _Handler(BaseHTTPRequestHandler):
             return self.rfile.read(n)
         return b""
 
-    def _success(self):
-        path = self.path.split("?", 1)[0]
+    def _success_for(self, path, command):
         if path == "/api/mood":
             body = dict(MOOD)
             body["_meta"] = {"page": {"title": "ignored"}}
@@ -129,7 +133,7 @@ class _Handler(BaseHTTPRequestHandler):
             return {"mood": MOOD, "track": dict(TRACK), "timing": {"total_s": 1}, "topic": topic}
         if path == "/api/usage":
             return {"all_time": {"calls": 7}, "today": {"calls": 1}, "hours": [0]}
-        if path == "/api/agents" and self.command == "GET":
+        if path == "/api/agents" and command == "GET":
             return {"bots": [{"id": "from-server"}], "count": 1, "stale_after_s": 1800}
         if path == "/api/agents":
             return {"id": "ok-bot", "presence": "online", "state": "running", "task": "from-server", "owner": "King"}
@@ -140,6 +144,9 @@ class _Handler(BaseHTTPRequestHandler):
         state = self.server.state
         state.hits += 1
         path = self.path.split("?", 1)[0]
+        if not path.startswith("/api/jobs/"):
+            state.tool_path = path
+            state.command = self.command
         mode = state.mode
         if mode == "timeout":
             state.seen.set()
@@ -164,7 +171,11 @@ class _Handler(BaseHTTPRequestHandler):
                     self._json(200, {"id": "job1", "state": "error", "error": "render failed"})
                     return
                 if mode == "job_done":
-                    self._json(200, {"id": "job1", "state": "done", "result": self._success()})
+                    self._json(200, {
+                        "id": "job1",
+                        "state": "done",
+                        "result": self._success_for(state.tool_path, state.command),
+                    })
                     return
                 self._json(200, {"id": "job1", "state": "running", "progress": 10})
                 return
@@ -173,7 +184,7 @@ class _Handler(BaseHTTPRequestHandler):
         if mode == "topic_missing":
             self._json(404, {"error": 'No posts for "zzz".', "error_kind": "topic_not_found"})
             return
-        self._json(200, self._success())
+        self._json(200, self._success_for(path, self.command))
 
     def do_GET(self):
         self._handle()
@@ -211,9 +222,9 @@ class McpRobustnessTest(unittest.TestCase):
         httpd.state = _State(mode)
         thread = threading.Thread(target=httpd.serve_forever, daemon=True)
         thread.start()
-        self.addCleanup(httpd.state.release.set)
-        self.addCleanup(httpd.shutdown)
         self.addCleanup(httpd.server_close)
+        self.addCleanup(httpd.shutdown)
+        self.addCleanup(httpd.state.release.set)
         base = "http://127.0.0.1:%d" % httpd.server_address[1]
         os.environ["LOFI_PUBLIC_BASE"] = base
         return httpd.state

@@ -10,6 +10,24 @@ Tools:
 
 `agent_id` credits the usage log. Leave it blank and synthesize/mood calls are `anonymous`; `report_status` credits the status id.
 
+## Errors
+
+`LOFI_MCP_TRANSPORT` chooses where the tools run.
+
+- `auto` (default) calls the app server when `GET /api/health` on `LOFI_PUBLIC_BASE` returns `{"ok": true}`. If that server is down, the tool runs the engine in this process.
+- `http` always calls the app server and does not fall back.
+- `local` always runs the engine in this process.
+
+A transport failure is a dict, not a crash:
+
+```json
+{"ok": false, "error_kind": "server_down", "error": "The app server is unreachable."}
+```
+
+`error_kind` is `bad_args`, `server_down`, `timeout`, `http_error`, `bad_response`, `still_running`, `job_lost`, `job_error`, or `internal`. `http_error` includes `http_status`. `still_running` includes `job_id`, `status`, and `poll` once `LOFI_MCP_JOB_WAIT` seconds have passed (default 180), so a long render returns instead of hanging. One HTTP call is bounded by `LOFI_MCP_HTTP_TIMEOUT` (default 15 seconds). A bad value for either setting falls back to the default.
+
+An empty topic or a source other than `web` or `x` still raises a message you can show the user. So does an unknown topic.
+
 It renders an original ~42-44 s lofi mp3 in about 2-4 s. It also reports progress to the dashboard as bot `url-lofi`.
 
 ## stdio (a bot launches it)
@@ -38,5 +56,6 @@ It binds to localhost only. To let teammates' bots reach it, put it behind an au
 ```bash
 python3 mcp/test_mcp_client.py https://example.com                               # stdio
 python3 mcp/test_mcp_client.py https://example.com http://127.0.0.1:53350/mcp     # HTTP
+python3 -m unittest tests.test_mcp_robustness                                     # offline, no engine
 ```
 Uses SDK v2 (`mcp>=2.3`, `from mcp.server.mcpserver import MCPServer`). On `mcp<2` the same code works with `FastMCP` from `mcp.server.fastmcp`.
