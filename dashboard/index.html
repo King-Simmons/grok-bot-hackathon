@@ -1005,7 +1005,9 @@ $('u2lForm').addEventListener('submit', async e=>{
       $('u2lBar').style.width=(s.progress||4)+'%'; $('u2lStage').textContent=STAGES[s.stage]||s.stage||'';
       if(s.state==='error') return fail(s.error||'failed');
       if(s.state==='done'){
-        const res=s.result; showU2L(res);
+        const res=s.result, attrs=res&&res.mood&&res.mood.musical_attributes;
+        if(!res||!res.track||!res.track.file||!attrs) return fail('The job finished without a track.');
+        showU2L(res);
         $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
@@ -1135,7 +1137,9 @@ $('xForm').addEventListener('submit', async e=>{
       $('u2lStage').textContent=stageText;
       if(s.state==='error'){ $('u2lRes').hidden=true; return fail(s.error||'failed', softKind(s.error_kind)); }
       if(s.state==='done'){
-        const res=s.result; showTopic(res);
+        const res=s.result, attrs=res&&res.mood&&res.mood.musical_attributes;
+        if(!res||!res.track||!res.track.file||!attrs){ $('u2lRes').hidden=true; return fail('The job finished without a track.'); }
+        showTopic(res);
         $('u2lStage').textContent=`Done · now playing ${fileLabel(res.track.file)}`;
         await loadEpisode();
         const play=res.track.url||res.track.file;
