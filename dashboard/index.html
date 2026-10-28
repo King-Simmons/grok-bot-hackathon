@@ -1246,8 +1246,15 @@ const KNOBS=[
 ];
 const LS='lofiDashMixer.v1';
 let savedMixer={};
-try{ savedMixer=JSON.parse(localStorage.getItem(LS)||'{}')||{}; }catch(e){ savedMixer={}; }
-const state=Object.assign(Object.fromEntries(KNOBS.map(k=>[k.id,k.def])), savedMixer);
+try{
+  const parsed=JSON.parse(localStorage.getItem(LS)||'{}');
+  if(parsed && typeof parsed==='object' && !Array.isArray(parsed)) savedMixer=parsed;
+}catch(e){}
+const state=Object.fromEntries(KNOBS.map(k=>{
+  const n=savedMixer[k.id];
+  return [k.id, Number.isFinite(n) ? Math.min(k.max, Math.max(k.min, n)) : k.def];
+}));
+if(typeof savedMixer.amb==='boolean') state.amb=savedMixer.amb;
 function cutoff(v){ return 8000*Math.pow(400/8000, v/100); } // 0% = 8 kHz -> 100% = 400 Hz
 const save=()=>{ try{ localStorage.setItem(LS,JSON.stringify(state)); }catch(e){} };
 function applyTempo(){
