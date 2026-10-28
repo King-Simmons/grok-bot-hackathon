@@ -122,6 +122,10 @@ def extract(html, url=None):
         method = "trafilatura"
     except ImportError:
         pass
+    except Exception:
+        # A parser error is the same outcome as "trafilatura is not installed":
+        # keep going with the stdlib extractor instead of failing the page.
+        text, title, method = "", "", "stdlib"
     if len(text.split()) < 40:  # trafilatura found little (JS-heavy / docs pages): fall back
         t2, x2 = _fallback_extract(html)
         if len(x2.split()) > len(text.split()):
