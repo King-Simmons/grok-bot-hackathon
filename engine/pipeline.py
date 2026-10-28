@@ -13,7 +13,9 @@ from engine.mood import analyze  # noqa: E402
 TRACK_DIR = os.path.join(ROOT, "tracks")
 RENDER_LOCK = threading.Lock()  # one render at a time (CPU-bound)
 _mood_cache = {}  # url -> (ts, mood, debug, page)
+_mood_lock = threading.Lock()
 CACHE_S = 600
+_MOOD_CACHE_MAX = 128
 
 
 def _status(**kw):
@@ -47,23 +49,58 @@ def short_label(url):
     return f"{site} · {tail[-1][:16]}" if tail else site
 
 
+def _remember_mood(url, entry):
+    now = entry[0]
+    with _mood_lock:
+        stale = [key for key, row in _mood_cache.items() if now - row[0] >= CACHE_S]
+        for key in stale:
+            _mood_cache.pop(key, None)
+        while len(_mood_cache) >= _MOOD_CACHE_MAX:
+            oldest = min(_mood_cache, key=lambda key: _mood_cache[key][0])
+            _mood_cache.pop(oldest, None)
+        _mood_cache[url] = entry
+
+
 def mood_for(url, use_cache=True):
     t0 = time.time()
-    c = _mood_cache.get(url)
-    if use_cache and c and time.time() - c[0] < CACHE_S:
-        return c[1], c[2], c[3], {"ingest_s": 0.0, "mood_s": 0.0, "cached": True}
+    with _mood_lock:
+        row = _mood_cache.get(url)
+        fresh = bool(use_cache and row and time.time() - row[0] < CACHE_S)
+        if fresh:
+            cached = row
+    if fresh:
+        return cached[1], cached[2], cached[3], {"ingest_s": 0.0, "mood_s": 0.0, "cached": True}
     page = ingest(url)
     t1 = time.time()
     mood, debug = analyze(page["url"], page["title"], page["text"])
     t2 = time.time()
     meta = {k: page[k] for k in ("title", "url", "requested_url", "words", "method", "truncated")}
     if page.get("note"): meta["note"] = page["note"]
-    _mood_cache[url] = (time.time(), mood, debug, meta)
+    _remember_mood(url, (time.time(), mood, debug, meta))
     return mood, debug, meta, {"ingest_s": round(t1 - t0, 2), "mood_s": round(t2 - t1, 2), "cached": False}
 
 
 def track_url(rel):
     return "/" + rel.replace(os.sep, "/")
+
+
+def _load_side(mp3):
+    """Sidecar for a cached mp3, or None when the pair is missing or unreadable.
+
+    A present mp3 with a broken sidecar used to 500 the next request. Both the
+    URL path and the text path treat that as a cache miss and render again.
+    """
+    side_path = mp3[:-4] + ".json"
+    if not (os.path.isfile(mp3) and os.path.isfile(side_path)):
+        return None
+    try:
+        with open(side_path, encoding="utf-8") as handle:
+            side = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(side, dict) or "title" not in side:
+        return None
+    return side
 
 
 def synthesize(url, force=False, progress=None, report_status=True, vocals="none", script=None, agent="anonymous"):
@@ -82,21 +119,11 @@ def synthesize(url, force=False, progress=None, report_status=True, vocals="none
         name = f"url-{slugify(page['url'])}-{h}"
         rel_mp3 = os.path.join("tracks", name + ".mp3")
         mp3 = os.path.join(ROOT, rel_mp3)
-        sidecar = mp3[:-4] + ".json"
-        cached = os.path.exists(mp3) and os.path.exists(sidecar) and not force
-        side = render = None
+        side = None if force else _load_side(mp3)
+        cached = side is not None
         if cached:
-            try:
-                with open(sidecar, encoding="utf-8") as f:
-                    side = json.load(f)
-                if not isinstance(side, dict) or "title" not in side:
-                    raise ValueError("bad sidecar")
-                render = side.get("render") or {}
-            except Exception:
-                # mp3 with no usable sidecar used to 500 on the next request
-                cached = False
-                side = render = None
-        if not cached:
+            render = side.get("render") or {}
+        else:
             step("rendering", 55, f"Rendering {attrs['bpm']} BPM {attrs['key']} lofi for {page['title'][:50] or url[:50]}")
             from engine.synth import render as synth_render
             with RENDER_LOCK:
@@ -247,11 +274,10 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
         name = f"{prefix}-{slugify(title, 28)}-{h}"
         rel_mp3 = os.path.join("tracks", name + ".mp3")
         mp3 = os.path.join(ROOT, rel_mp3)
-        cached = os.path.exists(mp3) and os.path.exists(mp3[:-4] + ".json") and not force
+        side = None if force else _load_side(mp3)
+        cached = side is not None
         if cached:
-            with open(mp3[:-4] + ".json") as f:
-                side = json.load(f)
-            render = side.get("render", {})
+            render = side.get("render") or {}
         else:
             step("rendering", 55, f"Rendering {attrs['bpm']} BPM {attrs['key']} lofi for {title[:50]}")
             from engine.synth import render as synth_render
