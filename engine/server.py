@@ -267,14 +267,27 @@ def _spawn_job(jid, record, target, args):
 
 def read_json_object(handler, limit):
     """Read a JSON object body. Returns (body, True) after the error response is sent."""
-    try:
-        n = int(handler.headers.get("Content-Length") or 0)
-    except ValueError:
-        n = 0
-    if n > limit:
-        handler._json(413, {"error": "body too large"})
-        return None, True
-    raw = handler.rfile.read(n) if n else b""
+    raw_len = handler.headers.get("Content-Length")
+    if raw_len is None:
+        raw = _read_arrived(handler, limit)
+        if raw is None:
+            _length_error(handler, 413, "body too large")
+            return None, True
+        if raw:
+            handler.close_connection = True
+    else:
+        try:
+            n = int(str(raw_len).strip())
+        except ValueError:
+            _length_error(handler, 400, "bad content length")
+            return None, True
+        if n < 0:
+            _length_error(handler, 400, "bad content length")
+            return None, True
+        if n > limit:
+            _length_error(handler, 413, "body too large")
+            return None, True
+        raw = handler.rfile.read(n) if n else b""
     if not raw:
         return {}, False
     try:
@@ -286,6 +299,37 @@ def read_json_object(handler, limit):
         handler._json(400, {"error": "body must be a JSON object"})
         return None, True
     return body, False
+
+
+def _length_error(handler, code, message):
+    handler.close_connection = True
+    handler._json(code, {"error": message})
+
+
+def _read_arrived(handler, limit):
+    """Bytes already received, or None when more than limit are waiting.
+
+    A missing Content-Length must not read until the client closes. The client
+    is blocked on the response, so that read never finishes.
+    """
+    sock = handler.connection
+    previous = sock.gettimeout()
+    sock.setblocking(False)
+    try:
+        data = bytearray()
+        while len(data) <= limit:
+            try:
+                chunk = handler.rfile.read1(min(65536, limit + 1 - len(data)))
+            except (BlockingIOError, TimeoutError):
+                break
+            if not chunk:
+                break
+            data.extend(chunk)
+        if len(data) > limit:
+            return None
+        return bytes(data)
+    finally:
+        sock.settimeout(previous)
 
 
 def route_agents_and_usage_get(handler, path):
