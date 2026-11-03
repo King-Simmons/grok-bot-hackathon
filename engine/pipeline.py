@@ -145,6 +145,8 @@ def synthesize(url, force=False, progress=None, report_status=True, vocals="none
                 "page": page, "analysis": debug, "timing": timing}
         artifact = rel_mp3
         if str(vocals or "none").strip().lower() in ("summary", "song"):
+            if progress:
+                progress("vocals", 80)
             from engine.vocals import apply as apply_vocals
             result = apply_vocals(result, vocals, script, agent, name)
             if (result.get("vocals") or {}).get("state") == "ready":
@@ -308,6 +310,8 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
                 "page": page, "analysis": debug, "timing": timing}
         artifact = rel_mp3
         if str(vocals or "none").strip().lower() in ("summary", "song"):
+            if progress:
+                progress("vocals", 80)
             from engine.vocals import apply as apply_vocals
             result = apply_vocals(result, vocals, script, agent, name)
             if (result.get("vocals") or {}).get("state") == "ready":

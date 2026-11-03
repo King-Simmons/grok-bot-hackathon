@@ -33,7 +33,7 @@ Built by King Simmons with his Grok Bot, Zlatan. PRD by Jonathan Chen, *URL-to-L
 | `status/` | One JSON file per live agent. Written by the CLI or `POST /api/agents` |
 | `data/` | Local usage log (gitignored). Not sent anywhere |
 | `tracks/` | URL-generated mp3s (gitignored) plus a JSON sidecar |
-| `run.sh` | Creates `./.venv` on first run, then serves the repo root |
+| `run.sh` | Creates `./.venv` on first run, then serves the repo root. `./run.sh --voice` uses a separate Python 3.11 venv |
 
 The page loads `headlines.json`, `inbox.json`, `episode.json`, `tracks.json`, and (as a fallback) `status/index.json` relative to `dashboard/index.html`. The engine serves the **repository root**, so the paste-a-link box calls `/api/synthesize` and plays tracks from `/tracks/…`. The bot panel polls `GET /api/agents` every 3 seconds. The usage panel polls `GET /api/usage`.
 
@@ -44,9 +44,12 @@ Python 3.10+. From the repository root:
 ```bash
 ./run.sh
 ./run.sh --mcp
+./run.sh --voice
 ```
 
 The first run creates `./.venv`, installs [requirements.txt](requirements.txt), and exports `SSL_CERT_FILE` from certifi so HTTPS works on python.org macOS Python.
+
+`./run.sh --voice` is optional. It needs `python3.11` on `PATH` (torch does not support a 3.14 main venv) and creates a separate `.venv-voice`. It installs CPU torch plus [scripts/requirements-voice.txt](scripts/requirements-voice.txt), then the server dependencies, and starts the server with that interpreter. On Apple Silicon it sets `CHATTERBOX_DEVICE=mps`. Everywhere else it sets `cpu`. If `python3.11` is missing, the script stops and says so. The first Chatterbox model load takes several minutes. A warm 4-line host summary takes about 30 seconds on an M1 Max. The voice is Chatterbox's built-in default, and the Perth watermark stays on. `./run.sh` without `--voice` does not install any of that.
 
 - Control room: <http://127.0.0.1:53343/dashboard/>
 - API: <http://127.0.0.1:53343/api/health>
@@ -98,7 +101,7 @@ An empty topic returns `400` with `"error_kind": "empty_topic"`. A source other 
 
 `force: true` re-renders even when that track already exists. Async jobs are polled at `GET /api/jobs/<id>`. `agent_id` (or the `X-Agent-Id` header) is who the usage log credits; the dashboard sends `dashboard`, and a missing id is `anonymous`.
 
-`vocals` defaults to `none` on `/api/synthesize` and `/api/synthesize_topic`. The dashboard does not send it, and `./run.sh` does not install a voice. See [docs/VOCALS.md](docs/VOCALS.md).
+`vocals` is `none` (default), `summary`, or `song` on `/api/synthesize` and `/api/synthesize_topic`. The dashboard control above the progress bar sends that value for both paste-a-link and Learn a topic, and it starts on None. While a vocal render is in progress the stage reads "Rendering vocals…". If Chatterbox is not installed, the beat is unchanged and the response `vocals.reason` explains the fallback. The dashboard shows that text. `./run.sh` without `--voice` does not install a voice. See [docs/VOCALS.md](docs/VOCALS.md).
 
 One-line check-in:
 

@@ -132,17 +132,34 @@ def build_lines(mode, mood, page, analysis, script):
     return summary_lines(mood, page, analysis), "generated"
 
 
+def _fallback(result, mode, reason):
+    """Instrumental result plus why vocals did not render. The beat itself is unchanged."""
+    out = dict(result)
+    out["vocals"] = {
+        "state": "instrumental",
+        "mode": mode,
+        "reason": str(reason or "Vocals were skipped. The instrumental still plays.")[:500],
+    }
+    return out
+
+
 def apply(result, vocals, script, agent, name):
-    """Add vocals, or return result unchanged when they are off, missing, or they fail."""
+    """Add vocals. vocals=none returns the same result. A missing engine keeps the beat and says why."""
     if not wants(vocals):
         return result
+    mode = str(vocals).strip().lower()
     try:
-        extra = render_optional(result, str(vocals).strip().lower(), script, agent, name)
+        api = voice_api()
+        if not api.available():
+            reason = getattr(api, "INSTALL", None) or (
+                "Chatterbox is not installed, so vocals stay off and the instrumental still plays.")
+            return _fallback(result, mode, reason)
+        extra = render_optional(result, mode, script, agent, name)
     except Exception as exc:
         print(f"vocals skipped: {type(exc).__name__}: {exc}", file=sys.stderr)
-        return result
+        return _fallback(result, mode, f"Vocals failed ({type(exc).__name__}). The instrumental still plays.")
     if not extra:
-        return result
+        return _fallback(result, mode, "Vocals were skipped. The instrumental still plays.")
     out = dict(result)
     out["vocals"] = extra["vocals"]
     if extra.get("track"):

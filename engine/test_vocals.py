@@ -54,16 +54,21 @@ class ScriptTests(unittest.TestCase):
     def test_bar_grid(self):
         self.assertEqual(vocals.plan_starts(120, [0.35, 0.35]), [2.0, 6.0])
 
-    def test_missing_chatterbox_leaves_the_result_alone(self):
+    def test_missing_chatterbox_keeps_the_beat_and_says_why(self):
         result = {"mood": MOOD, "track": {"url": "/tracks/a.mp3", "path": "/tmp/a.mp3", "title": "A"}}
         same = vocals.apply(result, "none", None, "anonymous", "a")
         self.assertIs(same, result)
         vocals._API = type("Missing", (), {"available": staticmethod(lambda: False)})()
         try:
-            same = vocals.apply(result, "summary", None, "anonymous", "a")
+            fallen = vocals.apply(result, "summary", None, "anonymous", "a")
         finally:
             vocals._API = None
-        self.assertIs(same, result)
+        self.assertIsNot(fallen, result)
+        self.assertEqual(fallen["track"], result["track"])
+        self.assertEqual(fallen["mood"], result["mood"])
+        self.assertEqual(fallen["vocals"]["state"], "instrumental")
+        self.assertEqual(fallen["vocals"]["mode"], "summary")
+        self.assertIn("instrumental", fallen["vocals"]["reason"].lower())
 
     def test_helper_import_does_not_load_torch(self):
         code = "import sys; sys.path.insert(0, 'scripts'); import chatterbox_voice; assert 'torch' not in sys.modules; assert 'chatterbox' not in sys.modules"
