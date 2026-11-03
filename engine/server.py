@@ -35,6 +35,8 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+if __name__ == "__main__":
+    sys.modules.setdefault("engine.server", sys.modules[__name__])
 from engine import agents, pipeline, usage  # noqa: E402
 from engine.ingest import IngestError  # noqa: E402
 
@@ -238,13 +240,17 @@ def _reject_busy(handler, who, tool):
     handler._json(429, {"error": "too many tracks are rendering"})
 
 
-def _spawn_job(jid, record, target, args):
-    """Start one tracked job. False when every render slot is already taken."""
-    with JOBS_LOCK:
-        _prune_jobs_locked()
-        if not _SLOTS.acquire(blocking=False):
-            return False
-        JOBS[jid] = record
+def _insert_job_locked(jid, record):
+    """Caller holds JOBS_LOCK. False when every render slot is taken."""
+    _prune_jobs_locked()
+    if not _SLOTS.acquire(blocking=False):
+        return False
+    JOBS[jid] = record
+    return True
+
+
+def _start_job_thread(jid, target, args):
+    """Run target after the job row is already visible. Releases the render slot."""
     def run():
         update = None
         try:
@@ -265,6 +271,14 @@ def _spawn_job(jid, record, target, args):
         with JOBS_LOCK:
             JOBS.pop(jid, None)
         raise
+
+
+def _spawn_job(jid, record, target, args):
+    """Start one tracked job. False when every render slot is already taken."""
+    with JOBS_LOCK:
+        if not _insert_job_locked(jid, record):
+            return False
+    _start_job_thread(jid, target, args)
     return True
 
 

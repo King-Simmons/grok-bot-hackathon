@@ -785,8 +785,6 @@ def _admit(topics, summary, topics_given):
         if topics is not None and not isinstance(topics, list):
             raise ForYouRejected("topics must be a list of strings.", "bad_topic")
         chosen = _normalize_many(topics or [])
-        if topics_given:
-            save_topics(chosen)
     if len(chosen) > MAX_BATCH:
         raise ForYouRejected(
             "A batch holds %d topics. Remove one and try again." % MAX_BATCH, "too_many_topics")
@@ -827,6 +825,7 @@ class Batch:
                 width = _progress(i, len(interests), 0.6 + (float(pct or 0) / 100) * 0.4)
                 _emit(on_update, _view("running", "rendering", width, link, message, rank_note, self.summary, items))
 
+            item_started = time.perf_counter()
             try:
                 result = _render(rendered["talk_topic"], "summary" if self.summary else "none", agent, prog)
             except Exception as exc:
@@ -838,10 +837,10 @@ class Batch:
                 items[index] = {
                     **items[index],
                     "state": "failed",
-                    "error": str(exc)[:300],
+                    "error": _failure_text(exc, row.topic),
                     "error_kind": kind,
                 }
-                _credit_item(agent, started, error=str(exc)[:200])
+                _credit_item(agent, item_started, error=str(exc)[:200])
             else:
                 track = (result or {}).get("track") or {}
                 items[index] = {
@@ -859,7 +858,7 @@ class Batch:
                     "track_url": items[index]["track_url"],
                     "track_file": items[index]["track_file"],
                 })
-                _credit_item(agent, started, result=result)
+                _credit_item(agent, item_started, result=result)
             _emit(on_update, _view("running", "rendering", _progress(index + 1, len(interests), 1),
                                    link, message, rank_note, self.summary, items))
         if made:
@@ -986,7 +985,53 @@ def _emit(on_update, view):
         on_update(view)
 
 
+def coerce_summary(value):
+    """True or false. The string "false" is false. Anything else is rejected."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in ("1", "true", "yes", "on"):
+            return True
+        if text in ("0", "false", "no", "off", ""):
+            return False
+    raise ForYouRejected("summary must be true or false.", "bad_summary")
+
+
+def run_in_slot(batch, agent):
+    """One batch, counted against the same render cap as the HTTP jobs."""
+    from engine import server
+    if not server._SLOTS.acquire(blocking=False):
+        raise ForYouRejected("too many tracks are rendering", "busy", 429)
+    try:
+        return batch.run(agent=agent, on_update=None)
+    finally:
+        server._SLOTS.release()
+
+
+def _failure_text(exc, topic):
+    text = str(exc)
+    if "couldn't find public pages" in text or "couldn’t find public pages" in text:
+        text = 'No public pages were reachable for "%s".' % topic
+    return text[:300]
+
+
 def _render(topic, vocals, agent, progress):
+    if os.environ.get("LOFI_FOR_YOU_STUB") == "1":
+        gate = os.environ.get("LOFI_FOR_YOU_STUB_WAIT") or ""
+        if gate:
+            deadline = time.time() + 8
+            while not os.path.exists(gate) and time.time() < deadline:
+                time.sleep(0.05)
+        if progress:
+            progress("rendering", 80)
+        slug = re.sub(r"[^a-z0-9]+", "-", topic.lower()).strip("-")[:24] or "topic"
+        return {
+            "track": {"url": "/tracks/web-%s.mp3" % slug, "file": "tracks/web-%s.mp3" % slug,
+                      "title": topic, "duration_s": 44.0},
+            "timing": {"track_cached": False},
+            "topic": {"x_reads": 0},
+        }
     if RENDER is not None:
         return RENDER(topic, vocals, agent, progress)
     from engine.pipeline import synthesize_topic

@@ -1,5 +1,5 @@
 """Offline For You checks. X and xAI are fakes. No audio is rendered."""
-import json, os, tempfile, threading, time, unittest
+import json, os, sys, tempfile, threading, time, unittest
 from http.server import ThreadingHTTPServer
 
 from engine import for_you
@@ -184,6 +184,29 @@ class ForYouTest(unittest.TestCase):
         self.assertEqual(raised.exception.error_kind, "oauth_state")
         self.assertNotIn("code", str(raised.exception))
 
+    def test_preview_and_a_rejected_list_do_not_replace_saved_topics(self):
+        for_you.save_topics(["City council"])
+        for_you.preview(["Saturn"], topics_given=True)
+        self.assertEqual(for_you.load_topics(), ["City council"])
+        with self.assertRaises(for_you.ForYouRejected):
+            for_you.Batch(topics=["one", "two", "three", "four", "five"], summary=False, topics_given=True)
+        self.assertEqual(for_you.load_topics(), ["City council"])
+
+    def test_unreachable_pages_do_not_use_the_web_search_sentence(self):
+        def render(topic, vocals, agent, progress):
+            from engine.pipeline import TopicNotFound
+            raise TopicNotFound('I couldn\'t find public pages about "%s".' % topic)
+        for_you.RENDER = render
+        view = for_you.Batch(topics=["Atlanta Braves"], summary=False, topics_given=True).run(agent="test")
+        self.assertEqual(view["items"][0]["error_kind"], "topic_not_found")
+        self.assertNotIn("couldn't find public pages", view["items"][0]["error"])
+        self.assertIn("reachable", view["items"][0]["error"])
+
+    def test_summary_string_false_is_false(self):
+        self.assertFalse(for_you.coerce_summary("false"))
+        self.assertTrue(for_you.coerce_summary("true"))
+        self.assertFalse(for_you.coerce_summary(False))
+
     def test_request_line_drops_the_callback_query(self):
         line = 'GET /api/for-you/x/callback?code=secret&state=abc HTTP/1.1'
         clean = for_you.redact_requestline(line)
@@ -321,6 +344,97 @@ class ForYouHttpTest(unittest.TestCase):
             headers={"Host": "evil.example"},
         )
         self.assertEqual(status, 403)
+
+
+class ServerMainTest(unittest.TestCase):
+    """engine/server.py is __main__ under ./run.sh. The job table must be that module."""
+
+    def test_stubbed_batch_polls_and_shares_the_render_slots(self):
+        import socket, subprocess, urllib.error, urllib.request
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        sock.close()
+        desk = tempfile.mkdtemp()
+        gate = os.path.join(desk, "go")
+        env = os.environ.copy()
+        for key in ("X_CLIENT_ID", "X_CLIENT_SECRET", "XAI_API_KEY", "X_BEARER_TOKEN"):
+            env.pop(key, None)
+        env.update({
+            "LOFI_X_HOME": desk,
+            "LOFI_FOR_YOU_STUB": "1",
+            "LOFI_FOR_YOU_STUB_WAIT": gate,
+            "LOFI_DATA_DIR": os.path.join(desk, "data"),
+            "LOFI_STATUS_DIR": os.path.join(desk, "status"),
+        })
+        os.makedirs(env["LOFI_DATA_DIR"], exist_ok=True)
+        os.makedirs(env["LOFI_STATUS_DIR"], exist_ok=True)
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        proc = subprocess.Popen(
+            [sys.executable, os.path.join(root, "engine", "server.py"), "--port", str(port)],
+            cwd=root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        def call(path, body=None):
+            req = urllib.request.Request(
+                "http://127.0.0.1:%d%s" % (port, path),
+                data=body, method="POST" if body is not None else "GET",
+                headers={"Content-Type": "application/json"} if body is not None else {})
+            try:
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    return resp.status, json.load(resp)
+            except urllib.error.HTTPError as exc:
+                raw = exc.read().decode() or "{}"
+                return exc.code, json.loads(raw)
+
+        try:
+            deadline = time.time() + 5
+            while time.time() < deadline:
+                try:
+                    call("/api/health")
+                    break
+                except Exception:
+                    time.sleep(0.05)
+            else:
+                self.fail("server did not start")
+            status, saved = call("/api/for-you/topics", b'{"topics":["City council"]}')
+            self.assertEqual(status, 200, saved)
+            ids = []
+            for name in ("Atlanta Braves", "Saturn", "lofi", "Python"):
+                status, body = call("/api/for-you/batch", json.dumps({"topics": [name]}).encode())
+                self.assertEqual(status, 202, body)
+                self.assertFalse(body.get("joined"))
+                ids.append(body["job_id"])
+                status, job = call(body["poll"])
+                self.assertEqual(status, 200, job)
+                self.assertNotEqual(job.get("error"), "no such job")
+                self.assertIn(job.get("state"), ("running", "done"))
+            status, health = call("/api/health")
+            self.assertGreaterEqual(health.get("jobs") or 0, 4)
+            status, synth = call("/api/synthesize", b'{"url":"https://example.com","async":true}')
+            self.assertEqual(status, 429, synth)
+            status, blocked = call("/api/for-you/batch", b'{"topics":["Saturn rings"]}')
+            self.assertEqual(status, 429, blocked)
+            status, profile = call("/api/for-you")
+            self.assertEqual(profile.get("topics"), ["Python"])
+            status, joined = call("/api/for-you/batch", b'{"topics":["Atlanta Braves"]}')
+            self.assertEqual(status, 202, joined)
+            self.assertTrue(joined.get("joined"))
+            self.assertEqual(joined.get("job_id"), ids[0])
+            with open(gate, "w", encoding="utf-8") as handle:
+                handle.write("go\n")
+            done = {}
+            deadline = time.time() + 8
+            while time.time() < deadline:
+                status, done = call("/api/jobs/" + ids[0])
+                if done.get("state") == "done":
+                    break
+                time.sleep(0.05)
+            self.assertEqual(status, 200)
+            self.assertEqual(done.get("state"), "done", done)
+            self.assertTrue((done.get("items") or [{}])[0].get("track_url", "").startswith("/tracks/"))
+        finally:
+            proc.kill()
+            proc.wait(timeout=3)
 
 
 if __name__ == "__main__":

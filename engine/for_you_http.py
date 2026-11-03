@@ -70,7 +70,7 @@ def route_for_you_post(handler, path):
 
 
 def _batch(handler):
-    from engine.server import JOBS, JOBS_LOCK, _reject_busy, _spawn_job, read_json_object
+    from engine.server import JOBS, JOBS_LOCK, _insert_job_locked, _reject_busy, _start_job_thread, read_json_object
     body, failed = read_json_object(handler, 8000)
     if failed:
         return True
@@ -92,20 +92,27 @@ def _batch(handler):
         handler._json(400, {"error": "Add a topic, or connect X, before making a batch.",
                             "error_kind": "empty_batch"})
         return True
-    with JOBS_LOCK:
-        for jid, job in JOBS.items():
-            if job.get("kind") == "for_you" and job.get("state") == "running" and job.get("fingerprint") == batch.fingerprint:
-                handler._json(202, {"job_id": jid, "poll": "/api/jobs/" + jid, "joined": True})
-                return True
     jid = uuid.uuid4().hex[:12]
     record = {
         "id": jid, "kind": "for_you", "fingerprint": batch.fingerprint, "url": "for you",
         "state": "running", "stage": "queued", "progress": 0, "started": time.time(),
         "summary": batch.summary, "items": [],
     }
-    if not _spawn_job(jid, record, _run_batch, (jid, batch, who)):
-        _reject_busy(handler, who, "for_you_batch")
-        return True
+    with JOBS_LOCK:
+        for existing, job in JOBS.items():
+            if (job.get("kind") == "for_you" and job.get("state") == "running"
+                    and job.get("fingerprint") == batch.fingerprint):
+                handler._json(202, {"job_id": existing, "poll": "/api/jobs/" + existing, "joined": True})
+                return True
+        if not _insert_job_locked(jid, record):
+            _reject_busy(handler, who, "for_you_batch")
+            return True
+    _start_job_thread(jid, _run_batch, (jid, batch, who))
+    if "topics" in body:
+        try:
+            for_you.save_topics(batch.topics)
+        except for_you.ForYouRejected:
+            pass
     handler._json(202, {"job_id": jid, "poll": "/api/jobs/" + jid, "joined": False})
     return True
 
