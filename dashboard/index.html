@@ -545,6 +545,7 @@
       <div id="forYouAuth"></div>
       <label for="forYouTopics">Topics you want, one per line. Four at most.</label>
       <textarea id="forYouTopics" rows="4" maxlength="500" aria-label="Topics you want, one per line"></textarea>
+      <p id="forYouCap" class="fy-cap"></p>
       <label class="fy-check"><input id="forYouSummary" type="checkbox"> Spoken summary</label>
       <div class="fy-actions">
         <button type="button" id="forYouPreview">Preview</button>
@@ -1943,7 +1944,10 @@ const Tabs={
     if(!['radio','graph'].includes(v)) v='radio'; this.cur=v;
     document.querySelectorAll('nav.tabs .tab').forEach(b=>{ const on=b.dataset.view===v; b.setAttribute('aria-selected',on); b.tabIndex=on?0:-1; if(on&&focus) b.focus(); });
     $('viewRadio').hidden = v!=='radio'; $('viewGraph').hidden = v!=='graph';
-    try{ history.replaceState(null,'', v==='graph' ? '#graph' : location.pathname+location.search); }catch(e){}
+    try{
+      var keepForYou = location.hash === '#for-you' && v !== 'graph';
+      if (!keepForYou) history.replaceState(null,'', v==='graph' ? '#graph' : location.pathname+location.search);
+    }catch(e){}
     if(v==='graph') NG.show(); else NG.hide();
   }
 };

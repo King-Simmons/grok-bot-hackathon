@@ -18,6 +18,10 @@
     "#forYou .fy-item b{display:block;font-size:14px}",
     "#forYou .fy-item span{color:var(--muted);font-size:12px}",
     "#forYou .fy-item a{color:var(--amber)}",
+    "#forYouAuth{font-size:12px;line-height:1.35;color:var(--muted);margin:0 0 8px}",
+    "#forYouAuth a{color:var(--amber)}",
+    "#forYou .fy-cap{margin:0 0 6px;font-size:12px;color:var(--amber)}",
+    "#forYou .fy-cap:empty{display:none}",
     "#forYou .err{color:var(--rose)}"
   ].join("");
   document.head.appendChild(css);
@@ -33,8 +37,13 @@
   var goBtn = document.getElementById("forYouGo");
   if (!msg || !box) return;
 
+  var pinMessage = false;
+
   function lines() {
-    return box.value.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean).slice(0, 4);
+    var all = box.value.split(/\n+/).map(function (line) { return line.trim(); }).filter(Boolean);
+    var cap = document.getElementById("forYouCap");
+    if (cap) cap.textContent = all.length > 4 ? "Only the first 4 topics are used." : "";
+    return all.slice(0, 4);
   }
 
   function esc(s) {
@@ -48,8 +57,8 @@
     goBtn.disabled = on;
   }
 
-  function paintStatus(data) {
-    msg.textContent = data.message || "";
+  function paintStatus(data, keepMessage) {
+    if (!keepMessage) msg.textContent = data.message || "";
     tag.textContent = data.connection || "topics";
     if (data.grok) tag.textContent += " · grok";
     var html = "";
@@ -59,14 +68,14 @@
     } else if (data.x_configured) {
       html = "<a href='/api/for-you/connect'>Connect X</a>";
     } else {
-      html = "<span>X sign-in needs X_CLIENT_ID and X_CLIENT_SECRET. Typed topics still work.</span>";
+      html = "<span>Set X_CLIENT_ID and X_CLIENT_SECRET to connect X.</span>";
     }
     auth.innerHTML = html;
     var disconnect = document.getElementById("forYouDisconnect");
     if (disconnect) disconnect.onclick = function () {
       fetch("/api/for-you/disconnect", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"})
         .then(function (r) { return r.json(); })
-        .then(paintStatus)
+        .then(function (data) { pinMessage = false; paintStatus(data); })
         .catch(function () { msg.textContent = "Could not disconnect."; });
     };
     if (document.activeElement !== box && Array.isArray(data.topics)) box.value = data.topics.join("\n");
@@ -76,7 +85,7 @@
     return fetch("/api/for-you", {cache: "no-store"}).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
-    }).then(paintStatus).catch(function () {
+    }).then(function (data) { paintStatus(data, pinMessage); }).catch(function () {
       msg.textContent = "For You needs the control room API. Start ./run.sh.";
     });
   }
@@ -109,26 +118,47 @@
     if (typeof ensureAudio === "function") ensureAudio();
     if (typeof selectTrack === "function") selectTrack(url, {title: title, file: url}, false);
     var audio = document.getElementById("audio");
+    var btn = document.getElementById("playBtn");
     var pending = audio && audio.play && audio.play();
-    if (pending && pending.catch) pending.catch(function () {
-      if (msg.textContent.indexOf("press play") < 0) msg.textContent += " (press play)";
-    });
+    var showPlaying = function () {
+      if (btn) { btn.textContent = "❚❚"; btn.setAttribute("aria-label", "Pause"); }
+      var np = document.getElementById("np");
+      if (np) np.classList.add("playing");
+    };
+    if (pending && pending.then) {
+      pending.then(showPlaying).catch(function () {
+        if (msg.textContent.indexOf("press play") < 0) msg.textContent += " (press play)";
+      });
+    } else showPlaying();
+  }
+
+  function pin(text) {
+    pinMessage = true;
+    msg.textContent = text;
   }
 
   function poll(id) {
     bar.style.width = "8%";
     return (async function wait() {
-      var job = await nextJob(id);
+      var job;
+      try { job = await nextJob(id); }
+      catch (e) {
+        pin("Lost the batch while it was running.");
+        bar.style.width = "0";
+        return;
+      }
       bar.style.width = (job.progress || 8) + "%";
-      if (job.message) msg.textContent = job.message;
-      if (job.rank_note) msg.textContent = job.message + " " + job.rank_note;
       paintItems(job.items || []);
       if (job.state === "error") {
-        msg.innerHTML = "<span class='err'>" + esc(job.error || "The batch failed.") + "</span>";
+        pin(job.error || "The batch failed.");
         return;
       }
       if (job.state === "done") {
         bar.style.width = "100%";
+        var made = (job.result && job.result.made) || 0;
+        var failed = (job.result && job.result.failed) || 0;
+        pin("Done. " + made + (made === 1 ? " track" : " tracks") + " ready" +
+          (failed ? ". " + failed + " did not." : "."));
         if (typeof loadEpisode === "function") await loadEpisode();
         return;
       }
@@ -161,8 +191,10 @@
 
   goBtn.onclick = function () {
     if (typeof ensureAudio === "function") ensureAudio();
+    var started = false;
     setBusy(true);
     bar.style.width = "4%";
+    pinMessage = false;
     fetch("/api/for-you/batch", {
       method: "POST",
       headers: {"Content-Type": "application/json", "X-Agent-Id": "dashboard"},
@@ -170,22 +202,41 @@
     }).then(function (r) { return r.json().then(function (j) { return {ok: r.ok, status: r.status, body: j}; }); })
       .then(function (res) {
         if (!res.ok && res.status !== 202) {
-          msg.textContent = res.body.error || "Could not start the batch.";
+          pin(res.body.error || "Could not start the batch.");
           setBusy(false);
           return;
         }
+        started = true;
         msg.textContent = res.body.joined ? "Joined the batch already running." : "Making the batch…";
-        return poll(res.body.job_id).then(function () { setBusy(false); loadStatus(); });
+        return poll(res.body.job_id).then(function () { setBusy(false); return loadStatus(); });
       })
       .catch(function () {
-        msg.textContent = "Could not start the batch. Is ./run.sh running?";
+        pin(started ? "Lost the batch while it was running." : "Could not start the batch. Is ./run.sh running?");
         setBusy(false);
       });
   };
 
+  box.addEventListener("input", lines);
   loadStatus();
-  if (location.hash === "#for-you") {
+  function scrollToCard() {
+    if (location.hash !== "#for-you") return;
     var card = document.getElementById("forYou");
-    if (card && card.scrollIntoView) card.scrollIntoView();
+    if (!card) return;
+    var y = card.getBoundingClientRect().top + window.scrollY;
+    var limit = document.documentElement.scrollHeight - window.innerHeight;
+    if (y > limit + 1) {
+      var spacer = document.getElementById("forYouSpacer");
+      if (!spacer) {
+        spacer = document.createElement("div");
+        spacer.id = "forYouSpacer";
+        card.after(spacer);
+      }
+      spacer.style.height = (y - limit + 8) + "px";
+      y = card.getBoundingClientRect().top + window.scrollY;
+    }
+    window.scrollTo(0, y);
   }
+  loadStatus().then(function () { setTimeout(scrollToCard, 0); setTimeout(scrollToCard, 250); });
+  window.addEventListener("hashchange", scrollToCard);
+  window.addEventListener("load", scrollToCard);
 })();

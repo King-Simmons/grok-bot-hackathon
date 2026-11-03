@@ -147,8 +147,9 @@ async def for_you_batch(topics: Optional[list[str]] = None, summary: bool = Fals
     given = topics is not None
 
     def work():
-        batch = for_you.Batch(topics=topics, summary=bool(summary), topics_given=given)
-        return batch.run(agent=who, on_update=None)
+        flag = for_you.coerce_summary(summary)
+        batch = for_you.Batch(topics=topics, summary=flag, topics_given=given)
+        return for_you.run_in_slot(batch, who)
 
     try:
         view = await anyio.to_thread.run_sync(work)
