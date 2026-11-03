@@ -211,9 +211,17 @@ def _topic_key(s):
 def load_topics():
     try:
         with open(TOPICS_FILE, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except Exception:
         return {"topics": [], "trends": {}}
+    if not isinstance(data, dict):
+        return {"topics": [], "trends": {}}
+    topics = data.get("topics")
+    if isinstance(topics, list):
+        data["topics"] = [t for t in topics if isinstance(t, dict)]
+    else:
+        data["topics"] = []
+    return data
 
 
 def cached_topic(topic):
