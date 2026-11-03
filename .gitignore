@@ -33,3 +33,7 @@ data/
 .env
 .env.*
 *.log
+
+# For You desk if LOFI_X_HOME is pointed inside the repo. The default is ~/.config.
+x-user.json
+for-you-topics.json
