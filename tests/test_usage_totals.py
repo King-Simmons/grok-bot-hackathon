@@ -70,6 +70,41 @@ class UsageTotalsTest(unittest.TestCase):
         self.assertGreaterEqual(body["today"]["calls"], 3)
         self.assertEqual(body["agents_today"][0]["agent"], "dashboard")
 
+    def test_infinite_and_negative_counters_stay_json_safe(self):
+        today = datetime.now(ZoneInfo("America/Chicago")).date().isoformat()
+        self._write({
+            "all_time": {
+                "calls": 1e400, "errors": -2, "tracks": 1, "audio_s": float("nan"), "x_reads": -1,
+            },
+            "days": {today: {
+                "calls": -5, "errors": 0, "tracks": 0, "audio_s": float("inf"), "x_reads": 0, "by": {},
+            }},
+            "hours": {},
+            "agents": {},
+        })
+        body = usage.summary()
+        self.assertEqual(body["all_time"]["calls"], 0)
+        self.assertEqual(body["all_time"]["errors"], 0)
+        self.assertEqual(body["all_time"]["x_reads"], 0)
+        self.assertEqual(body["all_time"]["audio_s"], 0.0)
+        self.assertEqual(body["today"]["calls"], 0)
+        self.assertEqual(body["today"]["audio_s"], 0.0)
+        self.assertEqual(usage._int_map({"a": 1e400, "b": 2, "c": -3}), {"b": 2, "c": 0})
+        dumped = json.dumps(body)
+        self.assertNotIn("NaN", dumped)
+        self.assertNotIn("Infinity", dumped)
+
+    def test_one_bad_hour_does_not_drop_all_time(self):
+        self._write({
+            "all_time": {"calls": 7, "errors": 0, "tracks": 0, "audio_s": 1.5, "x_reads": 0},
+            "days": {},
+            "hours": {"2020-01-01T00": 1e400},
+            "agents": {},
+        })
+        body = usage.summary()
+        self.assertEqual(body["all_time"]["calls"], 7)
+        self.assertEqual(body["all_time"]["audio_s"], 1.5)
+
 
 if __name__ == "__main__":
     unittest.main()
