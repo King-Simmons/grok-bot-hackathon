@@ -53,7 +53,7 @@ def fetch(n=15, which="top"):
     ids = get(f"{which}stories.json")[: n * 2]  # over-fetch: some items are jobs/dead/deleted
     with ThreadPoolExecutor(max_workers=8) as ex:
         items = list(ex.map(lambda i: _safe_item(i), ids))
-    stories = [it for it in items if it and it.get("type") == "story" and it.get("title")
+    stories = [it for it in items if isinstance(it, dict) and it.get("type") == "story" and it.get("title")
                and not it.get("dead") and not it.get("deleted")]
     return [to_headline(it) for it in stories[:n]]
 

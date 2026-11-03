@@ -52,9 +52,18 @@ def iso_z(s):
     return s.replace("+00:00", "Z") if isinstance(s, str) else s
 
 
+def _records(doc, key="data"):
+    if not isinstance(doc, dict):
+        return []
+    rows = doc.get(key)
+    if not isinstance(rows, list):
+        return []
+    return [row for row in rows if isinstance(row, dict)]
+
+
 def cluster_ids(story):
     seen = []
-    for p in story.get("cluster_posts_results") or []:
+    for p in _records(story, "cluster_posts_results"):
         pid = p.get("post_id")
         if pid and pid not in seen:
             seen.append(pid)
@@ -104,12 +113,13 @@ def to_story(st, posts, users):
 
 
 def build(news, posts_doc, topic, n):
-    stories = [s for s in news.get("data") or [] if s.get("id") and s.get("name")]
+    stories = [s for s in _records(news) if s.get("id") and s.get("name")]
     if topic:
         stories = [s for s in stories if topic in ((s.get("contexts") or {}).get("topics") or [])]
     stories = stories[:n]
-    posts = {p["id"]: p for p in (posts_doc or {}).get("data") or []}
-    users = {u["id"]: u for u in ((posts_doc or {}).get("includes") or {}).get("users") or []}
+    posts = {p["id"]: p for p in _records(posts_doc) if "id" in p}
+    includes = posts_doc.get("includes") if isinstance(posts_doc, dict) else None
+    users = {u["id"]: u for u in _records(includes, "users") if "id" in u}
     return [to_story(s, posts, users) for s in stories]
 
 
@@ -138,7 +148,7 @@ def main():
             news = get("news/search", {"query": a.query, "max_results": min(100, max(1, a.n * 2)),
                                        "max_age_hours": a.max_age, "news.fields": NEWS_FIELDS}, token)
             ids = []
-            for s in (news.get("data") or [])[: a.n * 2]:
+            for s in _records(news)[: a.n * 2]:
                 ids += [i for i in cluster_ids(s)[:POSTS_PER_STORY] if i not in ids]
             posts_doc = None
             if ids:
@@ -164,7 +174,7 @@ def main():
         "topic_filter": a.topic or None,
         "fetched_via": via,
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
-        "disclaimer": next((s.get("disclaimer") for s in news.get("data") or [] if s.get("disclaimer")), None),
+        "disclaimer": next((s.get("disclaimer") for s in _records(news) if s.get("disclaimer")), None),
         "stories": stories,
     }
     doc = {k: v for k, v in doc.items() if v is not None}
