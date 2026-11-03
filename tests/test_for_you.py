@@ -452,5 +452,61 @@ class ServerMainTest(unittest.TestCase):
             proc.wait(timeout=3)
 
 
+class ForYouMcpTest(unittest.TestCase):
+    """for_you_batch must return absolute track URLs. #81 removed BASE."""
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        mcp_dir = os.path.join(root, "mcp")
+        sys.path[:] = [entry for entry in sys.path if os.path.abspath(entry or os.getcwd()) != os.path.abspath(mcp_dir)]
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        path = os.path.join(mcp_dir, "lofi_mcp_server.py")
+        spec = importlib.util.spec_from_file_location("lofi_mcp_for_you_under_test", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        cls.mod = mod
+
+    def setUp(self):
+        keys = ("LOFI_FOR_YOU_STUB", "LOFI_X_HOME", "LOFI_PUBLIC_BASE", "LOFI_DATA_DIR", "LOFI_MCP_TRANSPORT")
+        self._saved = {key: os.environ.get(key) for key in keys}
+        self.tmp = tempfile.mkdtemp()
+        os.environ["LOFI_FOR_YOU_STUB"] = "1"
+        os.environ["LOFI_X_HOME"] = self.tmp
+        os.environ["LOFI_DATA_DIR"] = os.path.join(self.tmp, "data")
+        os.environ["LOFI_PUBLIC_BASE"] = "http://radio.example:53343"
+        os.environ["LOFI_MCP_TRANSPORT"] = "local"
+        os.makedirs(os.environ["LOFI_DATA_DIR"], exist_ok=True)
+        from engine import for_you
+        for_you.use_home(self.tmp)
+        for_you.reset_runtime()
+
+    def tearDown(self):
+        from engine import for_you
+        for_you.use_home(None)
+        for_you.reset_runtime()
+        for key, value in self._saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def test_stubbed_batch_is_done_with_absolute_track_urls(self):
+        import asyncio
+        view = asyncio.run(self.mod.for_you_batch(topics=["Detroit Pistons"], summary=False, agent_id="test"))
+        self.assertIsInstance(view, dict)
+        self.assertEqual(view.get("state"), "done")
+        urls = [item.get("track_url") for item in view.get("items") or []]
+        self.assertTrue(urls)
+        for url in urls:
+            self.assertTrue(url.startswith("http://radio.example:53343/tracks/"), url)
+        result_urls = [track.get("track_url") for track in (view.get("result") or {}).get("tracks") or []]
+        self.assertTrue(result_urls)
+        for url in result_urls:
+            self.assertTrue(url.startswith("http://radio.example:53343/tracks/"), url)
+
+
 if __name__ == "__main__":
     unittest.main()
