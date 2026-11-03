@@ -455,6 +455,7 @@ def render(attrs, seed=0, out_mp3=None, target_s=38.0, mood_hint=None):
             data = enc.encode(pcm.tobytes()) + enc.flush()
             tmp = out_mp3 + ".part"
             with open(tmp, "wb") as f: f.write(data)
+            os.chmod(tmp, 0o644)
             os.replace(tmp, out_mp3)
         except ImportError:  # fall back to ffmpeg
             import subprocess, tempfile, scipy.io.wavfile as wf

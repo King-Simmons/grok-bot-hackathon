@@ -134,7 +134,9 @@ def _seconds(value):
         n = float(value)
     except (TypeError, ValueError):
         return 0.0
-    return n if math.isfinite(n) else 0.0
+    if not math.isfinite(n) or n < 0:
+        return 0.0
+    return n
 
 
 def _add(bucket, *, ok, tracks, audio_s, x_reads):
@@ -252,7 +254,7 @@ def _public_bucket(b):
     return {
         "calls": calls,
         "errors": errors,
-        "error_rate": round(errors / calls, 3) if calls else 0.0,
+        "error_rate": round(min(1.0, errors / calls), 3) if calls else 0.0,
         "tracks": _count(b.get("tracks")),
         "audio_s": round(audio, 3),
         "audio_min": round(audio / 60.0, 2),
