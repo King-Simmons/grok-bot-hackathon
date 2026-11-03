@@ -152,7 +152,7 @@ curl -s -X POST http://127.0.0.1:53343/api/for-you/batch \
   -d '{"topics":["SpaceX Starship","city council"],"summary":false}'
 ```
 
-The POST returns `job_id` and `poll`. Read that poll with `GET /api/jobs/<id>`. A second identical POST while the job is running returns the same id and `"joined": true`. Sign-in is `GET /api/for-you/connect` in the browser.
+The POST returns `job_id` and `poll`. Read that poll with `GET /api/jobs/<id>`. A second identical POST while the job is running returns the same id and `"joined": true`. Sign-in is `GET /api/for-you/connect` in the browser. The For You card on the control room (`/dashboard/#for-you`) posts the same body. The MCP tool `for_you_batch` runs the same batch in the MCP process and returns the view. It does not create a dashboard job.
 
 ## Radio stations (Lofi / News Talk)
 

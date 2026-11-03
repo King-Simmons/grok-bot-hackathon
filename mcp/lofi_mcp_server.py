@@ -676,6 +676,32 @@ async def synthesize_topic(topic: str, posts: Optional[list[str]] = None, force:
     return await _go(run)
 
 
+@server.tool(description="Build a For You news-talk batch from typed topics and, when X is connected, "
+                         "likes and following. topics is optional and replaces the saved list when present. "
+                         "summary defaults to false (instrumental). At most 4 tracks. One failed topic does not "
+                         "cancel the others. Returns the same view the dashboard polls, with absolute track_url. "
+                         "This call does not create a dashboard job. X sign-in is the HTTP connect route, not this tool.")
+async def for_you_batch(topics: Optional[list[str]] = None, summary: bool = False, agent_id: str = "") -> dict:
+    from mcp.server.mcpserver.exceptions import ToolError
+    from engine import for_you
+    who, started = _who(agent_id), time.perf_counter()
+    given = topics is not None
+
+    def work():
+        flag = for_you.coerce_summary(summary)
+        batch = for_you.Batch(topics=topics, summary=flag, topics_given=given)
+        return for_you.run_in_slot(batch, who)
+
+    try:
+        view = await anyio.to_thread.run_sync(work)
+    except Exception as exc:
+        _note(who, "for_you_batch", started, ok=False, error=str(exc))
+        if isinstance(exc, for_you.ForYouRejected):
+            raise ToolError(str(exc))
+        raise
+    return for_you.absolutize(view, BASE)
+
+
 # --- Live agents + usage -------------------------------------------------------
 # report_status, list_agents, and get_usage. Kept in one block so other agents
 # can merge the synthesize tools above without touching this section.
