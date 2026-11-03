@@ -467,6 +467,7 @@ def render(attrs, seed=0, out_mp3=None, target_s=38.0, mood_hint=None):
                     subprocess.run(
                         ["ffmpeg", "-y", "-loglevel", "error", "-i", w.name, "-b:a", "160k", tmp_mp3],
                         check=True)
+                os.chmod(tmp_mp3, 0o644)
                 os.replace(tmp_mp3, out_mp3)
             except BaseException:
                 try:

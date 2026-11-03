@@ -63,6 +63,7 @@ class FfmpegEncodeTest(unittest.TestCase):
                 info = render(ATTRS, seed=1, out_mp3=out)
             with open(out, "rb") as handle:
                 self.assertEqual(handle.read(), b"FULLMP3")
+            self.assertEqual(os.stat(out).st_mode & 0o777, 0o644)
             self.assertIn("encode_s", info)
             leftovers = [name for name in os.listdir(tmp) if name != "track.mp3"]
             self.assertEqual(leftovers, [])
