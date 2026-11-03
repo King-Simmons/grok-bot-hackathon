@@ -699,7 +699,7 @@ async def for_you_batch(topics: Optional[list[str]] = None, summary: bool = Fals
         if isinstance(exc, for_you.ForYouRejected):
             raise ToolError(str(exc))
         raise
-    return for_you.absolutize(view, BASE)
+    return for_you.absolutize(view, _base())
 
 
 # --- Live agents + usage -------------------------------------------------------
