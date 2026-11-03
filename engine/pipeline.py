@@ -247,7 +247,10 @@ def live_x_posts(topic, token=None, max_results=MAX_POSTS):
         raise IngestError(f"X API search failed (HTTP {e.code}); check X_BEARER_TOKEN and your X API plan")
     except Exception as e:
         raise IngestError(f"X API search failed: {e}")
-    return [p.get("text", "") for p in data.get("data", [])]
+    rows = data.get("data") if isinstance(data, dict) else None
+    if not isinstance(rows, list):
+        return []
+    return [p.get("text", "") for p in rows if isinstance(p, dict)]
 
 
 def synthesize_text(title, text, source_url, kind="text", force=False, progress=None, report_status=True,

@@ -2,7 +2,8 @@
 
 The full script still hits the network for a web topic. This module does not.
 """
-import os, unittest
+import io, os, unittest
+from unittest.mock import patch
 
 from engine import pipeline
 from engine.topic_web import BadSource, Cand, EmptyTopic, gather_pages, normalize_source, normalize_topic
@@ -54,3 +55,26 @@ class TopicOfflineTest(unittest.TestCase):
         self.assertGreaterEqual(len(posts), 2)
         with self.assertRaises(pipeline.TopicNotFound):
             pipeline.resolve_topic_posts("zzz-not-a-cached-topic")
+
+    def test_null_recent_search_returns_no_posts(self):
+        os.environ["X_BEARER_TOKEN"] = "test-token"
+        with patch("urllib.request.urlopen", return_value=_JsonBody(b'{"data": null}')):
+            self.assertEqual(pipeline.live_x_posts("lofi"), [])
+
+    def test_non_list_recent_search_uses_the_cache(self):
+        os.environ["X_BEARER_TOKEN"] = "test-token"
+        with patch("urllib.request.urlopen", return_value=_JsonBody(b'{"data": "abc"}')):
+            posts, source, _meta = pipeline.resolve_topic_posts("SpaceX")
+        self.assertEqual(source, "x_topics.json")
+        self.assertGreaterEqual(len(posts), 2)
+
+
+class _JsonBody:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def __enter__(self):
+        return io.BytesIO(self.payload)
+
+    def __exit__(self, *args):
+        return False
