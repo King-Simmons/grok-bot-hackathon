@@ -536,6 +536,24 @@
       <div class="res" id="u2lRes" hidden></div>
     </section>
 
+    <section class="card" id="forYou" aria-label="For You">
+      <div class="head">
+        <h2>For You</h2>
+        <span class="tag" id="forYouTag">topics</span>
+      </div>
+      <p id="forYouMsg">Loading your topics…</p>
+      <div id="forYouAuth"></div>
+      <label for="forYouTopics">Topics you want, one per line. Four at most.</label>
+      <textarea id="forYouTopics" rows="4" maxlength="500" aria-label="Topics you want, one per line"></textarea>
+      <label class="fy-check"><input id="forYouSummary" type="checkbox"> Spoken summary</label>
+      <div class="fy-actions">
+        <button type="button" id="forYouPreview">Preview</button>
+        <button type="button" id="forYouGo">Make the batch</button>
+      </div>
+      <div class="pbar"><div id="forYouBar"></div></div>
+      <div id="forYouList"></div>
+    </section>
+
     <section class="card mixer" aria-label="Mixer">
       <div class="head">
         <h2>Mixer</h2>
@@ -1942,5 +1960,6 @@ function renderTabNow(){
 renderTabNow(); setInterval(renderTabNow, 1000);
 Tabs.set(location.hash==='#graph'?'graph':'radio');
 </script>
+<script src="for_you.js"></script>
 </body>
 </html>
