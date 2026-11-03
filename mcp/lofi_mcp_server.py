@@ -212,7 +212,10 @@ def _poll(job_id, path):
             err = outcome[1]
             if err.get("http_status") == 404:
                 return ("err", _fail("job_lost", f"Job {job_id} disappeared.", job_id=job_id))
-            return outcome
+            if not err.get("job_id"):
+                err = dict(err)
+                err["job_id"] = job_id
+            return ("err", err)
         obj = outcome[2]
         if not obj:
             return ("err", _fail("job_lost", f"Job {job_id} disappeared.", job_id=job_id))
@@ -343,6 +346,9 @@ def _norm_flags(force, vocals, script, agent_id):
 def _require_url(url):
     if not isinstance(url, str) or not url.strip():
         return _fail("bad_args", "url is required.")
+    scheme = urllib.parse.urlsplit(url.strip()).scheme
+    if scheme and scheme.lower() not in ("http", "https"):
+        return _fail("bad_args", "url must be an http or https URL.")
     return None
 
 

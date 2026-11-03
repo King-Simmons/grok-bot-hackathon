@@ -7,7 +7,7 @@ Run from the repo root:
 The file is self-contained. A unittest discover of tests/ picks it up, which is
 what the shared CI script looks for once that workflow is on main.
 """
-import asyncio, importlib.util, json, os, socket, sys, threading, time, unittest
+import asyncio, importlib.util, json, os, socket, subprocess, sys, threading, time, unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -183,6 +183,22 @@ class _Handler(BaseHTTPRequestHandler):
             return
         if mode == "topic_missing":
             self._json(404, {"error": 'No posts for "zzz".', "error_kind": "topic_not_found"})
+            return
+        if mode == "drop_job":
+            if path.startswith("/api/jobs/"):
+                self.close_connection = True
+                try:
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                return
+            self._json(202, {"job_id": "job1", "poll": "/api/jobs/job1"})
+            return
+        if mode == "trap":
+            if path == "/api/health":
+                self._json(200, {"ok": True})
+                return
+            self._json(404, {"error": "unknown endpoint"})
             return
         self._json(200, self._success_for(path, self.command))
 
@@ -430,11 +446,57 @@ class McpRobustnessTest(unittest.TestCase):
         self.assertEqual(result["all_time"]["calls"], 7)
         self.assertNotIn("error_kind", result)
 
+    def test_non_http_page_url_is_bad_args(self):
+        state = self._serve("ok")
+        for url in ("ftp://x", "file:///tmp/x", "gopher://x"):
+            with self.subTest(url=url):
+                before = state.hits
+                result = self._run(self.mod.synthesize_url(url))
+                self._assert_error(result, "bad_args")
+                mood = self._run(self.mod.get_mood_analysis(url))
+                self._assert_error(mood, "bad_args")
+                self.assertEqual(state.hits, before)
+        sent = self._run(self.mod.synthesize_url("example.com/story"))
+        self.assertNotEqual(sent.get("error_kind"), "bad_args")
+        self.assertGreater(state.hits, 0)
+
+    def test_poll_keeps_job_id_when_the_server_drops(self):
+        self._serve("drop_job")
+        result = self._call("synthesize_url")
+        self._assert_error(result, "server_down")
+        self.assertEqual(result.get("job_id"), "job1")
+
     def test_bad_timeout_setting_does_not_crash(self):
         os.environ["LOFI_MCP_HTTP_TIMEOUT"] = "nope"
         self._serve("http_error")
         result = self._call("get_usage")
         self._assert_error(result, "http_error")
+
+
+class SimHermeticTest(unittest.TestCase):
+    def test_sim_ignores_a_server_on_53343(self):
+        """A dashboard already bound to the default port must not receive the fake agent."""
+        httpd = None
+        try:
+            httpd = ThreadingHTTPServer(("127.0.0.1", 53343), _Handler)
+        except OSError:
+            httpd = None
+        else:
+            httpd.state = _State("trap")
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            self.addCleanup(httpd.shutdown)
+            self.addCleanup(httpd.server_close)
+        env = os.environ.copy()
+        env.pop("LOFI_MCP_TRANSPORT", None)
+        env.pop("LOFI_PUBLIC_BASE", None)
+        proc = subprocess.run(
+            [sys.executable, os.path.join(ROOT, "scripts", "simulate_live_agents.py")],
+            cwd=ROOT, env=env, capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr[-500:] + proc.stdout[-500:])
+        self.assertIn("simulate_live_agents: ok", proc.stdout)
+        if httpd is not None:
+            self.assertEqual(httpd.state.hits, 0)
 
 
 if __name__ == "__main__":

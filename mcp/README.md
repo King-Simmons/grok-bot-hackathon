@@ -26,7 +26,7 @@ A transport failure is a dict, not a crash:
 
 `error_kind` is `bad_args`, `server_down`, `timeout`, `http_error`, `bad_response`, `still_running`, `job_lost`, `job_error`, or `internal`. `http_error` includes `http_status`. `still_running` includes `job_id`, `status`, and `poll` once `LOFI_MCP_JOB_WAIT` seconds have passed (default 180), so a long render returns instead of hanging. One HTTP call is bounded by `LOFI_MCP_HTTP_TIMEOUT` (default 15 seconds). A bad value for either setting falls back to the default.
 
-An empty topic or a source other than `web` or `x` still raises a message you can show the user. So does an unknown topic.
+An empty topic or a source other than `web` or `x` still raises a message you can show the user. So does an unknown topic. A page URL with a scheme other than `http` or `https` is `bad_args`, and no request is sent. If the app server disappears while a job is being polled, the error still includes `job_id`.
 
 It renders an original ~42-44 s lofi mp3 in about 2-4 s. It also reports progress to the dashboard as bot `url-lofi`.
 

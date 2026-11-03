@@ -19,6 +19,9 @@ os.environ["LOFI_DATA_DIR"] = str(Path(_TMP.name) / "data")
 os.environ["LOFI_USAGE_MAX_BYTES"] = "1200"
 os.environ["LOFI_USAGE_MAX_EVENTS"] = "40"
 os.environ.pop("LOFI_AGENT_STALE_S", None)
+# auto would register the fake agent with whatever is already serving :53343.
+# This run checks its own status dir and usage meter.
+os.environ["LOFI_MCP_TRANSPORT"] = "local"
 Path(os.environ["LOFI_STATUS_DIR"]).mkdir()
 Path(os.environ["LOFI_DATA_DIR"]).mkdir()
 
