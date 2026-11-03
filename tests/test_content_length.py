@@ -142,3 +142,25 @@ class ContentLengthTest(ServerCase):
             right.close()
         self.assertEqual(raw, b"[]")
         self.assertEqual(timeout, 7)
+
+    def test_short_declared_body_uses_the_socket_timeout(self):
+        left, right = socket.socketpair()
+        right.settimeout(0.2)
+        left.sendall(b"{}")
+        handler = type("H", (), {})()
+        handler.connection = right
+        handler.rfile = right.makefile("rb")
+        try:
+            from engine.server import _read_exact
+            started = time.monotonic()
+            exact = _read_exact(handler, 50)
+            elapsed = time.monotonic() - started
+            timeout = right.gettimeout()
+        finally:
+            handler.rfile.close()
+            left.close()
+            right.close()
+        self.assertIsNone(exact)
+        self.assertGreater(elapsed, 0.15)
+        self.assertLess(elapsed, 1.0)
+        self.assertEqual(timeout, 0.2)
