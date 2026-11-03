@@ -2,7 +2,7 @@
 
 Vocals are off until you ask. `./run.sh` does not install them. A synthesize call with no `vocals` field, or with `vocals` set to `none`, is the instrumental pipeline, same as before.
 
-The dashboard has a Vocals control (None / Host summary / Song) shared by paste-a-link and Learn a topic. It defaults to None. While Chatterbox is rendering, the stage line says "Rendering vocals…". If the voice engine is missing, the beat is unchanged and `vocals.state` is `instrumental` with `vocals.reason` explaining why. The dashboard shows that reason.
+The dashboard has a Vocals control (None / Spoken summary / Song) shared by paste-a-link and Learn a topic. It defaults to None. While Chatterbox is rendering, the stage line says "Rendering vocals…". If the voice engine is missing, the beat is unchanged and `vocals.state` is `instrumental`. The page shows one line, "Vocals need the optional voice install (./run.sh --voice). Playing the instrumental." The install steps are below. Hover that line for the longer reason.
 
 Chatterbox is the optional extra already used for the 101.5 host briefing. Track vocals reuse `scripts/requirements-voice.txt`. There is no second requirements file.
 
@@ -34,7 +34,7 @@ Python 3.11, in a separate venv so the default `./.venv` stays as it is. One ste
 ./run.sh --voice
 ```
 
-That creates `.venv-voice` with `python3.11`, installs `torch==2.6.0` and `torchaudio==2.6.0`, then `scripts/requirements-voice.txt` and `requirements.txt`, and starts the server with that interpreter. It sets `CHATTERBOX_DEVICE=mps` on Apple Silicon and `cpu` otherwise. If `python3.11` is not on `PATH`, it exits and tells you to install it. The first model load takes several minutes. A warm 4-line summary takes about 30 seconds on an M1 Max.
+That creates `.venv-voice` with `python3.11`, installs `torch==2.6.0` and `torchaudio==2.6.0`, then `scripts/requirements-voice.txt` (which pins `setuptools<81`) and `requirements.txt`, writes `.venv-voice/.installed`, and starts the server with that interpreter. A venv left behind by a failed pip run has no stamp, so the next `./run.sh --voice` installs again. It sets `CHATTERBOX_DEVICE=mps` on Apple Silicon and `cpu` otherwise. If `python3.11` is not on `PATH`, it exits and tells you to install it. The first model load takes several minutes. A warm 4-line summary takes about 30 seconds on an M1 Max.
 
 The same install by hand, from the repo root:
 

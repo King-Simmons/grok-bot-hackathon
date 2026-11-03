@@ -33,14 +33,20 @@ if [ "$VOICE" = 1 ]; then
     exit 1
   fi
   pick_voice_device
-  if [ -x .venv-voice/bin/python ]; then
+  voice_py_ok() {
     ver="$(.venv-voice/bin/python -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
     if [ "$ver" != "3.11" ]; then
       echo ".venv-voice is Python $ver, not 3.11. Remove .venv-voice and run ./run.sh --voice again." >&2
       exit 1
     fi
+  }
+  if [ -f .venv-voice/.installed ] && [ -x .venv-voice/bin/python ]; then
+    voice_py_ok
   else
-    python3.11 -m venv .venv-voice
+    if [ ! -x .venv-voice/bin/python ]; then
+      python3.11 -m venv .venv-voice
+    fi
+    voice_py_ok
     .venv-voice/bin/pip install -q --upgrade pip
     if [ "$CHATTERBOX_DEVICE" = "cpu" ]; then
       .venv-voice/bin/pip install -q torch==2.6.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
@@ -49,6 +55,7 @@ if [ "$VOICE" = 1 ]; then
     fi
     .venv-voice/bin/pip install -q -r scripts/requirements-voice.txt
     .venv-voice/bin/pip install -q -r requirements.txt
+    printf '%s\n' 'voice deps installed' > .venv-voice/.installed
   fi
   PY=.venv-voice/bin/python
   echo "Voice venv: $PY (CHATTERBOX_DEVICE=$CHATTERBOX_DEVICE). First Chatterbox load takes several minutes. A warm 4-line summary is about 30s on an M1 Max."
