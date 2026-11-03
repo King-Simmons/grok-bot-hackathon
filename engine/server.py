@@ -14,6 +14,9 @@
        source defaults to web (engine/topic_web.py). "x" keeps the X-posts path.
        empty topic -> 400 {"error_kind": "empty_topic"}; unknown -> 404 {"error_kind": "topic_not_found"}
        optional "agent_id" (or header X-Agent-Id) is who the usage log credits
+  GET  /api/for-you                      -> X link, typed topics, and the sentence to show
+  POST /api/for-you/batch                -> news-talk batch; poll GET /api/jobs/<id>
+       GET /api/for-you/connect and /api/for-you/x/callback are the X sign-in door
 Run from the repo root: ./run.sh   or   python3 engine/server.py [--port 53343]
 Static files are only dashboard/, samples/, tracks/ and status/. `/` redirects to `/dashboard/`.
 Dotfiles are not served. API routes are /api/*.
@@ -32,6 +35,8 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+if __name__ == "__main__":
+    sys.modules.setdefault("engine.server", sys.modules[__name__])
 from engine import agents, pipeline, usage  # noqa: E402
 from engine.ingest import IngestError  # noqa: E402
 
@@ -235,13 +240,17 @@ def _reject_busy(handler, who, tool):
     handler._json(429, {"error": "too many tracks are rendering"})
 
 
-def _spawn_job(jid, record, target, args):
-    """Start one tracked job. False when every render slot is already taken."""
-    with JOBS_LOCK:
-        _prune_jobs_locked()
-        if not _SLOTS.acquire(blocking=False):
-            return False
-        JOBS[jid] = record
+def _insert_job_locked(jid, record):
+    """Caller holds JOBS_LOCK. False when every render slot is taken."""
+    _prune_jobs_locked()
+    if not _SLOTS.acquire(blocking=False):
+        return False
+    JOBS[jid] = record
+    return True
+
+
+def _start_job_thread(jid, target, args):
+    """Run target after the job row is already visible. Releases the render slot."""
     def run():
         update = None
         try:
@@ -262,6 +271,14 @@ def _spawn_job(jid, record, target, args):
         with JOBS_LOCK:
             JOBS.pop(jid, None)
         raise
+
+
+def _spawn_job(jid, record, target, args):
+    """Start one tracked job. False when every render slot is already taken."""
+    with JOBS_LOCK:
+        if not _insert_job_locked(jid, record):
+            return False
+    _start_job_thread(jid, target, args)
     return True
 
 
@@ -623,6 +640,10 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def log_request(self, code="-", size="-"):
+        from engine.for_you import redact_requestline
+        self.log_message('"%s" %s %s', redact_requestline(self.requestline), str(code), str(size))
+
     def end_headers(self):
         if self.path.startswith("/api/") or self.path.endswith(".json"):
             self.send_header("Cache-Control", "no-store")
@@ -659,6 +680,9 @@ class Handler(SimpleHTTPRequestHandler):
         if route_topics_get(self, u.path):
             return
         if route_mood_get(self, u):
+            return
+        from engine.for_you_http import route_for_you_get
+        if route_for_you_get(self, u):
             return
         if u.path.startswith("/api/jobs/"):
             jid = u.path.rsplit("/", 1)[-1]
@@ -734,6 +758,9 @@ class Handler(SimpleHTTPRequestHandler):
         if route_synthesize_topic_post(self, u.path):
             return
         if route_synthesize_post(self, u.path):
+            return
+        from engine.for_you_http import route_for_you_post
+        if route_for_you_post(self, u.path):
             return
         return self._json(404, {"error": "unknown endpoint"})
 

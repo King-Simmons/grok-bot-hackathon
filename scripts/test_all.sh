@@ -22,7 +22,7 @@ export LOFI_TEST_TMP="$tmp"
 export LOFI_STATUS_DIR="$tmp/status"
 export LOFI_DATA_DIR="$tmp/data"
 mkdir -p "$LOFI_STATUS_DIR" "$LOFI_DATA_DIR"
-unset X_BEARER_TOKEN
+unset X_BEARER_TOKEN X_CLIENT_ID X_CLIENT_SECRET XAI_API_KEY
 
 echo "python: $PY"
 "$PY" -m unittest discover -s tests -v
