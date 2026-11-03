@@ -116,6 +116,44 @@ See [mcp/README.md](mcp/README.md). From the repo root, after `./run.sh` has cre
 .venv/bin/python mcp/test_mcp_client.py https://example.com
 ```
 
+## For You
+
+The engine can build a short batch of news-talk tracks from topics you type. Likes and following on X are optional. The batch still runs when X is not connected.
+
+Typed topics and the X user token stay on this machine, outside the repo, in `~/.config/lofi-news-radio/` (or `$XDG_CONFIG_HOME/lofi-news-radio`, or `LOFI_X_HOME`). The token file is mode `0600`. Do not point `LOFI_X_HOME` at the repository. `x-user.json` and `for-you-topics.json` are gitignored in case a path lands inside the tree.
+
+```bash
+export X_CLIENT_ID=...          # OAuth 2.0 client id from the X developer app
+export X_CLIENT_SECRET=...      # confidential client secret. Never commit it.
+export XAI_API_KEY=...          # optional. Without it, ranking stays on this machine.
+export XAI_MODEL=grok-4-fast    # optional override
+```
+
+`X_BEARER_TOKEN` is the app-only token already used by news search. For You does not read it. Likes and following need the user to sign in.
+
+In the X app, set the redirect URI to the port you actually run:
+
+```text
+http://127.0.0.1:53343/api/for-you/x/callback
+```
+
+The server builds that URI from `127.0.0.1` and its own port. The callback checks that the Host header and the peer address are loopback, and it checks `state` once. The code is not written to the log.
+
+Scopes, and no others: `tweet.read users.read like.read follows.read offline.access`.
+
+`GET /2/users/:id/liked_tweets` and `GET /2/users/:id/following` return 403 on a tier that does not include them. Free access refuses both. The token stays, the status sentence says which side was refused, and the topics you typed still render. Nothing is scraped.
+
+A batch holds 4 tracks. Four typed topics skip X and Grok. Fewer than four leaves room for likes and following. `summary` defaults to false, so the track is instrumental. `summary: true` asks the existing topic pipeline for a spoken summary (Chatterbox default voice and its watermark, and only when that package is installed). A `vocals` field is rejected. One topic can fail and the rest still finish.
+
+```bash
+curl -s http://127.0.0.1:53343/api/for-you
+curl -s -X POST http://127.0.0.1:53343/api/for-you/batch \
+  -H 'Content-Type: application/json' \
+  -d '{"topics":["SpaceX Starship","city council"],"summary":false}'
+```
+
+The POST returns `job_id` and `poll`. Read that poll with `GET /api/jobs/<id>`. A second identical POST while the job is running returns the same id and `"joined": true`. Sign-in is `GET /api/for-you/connect` in the browser.
+
 ## Radio stations (Lofi / News Talk)
 
 The Now playing card has a retro FM tuner. Same player, same beat; the station decides what rides on top.
