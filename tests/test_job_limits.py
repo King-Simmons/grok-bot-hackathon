@@ -44,6 +44,15 @@ class JobLimitTest(unittest.TestCase):
         cls.httpd.shutdown()
         cls.httpd.server_close()
 
+    def setUp(self):
+        from engine import server
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if server._SLOTS._value == server.MAX_RUNNING:
+                return
+            time.sleep(0.02)
+        self.fail("render slots still held: %s" % server._SLOTS._value)
+
     def post(self, path, obj):
         raw = json.dumps(obj).encode()
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
@@ -64,6 +73,30 @@ class JobLimitTest(unittest.TestCase):
             return resp.status, body
         finally:
             conn.close()
+
+    def test_topic_import_failure_does_not_keep_a_slot(self):
+        import builtins
+        from engine import server
+        real = builtins.__import__
+        seen = []
+
+        def hooked(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "engine.topic_web":
+                seen.append(name)
+                if len(seen) > 1:
+                    raise ImportError("blocked")
+            return real(name, globals, locals, fromlist, level)
+
+        builtins.__import__ = hooked
+        try:
+            try:
+                self.post("/api/synthesize_topic", {"topic": "lofi", "source": "web"})
+            except Exception:
+                pass
+        finally:
+            builtins.__import__ = real
+        self.assertGreaterEqual(len(seen), 2)
+        self.assertEqual(server._SLOTS._value, server.MAX_RUNNING)
 
     def test_fifth_concurrent_synth_is_rejected(self):
         from unittest.mock import patch
