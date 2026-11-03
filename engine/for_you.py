@@ -134,6 +134,8 @@ def _normalize_many(values):
     out = []
     seen = set()
     for raw in values or []:
+        if not isinstance(raw, str):
+            raise ForYouRejected("Each topic must be a string.", "bad_topic")
         try:
             topic = normalize_topic(raw)
         except EmptyTopic as exc:
@@ -1010,9 +1012,14 @@ def run_in_slot(batch, agent):
 
 
 def _failure_text(exc, topic):
+    """A search with no hit keeps its own sentence. Only a dead network says unreachable."""
+    from engine.pipeline import TopicNotFound
+    import urllib.error
     text = str(exc)
-    if "couldn't find public pages" in text or "couldn’t find public pages" in text:
-        text = 'No public pages were reachable for "%s".' % topic
+    if isinstance(exc, TopicNotFound):
+        return text[:300]
+    if isinstance(exc, (TimeoutError, urllib.error.URLError, ConnectionError)):
+        return 'No public pages were reachable for "%s".' % topic
     return text[:300]
 
 

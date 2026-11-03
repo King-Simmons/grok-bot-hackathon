@@ -192,15 +192,30 @@ class ForYouTest(unittest.TestCase):
             for_you.Batch(topics=["one", "two", "three", "four", "five"], summary=False, topics_given=True)
         self.assertEqual(for_you.load_topics(), ["City council"])
 
-    def test_unreachable_pages_do_not_use_the_web_search_sentence(self):
-        def render(topic, vocals, agent, progress):
+    def test_a_miss_keeps_the_search_sentence_and_a_dead_network_does_not(self):
+        def miss(topic, vocals, agent, progress):
             from engine.pipeline import TopicNotFound
             raise TopicNotFound('I couldn\'t find public pages about "%s".' % topic)
-        for_you.RENDER = render
+        for_you.RENDER = miss
         view = for_you.Batch(topics=["Atlanta Braves"], summary=False, topics_given=True).run(agent="test")
-        self.assertEqual(view["items"][0]["error_kind"], "topic_not_found")
-        self.assertNotIn("couldn't find public pages", view["items"][0]["error"])
+        self.assertIn("couldn't find public pages", view["items"][0]["error"])
+        self.assertNotIn("reachable", view["items"][0]["error"])
+
+        def down(topic, vocals, agent, progress):
+            import urllib.error
+            raise urllib.error.URLError("timed out")
+        for_you.RENDER = down
+        view = for_you.Batch(topics=["Atlanta Braves"], summary=False, topics_given=True).run(agent="test")
         self.assertIn("reachable", view["items"][0]["error"])
+        self.assertNotIn("couldn't find public pages", view["items"][0]["error"])
+
+    def test_non_string_topics_are_rejected(self):
+        for_you.save_topics(["City council"])
+        with self.assertRaises(for_you.ForYouRejected) as raised:
+            for_you.Batch(topics=[1, 2], summary=False, topics_given=True)
+        self.assertEqual(raised.exception.error_kind, "bad_topic")
+        self.assertIn("string", str(raised.exception))
+        self.assertEqual(for_you.load_topics(), ["City council"])
 
     def test_summary_string_false_is_false(self):
         self.assertFalse(for_you.coerce_summary("false"))
