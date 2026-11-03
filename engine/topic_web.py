@@ -7,7 +7,7 @@ uses an identifying User-Agent and does not retry with a browser UA.
 X posts stay in engine/pipeline.py. This module only collects public pages
 and calls pipeline.synthesize_text.
 """
-import html, json, re, ssl, urllib.parse, urllib.request
+import html, json, re, urllib.parse
 from collections import Counter, namedtuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -57,17 +57,6 @@ def normalize_topic(topic):
     return topic
 
 
-def _ssl_context():
-    try:
-        import certifi
-        return ssl.create_default_context(cafile=certifi.where())
-    except Exception:
-        return ssl.create_default_context()
-
-
-_SSL = _ssl_context()
-
-
 def _tokens(s):
     out = []
     for w in re.findall(r"[^\W_]{2,}", (s or "").lower()):
@@ -99,8 +88,8 @@ def _relevant(topic, title, extra=""):
 
 
 def _open(url, accept, timeout=10, limit=1_500_000):
-    req = urllib.request.Request(url, headers={"User-Agent": DISCOVERY_UA, "Accept": accept})
-    with urllib.request.urlopen(req, timeout=timeout, context=_SSL) as r:
+    from engine.ingest import checked_urlopen
+    with checked_urlopen(url, {"User-Agent": DISCOVERY_UA, "Accept": accept}, timeout) as r:
         return r.read(limit)
 
 

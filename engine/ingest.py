@@ -3,7 +3,7 @@
 Uses trafilatura when installed, else a stdlib HTMLParser fallback.
 Safety: http(s) only, refuses private/loopback hosts, timeouts, size cap.
 """
-import html as htmlmod, ipaddress, re, socket, ssl, threading, urllib.error, urllib.parse, urllib.request
+import html as htmlmod, http.client, ipaddress, re, socket, ssl, threading, urllib.error, urllib.parse, urllib.request
 from html.parser import HTMLParser
 
 UA = "Mozilla/5.0 (X11; Linux x86_64) LofiNewsRadio-URL2Lofi/1.0 (+hackathon prototype)"
@@ -33,20 +33,84 @@ def _ssl_context():
 _SSL_CTX = _ssl_context()
 
 
+_pin = threading.local()
+
+
+def _blocked_ip(ip):
+    """True for addresses that are not a public fetch target.
+
+    is_global is false for shared space such as 100.64.0.0/10 and for the
+    Alibaba metadata address 100.100.100.200. Multicast stays blocked even
+    where is_global is true. An IPv4-mapped address is judged as that IPv4
+    address too, and a reserved mapped form stays blocked.
+    """
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None and _blocked_ip(mapped):
+        return True
+    if ip.is_multicast or ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified:
+        return True
+    return not ip.is_global
+
+
 def _check_host(url):
     p = urllib.parse.urlparse(url)
     if p.scheme not in ("http", "https") or not p.hostname:
         raise IngestError("only http(s) URLs are supported")
+    port = p.port or (443 if p.scheme == "https" else 80)
     try:
-        infos = socket.getaddrinfo(p.hostname, p.port or (443 if p.scheme == "https" else 80))
+        infos = socket.getaddrinfo(p.hostname, port, type=socket.SOCK_STREAM)
     except socket.gaierror as e:
         raise IngestError(f"can't resolve host {p.hostname}: {e}")
+    fake = None
+    chosen = None
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
         if ip in _FAKE_IP_NET:  # this box's DNS maps public names into 198.18.0.0/15 (proxy fake-IP)
+            fake = fake or ip
             continue
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+        if _blocked_ip(ip):
             raise IngestError(f"refusing to fetch private/local address {ip}")
+        if chosen is None:
+            chosen = ip
+    picked = chosen or fake
+    if picked is None:
+        raise IngestError(f"can't resolve host {p.hostname}")
+    # Connect to this address. A later lookup can answer a different one.
+    _pin.target = (str(picked), port)
+    return _pin.target
+
+
+class _PinnedHTTP(http.client.HTTPConnection):
+    def connect(self):
+        ip, port = _pin.target
+        self.sock = socket.create_connection((ip, port), self.timeout, self.source_address)
+        try:
+            self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        except OSError:
+            pass
+
+
+class _PinnedHTTPS(http.client.HTTPSConnection):
+    def connect(self):
+        _PinnedHTTP.connect(self)
+        hostname = self._tunnel_host or self.host
+        self.sock = self._context.wrap_socket(self.sock, server_hostname=hostname)
+
+
+class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_PinnedHTTP, req)
+
+
+class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_PinnedHTTPS, req, context=self._context)
+
+
+class _Direct(urllib.request.ProxyHandler):
+    def __init__(self):
+        # Do not honor HTTP_PROXY. The socket has to be the address we checked.
+        super().__init__(proxies={})
 
 
 _HEX = set("0123456789abcdefABCDEF")
@@ -108,16 +172,27 @@ class _NoPrivateRedirect(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def _opener():
+    return urllib.request.build_opener(
+        _Direct(), _NoPrivateRedirect, _PinnedHTTPHandler, _PinnedHTTPSHandler(context=_SSL_CTX),
+    )
+
+
+def checked_urlopen(url, headers, timeout):
+    """Open a public http(s) URL. Each hop, including a redirect, is pinned."""
+    _check_host(url)
+    req = urllib.request.Request(url, headers=headers)
+    return _opener().open(req, timeout=timeout)
+
+
 def fetch(url):
     if not re.match(r"^https?://", url, re.I):
         url = "https://" + url
     url = _ascii_url(url)
-    _check_host(url)
-    opener = urllib.request.build_opener(_NoPrivateRedirect, urllib.request.HTTPSHandler(context=_SSL_CTX))
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
-                                               "Accept-Language": "en-US,en;q=0.8"})
+    headers = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+               "Accept-Language": "en-US,en;q=0.8"}
     try:
-        with opener.open(req, timeout=TIMEOUT) as r:
+        with checked_urlopen(url, headers, TIMEOUT) as r:
             ctype = r.headers.get("Content-Type", "")
             if ctype and not re.search(r"text/|html|xml|json", ctype):
                 raise IngestError(f"unsupported content type {ctype}")
