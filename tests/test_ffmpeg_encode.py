@@ -68,6 +68,20 @@ class FfmpegEncodeTest(unittest.TestCase):
             leftovers = [name for name in os.listdir(tmp) if name != "track.mp3"]
             self.assertEqual(leftovers, [])
 
+    def test_lameenc_mp3_is_mode_644_under_a_tight_umask(self):
+        try:
+            import lameenc  # noqa: F401
+        except ImportError:
+            self.skipTest("lameenc is not installed")
+        old = os.umask(0o077)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                out = os.path.join(tmp, "track.mp3")
+                render(ATTRS, seed=1, out_mp3=out)
+                self.assertEqual(os.stat(out).st_mode & 0o777, 0o644)
+        finally:
+            os.umask(old)
+
 
 if __name__ == "__main__":
     unittest.main()
