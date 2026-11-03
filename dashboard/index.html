@@ -537,7 +537,7 @@
         <span class="asof">Vocals</span>
         <div class="srcpick" id="voxPick" role="radiogroup" aria-label="Vocals">
           <button type="button" class="srcbtn" id="voxNone" role="radio" aria-pressed="true" aria-checked="true">None</button>
-          <button type="button" class="srcbtn" id="voxSummary" role="radio" aria-pressed="false" aria-checked="false">Host summary</button>
+          <button type="button" class="srcbtn" id="voxSummary" role="radio" aria-pressed="false" aria-checked="false">Spoken summary</button>
           <button type="button" class="srcbtn" id="voxSong" role="radio" aria-pressed="false" aria-checked="false">Song</button>
         </div>
       </div>
@@ -1016,11 +1016,16 @@ function vocalNote(r){
   const v=r&&r.vocals;
   if(!v) return '';
   if(v.state==='instrumental'){
-    const why=v.reason||'The voice engine is unavailable, so this stayed instrumental.';
-    return `<div class="note" id="voxFallback">Vocals fell back to instrumental. ${esc(why)}</div>`;
+    const why=v.reason||'';
+    const needsInstall=/not installed|requirements-voice/i.test(why);
+    const line=needsInstall
+      ? 'Vocals need the optional voice install (./run.sh --voice). Playing the instrumental.'
+      : (why||'The voice engine is unavailable, so this stayed instrumental.');
+    const tip=needsInstall&&why?` title="${esc(why)}"`:'';
+    return `<div class="note" id="voxFallback"${tip}>${esc(line)}</div>`;
   }
   if(v.state==='ready'){
-    const label=v.mode==='song'?'song':'host summary';
+    const label=v.mode==='song'?'song':'spoken summary';
     return `<div class="note">Spoken vocals on this track (${esc(label)}).</div>`;
   }
   return '';

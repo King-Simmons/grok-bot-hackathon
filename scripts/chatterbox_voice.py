@@ -5,15 +5,15 @@ Both callers use Chatterbox's built-in default voice: generate() is never
 given an audio prompt, and Resemble's Perth watermark stays on.
 
 Install once, from scripts/requirements-voice.txt (there is no second pin file):
-  Python 3.11, CPU torch 2.6.0 first, then that requirements file, then setuptools<81.
+  Python 3.11, CPU torch 2.6.0 first, then that requirements file.
 """
 import importlib.util, os, sys, threading, time
 
 INSTALL = (
     "Chatterbox is not installed, so vocals stay off and the instrumental still plays. "
     "Use Python 3.11 and scripts/requirements-voice.txt: install torch==2.6.0 torchaudio==2.6.0 "
-    "from the CPU index first, then pip install -r scripts/requirements-voice.txt, "
-    "then pip install 'setuptools<81'. ./run.sh --voice does those steps."
+    "from the CPU index first, then pip install -r scripts/requirements-voice.txt. "
+    "./run.sh --voice does those steps."
 )
 
 _LOCK = threading.Lock()

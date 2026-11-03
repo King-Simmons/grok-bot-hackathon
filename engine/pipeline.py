@@ -137,7 +137,6 @@ def synthesize(url, force=False, progress=None, report_status=True, vocals="none
             tmp = mp3[:-4] + ".json.part"
             with open(tmp, "w") as f: json.dump(side, f, indent=2)
             os.replace(tmp, mp3[:-4] + ".json")
-        if progress: progress("finishing", 95)
         total = round(time.time() - t0, 2)
         timing.update({"render_s": render.get("render_s"), "encode_s": render.get("encode_s"), "total_s": total, "track_cached": cached})
         result = {"mood": mood, "track": {"file": rel_mp3, "url": track_url(rel_mp3), "path": mp3, "title": side["title"],
@@ -151,6 +150,7 @@ def synthesize(url, force=False, progress=None, report_status=True, vocals="none
             result = apply_vocals(result, vocals, script, agent, name)
             if (result.get("vocals") or {}).get("state") == "ready":
                 artifact = result["track"]["file"]
+        if progress: progress("finishing", 95)
         if report_status:
             _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {page['title'][:60] or url[:60]} ({total}s)",
                     progress=100, artifact=artifact)
@@ -299,7 +299,6 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
             tmp = mp3[:-4] + ".json.part"
             with open(tmp, "w") as f: json.dump(side, f, indent=2, ensure_ascii=False)
             os.replace(tmp, mp3[:-4] + ".json")
-        if progress: progress("finishing", 95)
         total = round(time.time() - t0, 2)
         timing = {"ingest_s": 0.0, "mood_s": round(t1 - t0, 2), "render_s": render.get("render_s"),
                   "encode_s": render.get("encode_s"), "total_s": total, "track_cached": cached}
@@ -316,6 +315,7 @@ def synthesize_text(title, text, source_url, kind="text", force=False, progress=
             result = apply_vocals(result, vocals, script, agent, name)
             if (result.get("vocals") or {}).get("state") == "ready":
                 artifact = result["track"]["file"]
+        if progress: progress("finishing", 95)
         if report_status:
             _status(state="done", task=f"Made {attrs['bpm']} BPM {attrs['key']} lofi from {title[:60]} ({total}s)",
                     progress=100, artifact=artifact)
