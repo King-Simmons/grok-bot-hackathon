@@ -105,6 +105,20 @@ class UsageTotalsTest(unittest.TestCase):
         self.assertEqual(body["all_time"]["calls"], 7)
         self.assertEqual(body["all_time"]["audio_s"], 1.5)
 
+    def test_error_rate_caps_at_one_and_negative_audio_is_zero(self):
+        self._write({
+            "all_time": {"calls": 1, "errors": 5, "tracks": 0, "audio_s": -3.5, "x_reads": 0},
+            "days": {},
+            "hours": {},
+            "agents": {},
+        })
+        body = usage.summary()
+        self.assertEqual(body["all_time"]["error_rate"], 1.0)
+        self.assertEqual(body["all_time"]["audio_s"], 0.0)
+        sane = usage._public_bucket({"calls": 4, "errors": 1, "tracks": 0, "audio_s": 2.5, "x_reads": 0})
+        self.assertEqual(sane["error_rate"], 0.25)
+        self.assertEqual(sane["audio_s"], 2.5)
+
 
 if __name__ == "__main__":
     unittest.main()
