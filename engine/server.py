@@ -289,10 +289,22 @@ def _spawn_job(jid, record, target, args):
     return True
 
 
+# A declared body that never arrives must not pin a handler thread.
+_JSON_BODY_TIMEOUT = 1.0
+
+
+def _digit_length(value):
+    """ASCII digits only. int() also accepts +10, 1_0, and -0."""
+    text = str(value).strip()
+    if not text or any(c < "0" or c > "9" for c in text):
+        return None
+    return text
+
+
 def read_json_object(handler, limit):
     """Read a JSON object body. Returns (body, True) after the error response is sent."""
-    raw_len = handler.headers.get("Content-Length")
-    if raw_len is None:
+    raw_values = handler.headers.get_all("Content-Length")
+    if not raw_values:
         raw = _read_arrived(handler, limit)
         if raw is None:
             _length_error(handler, 413, "body too large")
@@ -300,18 +312,24 @@ def read_json_object(handler, limit):
         if raw:
             handler.close_connection = True
     else:
-        try:
-            n = int(str(raw_len).strip())
-        except ValueError:
+        texts = []
+        for raw_len in raw_values:
+            text = _digit_length(raw_len)
+            if text is None:
+                _length_error(handler, 400, "bad content length")
+                return None, True
+            texts.append(text)
+        if len(set(texts)) != 1:
             _length_error(handler, 400, "bad content length")
             return None, True
-        if n < 0:
-            _length_error(handler, 400, "bad content length")
-            return None, True
+        n = int(texts[0])
         if n > limit:
             _length_error(handler, 413, "body too large")
             return None, True
-        raw = handler.rfile.read(n) if n else b""
+        raw = _read_exact(handler, n)
+        if raw is None:
+            _length_error(handler, 408, "request timeout")
+            return None, True
     if not raw:
         return {}, False
     try:
@@ -328,6 +346,24 @@ def read_json_object(handler, limit):
 def _length_error(handler, code, message):
     handler.close_connection = True
     handler._json(code, {"error": message})
+
+
+def _read_exact(handler, n):
+    if not n:
+        return b""
+    sock = handler.connection
+    previous = sock.gettimeout()
+    sock.settimeout(previous if previous and previous > 0 else _JSON_BODY_TIMEOUT)
+    try:
+        try:
+            raw = handler.rfile.read(n)
+        except TimeoutError:
+            raw = None
+    finally:
+        sock.settimeout(previous)
+    if raw is None or len(raw) != n:
+        return None
+    return raw
 
 
 def _read_arrived(handler, limit):
